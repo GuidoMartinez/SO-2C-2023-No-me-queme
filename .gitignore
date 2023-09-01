@@ -68,3 +68,7 @@ dkms.conf
 *.log
 */vgcore.*
 ## .vscode/ a descomentar una vez clonados todos
+cpu/cpu
+filesystem/filesystem
+memoria/memoria
+kernel/kernel
