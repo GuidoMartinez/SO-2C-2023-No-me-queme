@@ -1,0 +1,34 @@
+{
+	"folders": [
+		{
+			"path": "shared"
+		},
+		{
+			"path": "memoria"
+		},
+		{
+			"path": "kernel"
+		},
+		{
+			"path": "filesystem"
+		},
+		{
+			"path": "cpu"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"log.h": "c",
+			"consola.h": "c",
+			"stdbool.h": "c",
+			"socket.h": "c",
+			"list.h": "c",
+			"cpu.h": "c",
+			"stdio.h": "c",
+			"config.h": "c",
+			"shared_utils.h": "c",
+			"string.h": "c",
+			"pthread.h": "c",
+		}
+	}
+}

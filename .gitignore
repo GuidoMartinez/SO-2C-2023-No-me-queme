@@ -67,4 +67,4 @@ dkms.conf
 */obj/
 *.log
 */vgcore.*
-.vscode/ 
+## .vscode/ a descomentar una vez clonados todos
