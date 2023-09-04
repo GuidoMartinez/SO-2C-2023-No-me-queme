@@ -2,5 +2,6 @@
 FILE=kernel
 make $FILE
 if test -f "./$FILE"; then
-    ./$FILE
+    S1="./cfg/kernel.cfg"
+    ./$FILE $S1
 fi

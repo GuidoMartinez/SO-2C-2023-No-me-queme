@@ -11,7 +11,7 @@
             "request": "launch",
             "preLaunchTask": "Make",
             "program": "${workspaceFolder}/cpu",
-            "args": [],
+            "args": ["./cfg/cpu.cfg"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

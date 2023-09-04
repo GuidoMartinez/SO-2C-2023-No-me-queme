@@ -2,5 +2,6 @@
 FILE=cpu
 make $FILE
 if test -f "./$FILE"; then
-    ./$FILE
+    S1="./cfg/cpu.cfg"
+    ./$FILE $S1
 fi

@@ -104,7 +104,7 @@ int crear_conexion(char *ip, char* puerto){
 
 	if(connect(socket_cliente,server_info->ai_addr,server_info->ai_addrlen) == -1) {
 	printf("error"); // TODO // eliminar
-    freeaddrinfo(server_info);
+    //freeaddrinfo(server_info); // TODO -- VER SI TIENE QUE ESTAR
     return -1;
     }
 	freeaddrinfo(server_info);

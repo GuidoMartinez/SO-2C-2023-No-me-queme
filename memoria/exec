@@ -2,5 +2,6 @@
 FILE=memoria
 make $FILE
 if test -f "./$FILE"; then
-    ./$FILE
+    S1="./cfg/memoria.cfg"
+    ./$FILE $S1
 fi

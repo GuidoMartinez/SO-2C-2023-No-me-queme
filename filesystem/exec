@@ -2,5 +2,6 @@
 FILE=filesystem
 make $FILE
 if test -f "./$FILE"; then
-    ./$FILE
+    S1="./cfg/fs.cfg"
+    ./$FILE $S1
 fi
