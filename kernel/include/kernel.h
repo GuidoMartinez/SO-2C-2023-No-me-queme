@@ -5,6 +5,7 @@
 
 t_log *kernel_logger_info;
 t_config *config;
+int generador_de_id;
 
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
 
@@ -24,11 +25,49 @@ typedef struct // archivo de configuracion kernel
     char **instancias_recursos;
 
 } arch_config;
+typedef enum{
+	NEW,
+	READY,
+	EXEC,
+	BLOCK,
+	FINISH_EXIT,
+	FINISH_ERROR,
+} estado_proceso;
+
+typedef enum{
+	SUCCESS,
+	SEG_FAULT,
+	OUT_OF_MEMORY,
+	RECURSO_INEXISTENTE,
+}motivo_exit;
+
+typedef enum{
+	RECURSO_BLOCK,
+    ARCHIVO_BLOCK
+}motivo_block;
+
+typedef struct{
+	
+} t_registros;
+typedef struct{
+    int pid;
+    int program_counter;
+    int prioridad;
+    t_registros* registros;
+    estado_proceso estado;
+    motivo_exit motivo_exit;
+    motivo_block motivo_block;
+    t_list* archivos_abiertos; 
+} t_pcb;
 
 arch_config config_valores_kernel;
 
 void finalizar_kernel();
 void sighandler(int);
 void cargar_configuracion(char *);
+void iniciar_proceso();
+void finalizar_proceso();
+void iniciar_planificacion();
+void detener_planificacion();
 
 #endif

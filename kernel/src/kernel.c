@@ -129,3 +129,31 @@ void finalizar_kernel()
     close(conexion_memoria);
     close(conexion_filesystem);
 }
+
+void iniciar_proceso(){
+    generador_de_id = 0;
+
+}
+
+void finalizar_proceso(){
+    
+}
+
+void iniciar_planificacion(){
+    
+}
+
+void detener_planificacion(){
+
+}
+
+t_pcb* pcb_create() {
+	t_pcb *pcb = malloc(sizeof(t_pcb));
+	pcb->archivos_abiertos = list_create();
+	pcb->pid = generador_de_id;
+    generador_de_id++;
+	pcb->program_counter = 0;
+    pcb->estado = NEW;
+
+	return pcb;
+}
