@@ -142,6 +142,7 @@ void finalizar_proceso(){
 void iniciar_planificacion(){
 
     planificar_largo_plazo();
+    planificar_corto_plazo();
     
 }
 
@@ -149,17 +150,42 @@ void detener_planificacion(){
 
 }
 
-t_pcb* pcb_create() {
+void safe_pcb_add(t_list* list, t_pcb* pcb, pthread_mutex_t* mutex){
+	pthread_mutex_lock(mutex);
+	list_add(list, pcb);
+	pthread_mutex_unlock(mutex);
+}
+
+t_pcb* safe_pcb_remove(t_list* list, pthread_mutex_t* mutex){
+	t_pcb* pcb;
+	pthread_mutex_lock(mutex);
+	pcb = list_remove(list, 0);
+	pthread_mutex_unlock(mutex);
+	return pcb;
+}
+void pcb_create() {
 	t_pcb *pcb = malloc(sizeof(t_pcb));
 	pcb->archivos_abiertos = list_create();
 	pcb->pid = generador_de_id;
     generador_de_id++;
 	pcb->program_counter = 0;
     pcb->estado = NEW;
-
-	return pcb;
+    safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
+	
 }
 
+/*t_pcb* elegir_pcb_segun_algoritmo(){
+	switch (ALGORITMO_PLANIFICACION) {
+	case FIFO:
+		return safe_pcb_remove(lista_ready, &mutex_cola_ready);
+	case RR:
+		return algo;
+    case PRIORIDADES:
+    return    algo; 
+	default:
+		exit(1);
+	}
+}*/
 char *estado_to_string(estado_proceso estado)
 {
     switch (estado)
@@ -229,5 +255,22 @@ void planificar_largo_plazo() {
 void planificar_corto_plazo() {
 	//pthread_t hilo_corto_plazo;
 	
+}
+
+void asignar_algoritmo(char *algoritmo) {
+	if (strcmp(algoritmo, "FIFO") == 0) {
+		ALGORITMO_PLANIFICACION = FIFO;
+	} else if (strcmp(algoritmo, "RR") == 0) {
+		ALGORITMO_PLANIFICACION = RR;
+	}else{
+		ALGORITMO_PLANIFICACION = PRIORIDADES;
+	}
+}
+
+void set_pcb_ready(t_pcb *pcb) {
+	pthread_mutex_lock(&mutex_cola_ready);
+	cambiar_estado(pcb, READY);
+	list_add(lista_ready, pcb);
+	pthread_mutex_unlock(&mutex_cola_ready);
 }
 
