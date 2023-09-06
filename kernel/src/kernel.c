@@ -140,6 +140,8 @@ void finalizar_proceso(){
 }
 
 void iniciar_planificacion(){
+
+    planificar_largo_plazo();
     
 }
 
@@ -157,3 +159,75 @@ t_pcb* pcb_create() {
 
 	return pcb;
 }
+
+char *estado_to_string(estado_proceso estado)
+{
+    switch (estado)
+    {
+    case NEW:
+        return "NEW";
+        break;
+    case READY:
+        return "READY";
+        break;
+    case BLOCK:
+        return "BLOCK";
+        break;
+    case EXEC:
+        return "EXEC";
+        break;
+    case FINISH_EXIT:
+        return "EXIT";
+        break;
+    case FINISH_ERROR:
+        return "EXIT_ERROR";
+        break;
+    default:
+        return "UNKNOWN";
+        break;
+    }
+}
+void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado) {
+	if(pcb->estado != nuevo_estado){
+		char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
+		char *estado_anterior_string = strdup(estado_to_string(pcb->estado));
+		pcb->estado = nuevo_estado;
+		free(estado_anterior_string);
+		free(nuevo_estado_string);
+	}
+}
+
+void procesar_cambio_estado(t_pcb* pcb, estado_proceso estado_nuevo){
+
+	switch(estado_nuevo){
+	case READY:
+
+		break;
+	case FINISH_EXIT:
+	
+		break;
+	case FINISH_ERROR:
+	
+		break;
+
+    case BLOCK:
+
+    break;
+	default:
+		
+		break;
+	}
+}
+
+void planificar_largo_plazo() {
+	//pthread_t hilo_ready;
+	//pthread_t hilo_exit;
+	//pthread_t hilo_block;
+	
+}
+
+void planificar_corto_plazo() {
+	//pthread_t hilo_corto_plazo;
+	
+}
+

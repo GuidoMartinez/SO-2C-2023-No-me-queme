@@ -69,5 +69,10 @@ void iniciar_proceso();
 void finalizar_proceso();
 void iniciar_planificacion();
 void detener_planificacion();
+void cambiar_estado(t_pcb *, estado_proceso );
+void procesar_cambio_estado(t_pcb* , estado_proceso );	
+void planificar_largo_plazo();
+void planificar_corto_plazo() ;
+char *estado_to_string(estado_proceso );
 
 #endif
