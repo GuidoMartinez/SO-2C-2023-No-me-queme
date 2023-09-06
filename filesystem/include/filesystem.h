@@ -3,8 +3,6 @@
 
 #include "shared_utils.h"
 
-t_log *filesystem_logger_info;
-t_config *config;
 
 int socket_memoria,server_filesystem, socket_kernel;
 
@@ -24,10 +22,34 @@ typedef struct // archivo de configuracion filesystem
     int retardo_acceso_fat;
 } arch_config;
 
-arch_config config_valores_filesystem;
+typedef struct
+{
+	char* nombre_archivo;
+    char* ruta_archivo;
+    uint32_t id;
+	uint32_t tamanio_archivo;
+	uint32_t bloque_inicial;
+} fcb_t;
+
+typedef struct
+{	
+    t_list* lista_fcb;
+} fcb_list_t;
+
+typedef enum
+{
+	TAMANIO_ARCHIVO,
+	BLOQUE_INICIAL
+} fcb_prop_t;
 
 void finalizar_filesystem();
 void sighandler(int);
 void cargar_configuracion(char *);
+
+t_log *filesystem_logger_info;
+t_config *config;
+fcb_list_t* lista_global_fcb;
+uint32_t fcb_id;
+arch_config config_valores_filesystem;
 
 #endif
