@@ -81,6 +81,6 @@ void _f_truncate (char* nombre_archivo, u_int32_t tamanio){
 
 // representa la syscall de finalización del proceso.
 // Se deberá devolver el contexto de ejecución actualizado al kernel
-void __xit(){
+void __exit(){
     
 }
