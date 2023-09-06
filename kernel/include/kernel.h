@@ -5,8 +5,14 @@
 
 t_log *kernel_logger_info;
 t_config *config;
-int generador_de_id;
 
+pthread_mutex_t mutex_cola_ready;
+pthread_mutex_t mutex_cola_listos_para_ready;
+
+t_list* lista_ready;
+t_list* cola_listos_para_ready;
+
+int generador_de_id;
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
 
 typedef struct // archivo de configuracion kernel
@@ -60,6 +66,14 @@ typedef struct{
     t_list* archivos_abiertos; 
 } t_pcb;
 
+typedef enum{
+	FIFO,
+	RR,
+    PRIORIDADES
+} t_algoritmo;
+
+t_algoritmo ALGORITMO_PLANIFICACION;
+
 arch_config config_valores_kernel;
 
 void finalizar_kernel();
@@ -74,5 +88,9 @@ void procesar_cambio_estado(t_pcb* , estado_proceso );
 void planificar_largo_plazo();
 void planificar_corto_plazo() ;
 char *estado_to_string(estado_proceso );
+void safe_pcb_add(t_list*, t_pcb*, pthread_mutex_t*);
+void pcb_create();
+t_pcb* safe_pcb_remove(t_list* , pthread_mutex_t* );
+t_pcb* elegir_pcb_segun_algoritmo();
 
 #endif
