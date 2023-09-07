@@ -9,10 +9,12 @@ t_config *config;
 pthread_mutex_t mutex_cola_ready;
 pthread_mutex_t mutex_cola_listos_para_ready;
 pthread_mutex_t mutex_cola_block;
+pthread_mutex_t mutex_cola_exec;
 
 t_list* lista_ready;
 t_list* cola_block ;
 t_list* cola_listos_para_ready;
+t_list* cola_exec;
 
 int generador_de_id;
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
@@ -62,6 +64,8 @@ t_pcb* safe_pcb_remove(t_list* , pthread_mutex_t* );
 t_pcb* elegir_pcb_segun_algoritmo();
 void ready_pcb(void);
 void block(void);
+void exec_pcb(void);
 void set_pcb_ready(t_pcb *) ;
+void prceso_admitido(t_pcb* );
 
 #endif

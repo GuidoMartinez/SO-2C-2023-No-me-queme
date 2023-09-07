@@ -132,8 +132,10 @@ void finalizar_kernel()
 }
 
 void iniciar_proceso(){
-    generador_de_id = 0;
+   generador_de_id = 0;
    cola_block = list_create();
+   cola_listos_para_ready=list_create();
+   lista_ready=list_create();
     pcb_create();
 
 }
@@ -266,8 +268,9 @@ void planificar_largo_plazo() {
 }
 
 void planificar_corto_plazo() {
-	//pthread_t hilo_corto_plazo;
-	
+	pthread_t hilo_corto_plazo;
+	pthread_create(&hilo_corto_plazo, NULL, (void*)exec_pcb, NULL);
+	pthread_detach(hilo_corto_plazo);
 }
 
 void ready_pcb(void) {
@@ -279,6 +282,21 @@ void ready_pcb(void) {
 		
 	}
 }
+
+void exec_pcb(){
+	while (1) {
+		
+		//t_pcb *pcb = elegir_pcb_segun_algoritmo();
+		//prceso_admitido(pcb);
+	}
+}
+
+void prceso_admitido(t_pcb* pcb){
+	cambiar_estado(pcb, EXEC);
+	safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
+	
+}
+
 
 void block(){
 	while(1){
