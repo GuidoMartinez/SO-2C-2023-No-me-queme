@@ -8,8 +8,10 @@ t_config *config;
 
 pthread_mutex_t mutex_cola_ready;
 pthread_mutex_t mutex_cola_listos_para_ready;
+pthread_mutex_t mutex_cola_block;
 
 t_list* lista_ready;
+t_list* cola_block ;
 t_list* cola_listos_para_ready;
 
 int generador_de_id;
@@ -31,40 +33,6 @@ typedef struct // archivo de configuracion kernel
     char **instancias_recursos;
 
 } arch_config;
-typedef enum{
-	NEW,
-	READY,
-	EXEC,
-	BLOCK,
-	FINISH_EXIT,
-	FINISH_ERROR,
-} estado_proceso;
-
-typedef enum{
-	SUCCESS,
-	SEG_FAULT,
-	OUT_OF_MEMORY,
-	RECURSO_INEXISTENTE,
-}motivo_exit;
-
-typedef enum{
-	RECURSO_BLOCK,
-    ARCHIVO_BLOCK
-}motivo_block;
-
-typedef struct{
-	
-} t_registros;
-typedef struct{
-    int pid;
-    int program_counter;
-    int prioridad;
-    t_registros* registros;
-    estado_proceso estado;
-    motivo_exit motivo_exit;
-    motivo_block motivo_block;
-    t_list* archivos_abiertos; 
-} t_pcb;
 
 typedef enum{
 	FIFO,
@@ -89,8 +57,11 @@ void planificar_largo_plazo();
 void planificar_corto_plazo() ;
 char *estado_to_string(estado_proceso );
 void safe_pcb_add(t_list*, t_pcb*, pthread_mutex_t*);
-void pcb_create();
+t_pcb* pcb_create();
 t_pcb* safe_pcb_remove(t_list* , pthread_mutex_t* );
 t_pcb* elegir_pcb_segun_algoritmo();
+void ready_pcb(void);
+void block(void);
+void set_pcb_ready(t_pcb *) ;
 
 #endif

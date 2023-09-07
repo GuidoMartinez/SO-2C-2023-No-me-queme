@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "shared_utils.h"
 
 void sighandler(int s)
 {
@@ -132,6 +133,8 @@ void finalizar_kernel()
 
 void iniciar_proceso(){
     generador_de_id = 0;
+   cola_block = list_create();
+    pcb_create();
 
 }
 
@@ -163,15 +166,19 @@ t_pcb* safe_pcb_remove(t_list* list, pthread_mutex_t* mutex){
 	pthread_mutex_unlock(mutex);
 	return pcb;
 }
-void pcb_create() {
+t_pcb* pcb_create() {
 	t_pcb *pcb = malloc(sizeof(t_pcb));
+    t_contexto_ejecucion* contexto = malloc(sizeof(t_contexto_ejecucion));
 	pcb->archivos_abiertos = list_create();
 	pcb->pid = generador_de_id;
+    pcb->contexto_ejecucion->pid = generador_de_id;
     generador_de_id++;
-	pcb->program_counter = 0;
+    pcb->contexto_ejecucion = contexto;
+	pcb->contexto_ejecucion->program_counter = 0;
     pcb->estado = NEW;
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
-	
+	return pcb;
+
 }
 
 /*t_pcb* elegir_pcb_segun_algoritmo(){
@@ -246,15 +253,40 @@ void procesar_cambio_estado(t_pcb* pcb, estado_proceso estado_nuevo){
 }
 
 void planificar_largo_plazo() {
-	//pthread_t hilo_ready;
+	pthread_t hilo_ready;
 	//pthread_t hilo_exit;
-	//pthread_t hilo_block;
+	pthread_t hilo_block;
+
+    pthread_create(&hilo_ready, NULL, (void*) ready_pcb, NULL);
+    pthread_create(&hilo_block, NULL, (void*) block, NULL);
+
+    pthread_detach(hilo_ready);
+    pthread_detach(hilo_block);
 	
 }
 
 void planificar_corto_plazo() {
 	//pthread_t hilo_corto_plazo;
 	
+}
+
+void ready_pcb(void) {
+	while (1) {
+		
+		t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
+		
+		set_pcb_ready(pcb);
+		
+	}
+}
+
+void block(){
+	while(1){
+		
+		t_pcb* pcb = safe_pcb_remove(cola_block, &mutex_cola_block);
+		set_pcb_ready(pcb);
+		
+	}
 }
 
 void asignar_algoritmo(char *algoritmo) {

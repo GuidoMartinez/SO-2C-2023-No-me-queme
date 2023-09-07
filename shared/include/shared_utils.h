@@ -47,6 +47,48 @@ typedef struct
     uint32_t lineas;
 } t_paquete;
 
+typedef enum{
+	NEW,
+	READY,
+	EXEC,
+	BLOCK,
+	FINISH_EXIT,
+	FINISH_ERROR,
+} estado_proceso;
+
+typedef enum{
+	SUCCESS,
+	SEG_FAULT,
+	OUT_OF_MEMORY,
+	RECURSO_INEXISTENTE,
+}motivo_exit;
+
+typedef enum{
+	RECURSO_BLOCK,
+    ARCHIVO_BLOCK
+}motivo_block;
+
+typedef struct{
+	
+} t_registros;
+
+typedef struct{
+    int pid;
+    int program_counter;
+    t_registros* registros;
+    int numero_marco;
+    int nro_pf;
+}t_contexto_ejecucion;
+typedef struct{
+    int pid;
+    int prioridad;
+    int tamanio;
+    t_contexto_ejecucion* contexto_ejecucion;
+    estado_proceso estado;
+    motivo_exit motivo_exit;
+    motivo_block motivo_block;
+    t_list* archivos_abiertos; 
+} t_pcb;
 
 void enviar_mensaje(char*, int);
 void* serializar_paquete(t_paquete*, int);
