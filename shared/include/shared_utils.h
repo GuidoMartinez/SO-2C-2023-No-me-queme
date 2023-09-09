@@ -31,7 +31,8 @@ typedef enum
     HANDSHAKE_KERNEL,
     HANDSHAKE_MEMORIA,
     HANDSHAKE_CPU,
-    INSTRUCCION
+    INSTRUCCION,
+    TAMANO_PAGINA
 } op_code;
 
 typedef struct

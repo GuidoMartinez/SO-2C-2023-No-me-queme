@@ -46,4 +46,6 @@ bool check_interrupt();
 
 void dividirCadena(char* cadena, char** cadena_dividida);
 uint32_t str_to_uint32(char* cadena);
+
+uint32_t receive_page_size(int);
 #endif
