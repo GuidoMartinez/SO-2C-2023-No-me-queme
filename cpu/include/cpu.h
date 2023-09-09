@@ -9,6 +9,7 @@ t_config* config;
 
 //registros
 uint32_t _AX, _BX, _CX, _DX;
+uint32_t tamano_pagina;
 
 //conexiones
 int socket_memoria, servidor_cpu_dispatch, 
@@ -47,5 +48,5 @@ bool check_interrupt();
 void dividirCadena(char* cadena, char** cadena_dividida);
 uint32_t str_to_uint32(char* cadena);
 
-uint32_t receive_page_size(int);
+void receive_page_size(int);
 #endif

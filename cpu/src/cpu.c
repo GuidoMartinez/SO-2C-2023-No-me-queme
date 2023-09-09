@@ -51,26 +51,25 @@ void conectar_memoria()
     {
         log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
     }
-    uint32_t tamano_pagina = receive_page_size(socket_memoria);
-    log_info(cpu_logger_info, "El tamano de pagina recibo de memoria es %d ", tamano_pagina);
+    receive_page_size(socket_memoria);
+    log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
 }
 
-uint32_t receive_page_size(int socket)
+void receive_page_size(int socket)
 {
     op_code codigo_op = recibir_operacion(socket);
-    uint32_t tam_pagina;
+    
     if (codigo_op == TAMANO_PAGINA)
     {
         int size;
         void *buffer = recibir_buffer(&size, socket);
-        memcpy(&tam_pagina, buffer + 0, sizeof(uint32_t));
+        memcpy(&tamano_pagina, buffer, sizeof(uint32_t));
         free(buffer);
     }
     else
     {
         log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
     }
-    return tam_pagina;
 }
 
 void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code handshake, char *nombre_servidor)

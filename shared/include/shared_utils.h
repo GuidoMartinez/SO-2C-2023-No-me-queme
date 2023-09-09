@@ -20,11 +20,10 @@
 #include "pthread.h"
 #include "semaphore.h"
 
-
 typedef enum
 {
-	MENSAJE,
-	PAQUETE,
+    MENSAJE,
+    PAQUETE,
     HANDSHAKE_CPU_DISPATCH,
     HANDSHAKE_CPU_INTERRUPT,
     HANDSHAKE_FILESYSTEM,
@@ -35,81 +34,126 @@ typedef enum
     TAMANO_PAGINA
 } op_code;
 
+typedef enum
+{
+    SET,
+    ADD,
+    SUB,
+    JNZ,
+    SLEEP,
+    WAIT,
+    SIGNAL,
+    MOV_IN,
+    MOV_OUT,
+    F_OPEN,
+    F_CREATE,
+    F_CLOSE,
+    F_SEEK,
+    F_READ,
+    F_WRITE,
+    F_TRUNCATE,
+    EXIT
+} nombre_instruccion;
+
 typedef struct
 {
-	int size;
-	void* stream;
+    nombre_instruccion codigo;
+    char *parametro1;
+    uint32_t long_parametro1;
+    char *parametro2;
+    uint32_t long_parametro2;
+} t_instruccion;
+
+typedef struct
+{
+    nombre_instruccion codigo;
+    char *parametro1;
+    uint32_t long_parametro1;
+    uint32_t direc_fisica;
+    uint32_t puntero;
+} t_instruccion_fs;
+
+typedef struct
+{
+    int size;
+    void *stream;
 } t_buffer;
 
 typedef struct
 {
-	op_code codigo_operacion;
-	t_buffer* buffer;
+    op_code codigo_operacion;
+    t_buffer *buffer;
     uint32_t lineas;
 } t_paquete;
 
-typedef enum{
-	NEW,
-	READY,
-	EXEC,
-	BLOCK,
-	FINISH_EXIT,
-	FINISH_ERROR,
+typedef enum
+{
+    NEW,
+    READY,
+    EXEC,
+    BLOCK,
+    FINISH_EXIT,
+    FINISH_ERROR,
 } estado_proceso;
 
-typedef enum{
-	SUCCESS,
-	SEG_FAULT,
-	OUT_OF_MEMORY,
-	RECURSO_INEXISTENTE,
-}motivo_exit;
+typedef enum
+{
+    SUCCESS,
+    SEG_FAULT,
+    OUT_OF_MEMORY,
+    RECURSO_INEXISTENTE,
+} motivo_exit;
 
-typedef enum{
-	RECURSO_BLOCK,
+typedef enum
+{
+    RECURSO_BLOCK,
     ARCHIVO_BLOCK
-}motivo_block;
+} motivo_block;
 
-typedef struct{
-	
+typedef struct
+{
+
 } t_registros;
 
-typedef struct{
+typedef struct
+{
     int pid;
     int program_counter;
-    t_registros* registros;
+    t_registros *registros;
     int numero_marco;
     int nro_pf;
-}t_contexto_ejecucion;
-typedef struct{
+} t_contexto_ejecucion;
+typedef struct
+{
     int pid;
     int prioridad;
     int tamanio;
-    t_contexto_ejecucion* contexto_ejecucion;
+    t_contexto_ejecucion *contexto_ejecucion;
     estado_proceso estado;
     motivo_exit motivo_exit;
     motivo_block motivo_block;
-    t_list* archivos_abiertos; 
+    t_list *archivos_abiertos;
 } t_pcb;
 
-void enviar_mensaje(char*, int);
-void* serializar_paquete(t_paquete*, int);
-void crear_buffer(t_paquete*);
-t_paquete* crear_paquete(void);
+void enviar_mensaje(char *, int);
+void *serializar_paquete(t_paquete *, int);
+void crear_buffer(t_paquete *);
+t_paquete *crear_paquete(void);
 t_paquete *crear_paquete_con_codigo_de_operacion(uint32_t);
-void agregar_a_paquete(t_paquete*, void*, int);
-void enviar_paquete(t_paquete*, int);
-void eliminar_paquete(t_paquete*);
+void agregar_a_paquete(t_paquete *, void *, int);
+void enviar_paquete(t_paquete *, int);
+void eliminar_paquete(t_paquete *);
 
-int crear_conexion(char*, char*);
-int iniciar_servidor(t_log*, char*, char*);
-int esperar_cliente(int, t_log*);
-int crear_socket_escucha(char*);
+int crear_conexion(char *, char *);
+int iniciar_servidor(t_log *, char *, char *);
+int esperar_cliente(int, t_log *);
+int crear_socket_escucha(char *);
 
 int recibir_operacion(int);
-void* recibir_buffer(int*, int);
-void* recibir_mensaje(int, t_log*);
-t_list* recibir_paquete(int);
+void *recibir_buffer(int *, int);
+void *recibir_mensaje(int, t_log *);
+t_list *recibir_paquete(int);
 
-char* mi_funcion_compartida(); // TODO - BORRAR - PARA CHEQUEAR FUNCIONAMIENTO OK DE LAS SHARED
+char *mi_funcion_compartida(); // TODO - BORRAR - PARA CHEQUEAR FUNCIONAMIENTO OK DE LAS SHARED
 
 #endif
