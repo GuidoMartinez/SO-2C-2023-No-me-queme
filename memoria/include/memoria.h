@@ -14,9 +14,9 @@ int server_memoria, socket_fs, socket_cpu, socket_kernel;
     char* ip_escucha; 
     char* ip_filesystem;
     char* puerto_filesystem;
-    int tamanio_memoria;   
-    int tamanio_pagina;
-    int retardo_respuesta;
+    uint32_t tamanio_memoria;   
+    uint32_t tamanio_pagina;
+    uint32_t retardo_respuesta;
     char* algoritmo_reemplazo; 
     char* path_instrucciones;
 } arch_config_memoria;
@@ -25,8 +25,17 @@ arch_config_memoria config_valores_memoria;
 
 
 void cargar_configuracion(char*);
-int atender_clientes_memoria();
+void atender_clientes_memoria();
 void* manejo_conexiones(void*);
+
+int atender_cliente_cpu();
+int atender_cliente_fs();
+int atender_cliente_kernel();
+void* manejo_conexion_cpu(void* );
+void* manejo_conexion_filesystem(void* );
+void* manejo_conexion_kernel(void* );
+void send_page_size(uint32_t,int);
+
 void finalizar_memoria();
 
 #endif
