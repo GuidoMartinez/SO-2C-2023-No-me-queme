@@ -118,11 +118,19 @@ break;}
 
 if(!strncmp(linea,"iniciar_proceso",15))
 {
-    char **palabras = string_split(linea[indice_split], " ");
+    char **palabras = string_split(linea, " ");
+    char path= palabras[1];
+    int size =palabras[2];
+    int prioridad=palabras[3];
+
+//log_info(kernel_logger_info, "Inicie proceso %s ",palabras[3]);
+    //iniciar_proceso(path,size,prioridad);
+
 free(linea);
 break;}
 
-free(linea);}
+//free(linea);
+}
 
 return 0;
 
@@ -164,12 +172,12 @@ void finalizar_kernel()
     close(conexion_filesystem);
 }
 
-void iniciar_proceso(){
+void iniciar_proceso(char* path, int size, int prioridad){
    generador_de_id = 0;
    cola_block = list_create();
    cola_listos_para_ready=list_create();
    lista_ready=list_create();
-    pcb_create();
+   pcb_create();
 
 }
 
@@ -201,7 +209,7 @@ t_pcb* safe_pcb_remove(t_list* list, pthread_mutex_t* mutex){
 	pthread_mutex_unlock(mutex);
 	return pcb;
 }
-t_pcb* pcb_create() {
+void pcb_create() {
 	t_pcb *pcb = malloc(sizeof(t_pcb));
     t_contexto_ejecucion* contexto = malloc(sizeof(t_contexto_ejecucion));
 	pcb->archivos_abiertos = list_create();
@@ -212,6 +220,7 @@ t_pcb* pcb_create() {
 	pcb->contexto_ejecucion->program_counter = 0;
     pcb->estado = NEW;
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
+    log_info(kernel_logger_info, "Llegue hasta OCB");
 	return pcb;
 
 }
