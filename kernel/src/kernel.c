@@ -1,5 +1,7 @@
 #include "kernel.h"
 #include "shared_utils.h"
+#include <readline/readline.h>
+#include <readline/history.h>
 
 void sighandler(int s)
 {
@@ -94,6 +96,37 @@ int main(int argc, char **argv)
     }
 
     log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
+
+while (1) 
+{  
+    char *linea;
+int indice_split = 0;
+
+linea= readline(">");
+
+if (!linea){
+    break;
+}
+
+if(linea) {
+    add_history(linea);
+    }
+
+if(!strncmp(linea,"exit",4)){
+    free(linea);
+break;}
+
+if(!strncmp(linea,"iniciar_proceso",15))
+{
+    char **palabras = string_split(linea[indice_split], " ");
+free(linea);
+break;}
+
+free(linea);}
+
+return 0;
+
+
 }
 
 void cargar_configuracion(char *path)
