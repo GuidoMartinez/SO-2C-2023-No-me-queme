@@ -19,20 +19,7 @@ int main(int argc, char **argv)
     cargar_configuracion(argv[1]);
 
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
-    t_paquete *paquete_handshake = crear_paquete_con_codigo_de_operacion(HANDSHAKE_FILESYSTEM);
-    enviar_paquete(paquete_handshake, socket_memoria);
-    eliminar_paquete(paquete_handshake);
-
-    op_code respuesta = recibir_operacion(socket_memoria);
-    if (respuesta == MENSAJE)
-    {
-        char *mensaje = recibir_mensaje(socket_memoria, filesystem_logger_info);
-        free(mensaje);
-    }
-    else
-    {
-        log_warning(filesystem_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
-    }
+    realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
 
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
     socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);

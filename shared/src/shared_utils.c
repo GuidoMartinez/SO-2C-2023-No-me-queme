@@ -240,3 +240,21 @@ t_list* recibir_paquete(int socket_cliente){
 	return NULL;
 }
 
+
+void realizar_handshake(int conexion,op_code codigo_op,t_log* logger) {
+	
+	t_paquete *paquete_handshake = crear_paquete_con_codigo_de_operacion(codigo_op);
+    enviar_paquete(paquete_handshake, conexion);
+    eliminar_paquete(paquete_handshake);
+    op_code recibir_cod_op = recibir_operacion(conexion);
+    if (recibir_cod_op == MENSAJE)
+    {
+        char *mensaje = recibir_mensaje(conexion, logger);
+        free(mensaje);
+    }
+    else
+    {
+        log_warning(logger, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
+    }
+
+}

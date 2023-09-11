@@ -25,116 +25,63 @@ int main(int argc, char **argv)
 
     // CONEXION CON MEMORIA
     conexion_memoria = crear_conexion(config_valores_kernel.ip_memoria, config_valores_kernel.puerto_memoria);
-
-    t_paquete *paquete_handshake = crear_paquete_con_codigo_de_operacion(HANDSHAKE_KERNEL);
-    enviar_paquete(paquete_handshake, conexion_memoria);
-    eliminar_paquete(paquete_handshake);
-    // Recibo handshake de memoria
-    op_code recibir_cod_op = recibir_operacion(conexion_memoria);
-    if (recibir_cod_op == MENSAJE)
-    {
-        char *mensaje = recibir_mensaje(conexion_memoria, kernel_logger_info);
-        free(mensaje);
-    }
-    else
-    {
-        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
-    }
+    realizar_handshake(conexion_memoria, HANDSHAKE_KERNEL, kernel_logger_info);
 
     // CONEXION CON CPU - DISPATCH
     conexion_cpu_dispatch = crear_conexion(config_valores_kernel.ip_cpu, config_valores_kernel.puerto_cpu_dispatch);
-
-    paquete_handshake = crear_paquete_con_codigo_de_operacion(HANDSHAKE_CPU_DISPATCH);
-    enviar_paquete(paquete_handshake, conexion_cpu_dispatch);
-    eliminar_paquete(paquete_handshake);
-    // Recibo handshake de cpu dispatch
-    recibir_cod_op = recibir_operacion(conexion_cpu_dispatch);
-    if (recibir_cod_op == MENSAJE)
-    {
-        char *mensaje = recibir_mensaje(conexion_cpu_dispatch, kernel_logger_info);
-        free(mensaje);
-    }
-    else
-    {
-        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta del cpu para DISPATCH.");
-    }
+    realizar_handshake(conexion_cpu_dispatch, HANDSHAKE_CPU_DISPATCH, kernel_logger_info);
 
     // CONEXION CON CPU - INTERRUPT
     conexion_cpu_interrupt = crear_conexion(config_valores_kernel.ip_cpu, config_valores_kernel.puerto_cpu_interrupt);
-
-    paquete_handshake = crear_paquete_con_codigo_de_operacion(HANDSHAKE_CPU_INTERRUPT);
-    enviar_paquete(paquete_handshake, conexion_cpu_interrupt);
-    eliminar_paquete(paquete_handshake);
-    // Recibo handshake de cpu interrupt
-    recibir_cod_op = recibir_operacion(conexion_cpu_interrupt);
-    if (recibir_cod_op == MENSAJE)
-    {
-        char *mensaje = recibir_mensaje(conexion_cpu_interrupt, kernel_logger_info);
-        free(mensaje);
-    }
-    else
-    {
-        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta del cpu para INTERRUPT");
-    }
+    realizar_handshake(conexion_cpu_interrupt, HANDSHAKE_CPU_INTERRUPT, kernel_logger_info);
 
     // conexion FILESYSTEM
     conexion_filesystem = crear_conexion(config_valores_kernel.ip_filesystem, config_valores_kernel.puerto_filesystem);
-
-    paquete_handshake = crear_paquete_con_codigo_de_operacion(HANDSHAKE_KERNEL);
-    enviar_paquete(paquete_handshake, conexion_filesystem);
-    eliminar_paquete(paquete_handshake);
-    // Recibo handshake de filesystem
-    recibir_cod_op = recibir_operacion(conexion_filesystem);
-    if (recibir_cod_op == MENSAJE)
-    {
-        char *mensaje = recibir_mensaje(conexion_filesystem, kernel_logger_info);
-        free(mensaje);
-    }
-    else
-    {
-        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta del FILESYSTEM.");
-    }
+    realizar_handshake(conexion_filesystem, HANDSHAKE_KERNEL, kernel_logger_info);
 
     log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
 
-while (1) 
-{  
-    char *linea;
-int indice_split = 0;
+    while (1)
+    {
+        char *linea;
+        int indice_split = 0;
 
-linea= readline(">");
+        linea = readline(">");
 
-if (!linea){
-    break;
-}
+        if (!linea)
+        {
+            break;
+        }
 
-if(linea) {
-    add_history(linea);
+        if (linea)
+        {
+            add_history(linea);
+        }
+
+        if (!strncmp(linea, "exit", 4))
+        {
+            free(linea);
+            break;
+        }
+
+        if (!strncmp(linea, "iniciar_proceso", 15))
+        {
+            char **palabras = string_split(linea, " ");
+            char path = palabras[1];
+            int size = palabras[2];
+            int prioridad = palabras[3];
+
+            // log_info(kernel_logger_info, "Inicie proceso %s ",palabras[3]);
+            // iniciar_proceso(path,size,prioridad);
+
+            free(linea);
+            break;
+        }
+
+        // free(linea);
     }
 
-if(!strncmp(linea,"exit",4)){
-    free(linea);
-break;}
-
-if(!strncmp(linea,"iniciar_proceso",15))
-{
-    char **palabras = string_split(linea, " ");
-    char path= palabras[1];
-    int size =palabras[2];
-    int prioridad=palabras[3];
-
-//log_info(kernel_logger_info, "Inicie proceso %s ",palabras[3]);
-    //iniciar_proceso(path,size,prioridad);
-
-free(linea);
-break;}
-
-//free(linea);
-}
-
-return 0;
-
-
+    return 0;
 }
 
 void cargar_configuracion(char *path)
@@ -172,70 +119,72 @@ void finalizar_kernel()
     close(conexion_filesystem);
 }
 
-void iniciar_proceso(char* path, int size, int prioridad){
-   generador_de_id = 0;
-   cola_block = list_create();
-   cola_listos_para_ready=list_create();
-   lista_ready=list_create();
-   pcb_create();
-
+void iniciar_proceso(char *path, int size, int prioridad)
+{
+    generador_de_id = 0;
+    cola_block = list_create();
+    cola_listos_para_ready = list_create();
+    lista_ready = list_create();
+    pcb_create();
 }
 
-void finalizar_proceso(){
-    
+void finalizar_proceso()
+{
 }
 
-void iniciar_planificacion(){
+void iniciar_planificacion()
+{
 
     planificar_largo_plazo();
     planificar_corto_plazo();
-    
 }
 
-void detener_planificacion(){
-
+void detener_planificacion()
+{
 }
 
-void safe_pcb_add(t_list* list, t_pcb* pcb, pthread_mutex_t* mutex){
-	pthread_mutex_lock(mutex);
-	list_add(list, pcb);
-	pthread_mutex_unlock(mutex);
+void safe_pcb_add(t_list *list, t_pcb *pcb, pthread_mutex_t *mutex)
+{
+    pthread_mutex_lock(mutex);
+    list_add(list, pcb);
+    pthread_mutex_unlock(mutex);
 }
 
-t_pcb* safe_pcb_remove(t_list* list, pthread_mutex_t* mutex){
-	t_pcb* pcb;
-	pthread_mutex_lock(mutex);
-	pcb = list_remove(list, 0);
-	pthread_mutex_unlock(mutex);
-	return pcb;
+t_pcb *safe_pcb_remove(t_list *list, pthread_mutex_t *mutex)
+{
+    t_pcb *pcb;
+    pthread_mutex_lock(mutex);
+    pcb = list_remove(list, 0);
+    pthread_mutex_unlock(mutex);
+    return pcb;
 }
-void pcb_create() {
-	t_pcb *pcb = malloc(sizeof(t_pcb));
-    t_contexto_ejecucion* contexto = malloc(sizeof(t_contexto_ejecucion));
-	pcb->archivos_abiertos = list_create();
-	pcb->pid = generador_de_id;
+void pcb_create()
+{
+    t_pcb *pcb = malloc(sizeof(t_pcb));
+    t_contexto_ejecucion *contexto = malloc(sizeof(t_contexto_ejecucion));
+    pcb->archivos_abiertos = list_create();
+    pcb->pid = generador_de_id;
     pcb->contexto_ejecucion->pid = generador_de_id;
     generador_de_id++;
     pcb->contexto_ejecucion = contexto;
-	pcb->contexto_ejecucion->program_counter = 0;
+    pcb->contexto_ejecucion->program_counter = 0;
     pcb->estado = NEW;
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
     log_info(kernel_logger_info, "Llegue hasta OCB");
-	return pcb;
-
+    return pcb;
 }
 
 /*t_pcb* elegir_pcb_segun_algoritmo(){
-	switch (ALGORITMO_PLANIFICACION) {
-	case FIFO:
-		return safe_pcb_remove(lista_ready, &mutex_cola_ready);
-	case RR:
-		return algo;
+    switch (ALGORITMO_PLANIFICACION) {
+    case FIFO:
+        return safe_pcb_remove(lista_ready, &mutex_cola_ready);
+    case RR:
+        return algo;
     case PRIORIDADES:
-    return    algo; 
-	default:
-		exit(1);
-	}
+    return    algo;
+    default:
+        exit(1);
+    }
 }*/
 char *estado_to_string(estado_proceso estado)
 {
@@ -264,105 +213,119 @@ char *estado_to_string(estado_proceso estado)
         break;
     }
 }
-void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado) {
-	if(pcb->estado != nuevo_estado){
-		char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
-		char *estado_anterior_string = strdup(estado_to_string(pcb->estado));
-		pcb->estado = nuevo_estado;
-		free(estado_anterior_string);
-		free(nuevo_estado_string);
-	}
+void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado)
+{
+    if (pcb->estado != nuevo_estado)
+    {
+        char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
+        char *estado_anterior_string = strdup(estado_to_string(pcb->estado));
+        pcb->estado = nuevo_estado;
+        free(estado_anterior_string);
+        free(nuevo_estado_string);
+    }
 }
 
-void procesar_cambio_estado(t_pcb* pcb, estado_proceso estado_nuevo){
+void procesar_cambio_estado(t_pcb *pcb, estado_proceso estado_nuevo)
+{
 
-	switch(estado_nuevo){
-	case READY:
+    switch (estado_nuevo)
+    {
+    case READY:
 
-		break;
-	case FINISH_EXIT:
-	
-		break;
-	case FINISH_ERROR:
-	
-		break;
+        break;
+    case FINISH_EXIT:
+
+        break;
+    case FINISH_ERROR:
+
+        break;
 
     case BLOCK:
 
-    break;
-	default:
-		
-		break;
-	}
+        break;
+    default:
+
+        break;
+    }
 }
 
-void planificar_largo_plazo() {
-	pthread_t hilo_ready;
-	//pthread_t hilo_exit;
-	pthread_t hilo_block;
+void planificar_largo_plazo()
+{
+    pthread_t hilo_ready;
+    // pthread_t hilo_exit;
+    pthread_t hilo_block;
 
-    pthread_create(&hilo_ready, NULL, (void*) ready_pcb, NULL);
-    pthread_create(&hilo_block, NULL, (void*) block, NULL);
+    pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
+    pthread_create(&hilo_block, NULL, (void *)block, NULL);
 
     pthread_detach(hilo_ready);
     pthread_detach(hilo_block);
-	
 }
 
-void planificar_corto_plazo() {
-	pthread_t hilo_corto_plazo;
-	pthread_create(&hilo_corto_plazo, NULL, (void*)exec_pcb, NULL);
-	pthread_detach(hilo_corto_plazo);
+void planificar_corto_plazo()
+{
+    pthread_t hilo_corto_plazo;
+    pthread_create(&hilo_corto_plazo, NULL, (void *)exec_pcb, NULL);
+    pthread_detach(hilo_corto_plazo);
 }
 
-void ready_pcb(void) {
-	while (1) {
-		
-		t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
-		
-		set_pcb_ready(pcb);
-		
-	}
+void ready_pcb(void)
+{
+    while (1)
+    {
+
+        t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
+
+        set_pcb_ready(pcb);
+    }
 }
 
-void exec_pcb(){
-	while (1) {
-		
-		//t_pcb *pcb = elegir_pcb_segun_algoritmo();
-		//prceso_admitido(pcb);
-	}
+void exec_pcb()
+{
+    while (1)
+    {
+
+        // t_pcb *pcb = elegir_pcb_segun_algoritmo();
+        // prceso_admitido(pcb);
+    }
 }
 
-void prceso_admitido(t_pcb* pcb){
-	cambiar_estado(pcb, EXEC);
-	safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
-	
+void prceso_admitido(t_pcb *pcb)
+{
+    cambiar_estado(pcb, EXEC);
+    safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
 }
 
+void block()
+{
+    while (1)
+    {
 
-void block(){
-	while(1){
-		
-		t_pcb* pcb = safe_pcb_remove(cola_block, &mutex_cola_block);
-		set_pcb_ready(pcb);
-		
-	}
+        t_pcb *pcb = safe_pcb_remove(cola_block, &mutex_cola_block);
+        set_pcb_ready(pcb);
+    }
 }
 
-void asignar_algoritmo(char *algoritmo) {
-	if (strcmp(algoritmo, "FIFO") == 0) {
-		ALGORITMO_PLANIFICACION = FIFO;
-	} else if (strcmp(algoritmo, "RR") == 0) {
-		ALGORITMO_PLANIFICACION = RR;
-	}else{
-		ALGORITMO_PLANIFICACION = PRIORIDADES;
-	}
+void asignar_algoritmo(char *algoritmo)
+{
+    if (strcmp(algoritmo, "FIFO") == 0)
+    {
+        ALGORITMO_PLANIFICACION = FIFO;
+    }
+    else if (strcmp(algoritmo, "RR") == 0)
+    {
+        ALGORITMO_PLANIFICACION = RR;
+    }
+    else
+    {
+        ALGORITMO_PLANIFICACION = PRIORIDADES;
+    }
 }
 
-void set_pcb_ready(t_pcb *pcb) {
-	pthread_mutex_lock(&mutex_cola_ready);
-	cambiar_estado(pcb, READY);
-	list_add(lista_ready, pcb);
-	pthread_mutex_unlock(&mutex_cola_ready);
+void set_pcb_ready(t_pcb *pcb)
+{
+    pthread_mutex_lock(&mutex_cola_ready);
+    cambiar_estado(pcb, READY);
+    list_add(lista_ready, pcb);
+    pthread_mutex_unlock(&mutex_cola_ready);
 }
-

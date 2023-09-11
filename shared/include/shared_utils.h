@@ -154,6 +154,6 @@ void *recibir_buffer(int *, int);
 void *recibir_mensaje(int, t_log *);
 t_list *recibir_paquete(int);
 
-char *mi_funcion_compartida(); // TODO - BORRAR - PARA CHEQUEAR FUNCIONAMIENTO OK DE LAS SHARED
+void realizar_handshake(int,op_code,t_log*);
 
 #endif
