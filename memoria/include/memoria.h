@@ -36,6 +36,13 @@ void* manejo_conexion_filesystem(void* );
 void* manejo_conexion_kernel(void* );
 void send_page_size(uint32_t,int);
 
+t_proceso_memoria *iniciar_proceso_path(t_proceso_memoria*); 
+t_list *parsear_instrucciones(char *);
+char *leer_archivo(char *);
+t_instruccion *armar_estructura_instruccion(nombre_instruccion, char* parametro1, char* parametro2);
+
+int paginas__necesarias_proceso(uint32_t,uint32_t);
+
 void finalizar_memoria();
 
 #endif

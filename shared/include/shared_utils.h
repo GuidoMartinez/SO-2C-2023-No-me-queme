@@ -31,7 +31,10 @@ typedef enum
     HANDSHAKE_MEMORIA,
     HANDSHAKE_CPU,
     INSTRUCCION,
-    TAMANO_PAGINA
+    TAMANO_PAGINA,
+    INICIALIZAR_PROCESO,
+    PROCESO_INICIALIZADO,
+    FINALIZAR_PROCESO
 } op_code;
 
 typedef enum
@@ -59,9 +62,9 @@ typedef struct
 {
     nombre_instruccion codigo;
     char *parametro1;
-    uint32_t long_parametro1;
+    uint32_t longitud_parametro1;
     char *parametro2;
-    uint32_t long_parametro2;
+    uint32_t longitud_parametro2;
 } t_instruccion;
 
 typedef struct
@@ -135,6 +138,26 @@ typedef struct
     t_list *archivos_abiertos;
 } t_pcb;
 
+typedef struct
+{
+    int pid;
+    int tamano;
+    char *path;
+    int longitud_path;
+} t_ini_proceso;
+
+typedef struct
+{
+    uint32_t pid;
+    uint32_t tamano;
+    char *path;
+    uint32_t longitud_path;
+    t_list* instrucciones;
+    t_list* bloques_swap;
+    t_list* tabla_paginas;
+
+} t_proceso_memoria;
+
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);
 void crear_buffer(t_paquete *);
@@ -154,6 +177,8 @@ void *recibir_buffer(int *, int);
 void *recibir_mensaje(int, t_log *);
 t_list *recibir_paquete(int);
 
-void realizar_handshake(int,op_code,t_log*);
+void realizar_handshake(int, op_code, t_log *);
+
+const char *obtener_nombre_instruccion(nombre_instruccion);
 
 #endif
