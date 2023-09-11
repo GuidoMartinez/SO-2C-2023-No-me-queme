@@ -5,9 +5,12 @@
 
 t_log* logger_memoria_info;
 t_config* config;
-
+t_list *procesos_totales,*tablas_de_paginas_en_memoria;
 
 int server_memoria, socket_fs, socket_cpu, socket_kernel;
+int tamanio_memoria;
+void* memoria_usuario;
+
 
  typedef struct  { // Configuracion de la memoria
     char* puerto_escucha;
@@ -25,6 +28,7 @@ arch_config_memoria config_valores_memoria;
 
 
 void cargar_configuracion(char*);
+void inicializar_memoria();
 void atender_clientes_memoria();
 void* manejo_conexiones(void*);
 
@@ -42,6 +46,10 @@ char *leer_archivo(char *);
 t_instruccion *armar_estructura_instruccion(nombre_instruccion, char* parametro1, char* parametro2);
 
 int paginas__necesarias_proceso(uint32_t,uint32_t);
+
+t_proceso_memoria *obtener_proceso_pid(uint32_t);
+t_instruccion *obtener_instrccion_pc(t_proceso_memoria*, uint32_t);
+t_instruccion* obtener_instruccion_pid_pc(uint32_t, uint32_t);
 
 void finalizar_memoria();
 

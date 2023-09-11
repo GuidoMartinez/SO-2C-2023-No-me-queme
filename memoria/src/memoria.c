@@ -13,6 +13,7 @@ int main(int argc, char **argv)
 
 	logger_memoria_info = log_create("./cfg/memoria.log", "MEMORIA", true, LOG_LEVEL_INFO);
 	cargar_configuracion(argv[1]);
+	inicializar_memoria();
 
 	server_memoria = iniciar_servidor(logger_memoria_info, config_valores_memoria.ip_escucha, config_valores_memoria.puerto_escucha);
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
@@ -42,6 +43,20 @@ void cargar_configuracion(char *path)
 	config_valores_memoria.path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
 	config_valores_memoria.retardo_respuesta = config_get_int_value(config, "RETARDO_RESPUESTA");
 	config_valores_memoria.algoritmo_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
+}
+
+void inicializar_memoria()
+{
+
+	memoria_usuario = malloc(config_valores_memoria.tamanio_memoria);
+	tamanio_memoria = config_valores_memoria.tamanio_memoria;
+	if (memoria_usuario == NULL)
+	{
+		log_error(logger_memoria_info, "No pudo reservarse el espacio de memoria contiguo, abortando modulo");
+		abort();
+	}
+	tablas_de_paginas_en_memoria = list_create();
+	procesos_totales = list_create();
 }
 
 void atender_clientes_memoria()
@@ -134,6 +149,13 @@ void *manejo_conexion_cpu(void *arg)
 		enviar_mensaje("Handshake exitoso con Memoria", socket_cpu_int);
 		send_page_size(config_valores_memoria.tamanio_pagina, socket_cpu_int);
 		break;
+	case PEDIDO_INSTRUCCION:
+		/*// TODO - RECIBIR el pedido del CPU
+		uint32_t pid = 0;
+		uint32_t pc = 4;
+		t_instruccion* instruccion = obtener_instruccion_pid_pc(pid,pc);
+		// TODO -- ENVIAR INSTRUCCION A cpu*/
+		break;
 	default:
 		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
 		close(socket_cpu_int);
@@ -157,6 +179,30 @@ void *manejo_conexion_kernel(void *arg)
 		log_info(logger_memoria_info, "Handshake exitoso con KERNEL, se conecto un KERNEL");
 		enviar_mensaje("Handshake exitoso con Memoria", socket_kernel_int);
 
+		// TODO - MOVER - CODIGO DE KERNEL - INICIALIZAR PROCESO
+
+		t_proceso_memoria *proceso_nuevo = malloc(sizeof(t_proceso_memoria));
+		proceso_nuevo->pid = 0;
+		proceso_nuevo->tamano = 16;
+		proceso_nuevo->path = string_new();
+
+		string_append(&(proceso_nuevo->path), "./cfg/pseudocodigo");
+
+		iniciar_proceso_path(proceso_nuevo);
+
+		// TODO - MOVER -CODIGO DE CPU - PEDIDO INSTRUCCION
+		uint32_t pid = 0;
+		uint32_t pc = 4;
+		t_instruccion *instruccion = obtener_instruccion_pid_pc(pid, pc);
+		log_warning(logger_memoria_info, " ESPACIO PARA VER LA INSTRUCCION");
+
+		printf("La instruccion de PC %d para el PID %d es: %s - %s - %s \n",pc,pid, obtener_nombre_instruccion(instruccion->codigo), instruccion->parametro1, instruccion->parametro2);
+
+		break;
+	case INICIALIZAR_PROCESO:
+		// recibir y deserializar para instanciar el t_ini_proceso;
+		// inicializo t_ini_proceso para probar
+		/*
 		t_proceso_memoria *proceso_nuevo = malloc(sizeof(t_proceso_memoria));
 		proceso_nuevo->pid = 0;
 		proceso_nuevo->tamano = 16;
@@ -164,18 +210,7 @@ void *manejo_conexion_kernel(void *arg)
 		string_append(&(proceso_nuevo->path), "./cfg/pseudocodigo");
 
 		iniciar_proceso_path(proceso_nuevo);
-		break;
-	case INICIALIZAR_PROCESO:
-		// recibir y deserializar para instanciar el t_ini_proceso;
-		// inicializo t_ini_proceso para probar
-		/*
-		t_ini_proceso *proceso_nuevo = malloc(sizeof(t_ini_proceso));
-		proceso_nuevo->pid = 0;
-		proceso_nuevo->tamano = 16;
-		proceso_nuevo->path = string_new();
-		string_append(&(proceso_nuevo->path), "./cfg/pseudocodigo");
-
-		iniciar_proceso_path(proceso_nuevo);
+		// responder a kernel con lo que corresponda
 */
 		break;
 	default:
@@ -287,7 +322,7 @@ t_list *parsear_instrucciones(char *path)
 		}
 		else if (string_equals_ignore_case(palabras[0], "EXIT"))
 		{
-			list_add(instrucciones, armar_estructura_instruccion(EXIT, "",""));
+			list_add(instrucciones, armar_estructura_instruccion(EXIT, "", ""));
 		}
 		indice_split++;
 		string_iterate_lines(palabras, (void (*)(char *))free);
@@ -300,67 +335,87 @@ t_list *parsear_instrucciones(char *path)
 	return instrucciones;
 }
 
-t_proceso_memoria *iniciar_proceso_path(t_proceso_memoria* proceso_nuevo) 
+char *leer_archivo(char *unPath)
+{
+	char instrucciones[100];
+	strcpy(instrucciones, unPath);
+
+	FILE *archivo = fopen(instrucciones, "r");
+
+	if (archivo == NULL)
+	{
+		perror("Error al abrir el archivo.\n");
+	}
+	fseek(archivo, 0, SEEK_END);		 // mover el archivo al final
+	int cant_elementos = ftell(archivo); // cantidad total de elementos que tiene el archivo
+	rewind(archivo);					 // mover archivo al inicio del txt
+
+	char *cadena = calloc(cant_elementos + 1, sizeof(char)); // arreglo dinamico de caracteres para almacenar en cadena el contenido del archivo
+	if (cadena == NULL)
+	{
+		perror("Error en la reserva de memoria \n");
+		fclose(archivo);
+		return NULL;
+	}
+	int cant_elementos_leidos = fread(cadena, sizeof(char), cant_elementos, archivo);
+	if (cant_elementos_leidos != cant_elementos)
+	{
+		perror("Error leyendo el archivo.\n");
+		fclose(archivo);
+		free(cadena);
+		return NULL;
+	}
+
+	fclose(archivo);
+	log_info(logger_memoria_info, "Archivo de instrucciones leido.");
+	return cadena;
+}
+
+t_instruccion *armar_estructura_instruccion(nombre_instruccion id, char *parametro1, char *parametro2)
+{
+	t_instruccion *estructura = (t_instruccion *)malloc(sizeof(t_instruccion));
+	estructura->codigo = id;
+	estructura->parametro1 = (parametro1[0] != '\0') ? strdup(parametro1) : parametro1;
+	estructura->parametro2 = (parametro2[0] != '\0') ? strdup(parametro2) : parametro2;
+	estructura->longitud_parametro1 = strlen(estructura->parametro1) + 1;
+	estructura->longitud_parametro2 = strlen(estructura->parametro2) + 1;
+	printf("%s - %s - %s \n", obtener_nombre_instruccion(estructura->codigo), estructura->parametro1, estructura->parametro2);
+
+	return estructura;
+}
+
+t_proceso_memoria *iniciar_proceso_path(t_proceso_memoria *proceso_nuevo)
 {
 	// TODO - CHEQUEAR SI CORRESPONDE INICIALIZAR LAS LISTAS ACA TAMBIEN
 	proceso_nuevo->bloques_swap = list_create();
 	proceso_nuevo->tabla_paginas = list_create();
 	proceso_nuevo->instrucciones = parsear_instrucciones(proceso_nuevo->path);
-	log_warning(logger_memoria_info,"Instrucciones parseadas OK para el proceso %d",proceso_nuevo->pid);
+	log_warning(logger_memoria_info, "Instrucciones parseadas OK para el proceso %d", proceso_nuevo->pid);
+	list_add(procesos_totales, proceso_nuevo);
 	return proceso_nuevo;
 }
 
-
-char *leer_archivo(char *unPath) {
-    char instrucciones[100];
-    strcpy(instrucciones, unPath);
-
-    FILE *archivo = fopen(instrucciones, "r");
-
-    if (archivo == NULL)
-    {
-        perror("Error al abrir el archivo.\n");
-    }
-    fseek(archivo, 0, SEEK_END);         // mover el archivo al final
-    int cant_elementos = ftell(archivo); // cantidad total de elementos que tiene el archivo
-    rewind(archivo);                        //mover archivo al inicio del txt
-
-    char *cadena = calloc(cant_elementos+1, sizeof(char)); //arreglo dinamico de caracteres para almacenar en cadena el contenido del archivo
-    if (cadena == NULL)
-    {
-        perror("Error en la reserva de memoria \n");
-        fclose(archivo);
-        return NULL;
-    }
-    int cant_elementos_leidos = fread(cadena, sizeof(char), cant_elementos, archivo);
-    if (cant_elementos_leidos != cant_elementos)
-    {
-        perror("Error leyendo el archivo.\n");
-        fclose(archivo);
-        free(cadena);
-        return NULL;
-    }
-
-    fclose(archivo);
-    log_info(logger_memoria_info,"Archivo de instrucciones leido.");
-    return cadena;
-
+t_proceso_memoria *obtener_proceso_pid(uint32_t pid_pedido)
+{
+	bool _proceso_id(void *elemento)
+	{
+		return ((t_proceso_memoria *)elemento)->pid == pid_pedido;
+	}
+	t_proceso_memoria *proceso_elegido;
+	proceso_elegido = list_find(procesos_totales, _proceso_id);
+	return proceso_elegido;
 }
 
-
-t_instruccion *armar_estructura_instruccion(nombre_instruccion id, char* parametro1, char* parametro2) {
-	t_instruccion *estructura = (t_instruccion *)malloc(sizeof(t_instruccion));
-	estructura->codigo = id;
-	estructura->parametro1 = (parametro1[0] != '\0') ? strdup(parametro1) : parametro1;
-    estructura->parametro2 = (parametro2[0] != '\0') ? strdup(parametro2) : parametro2;
-    estructura->longitud_parametro1 = strlen(estructura->parametro1) + 1;
-    estructura->longitud_parametro2 = strlen(estructura->parametro2) + 1;
-	printf("%s - %s - %s \n",obtener_nombre_instruccion(estructura->codigo),estructura->parametro1,estructura->parametro2);
-	
-	return estructura;
+t_instruccion *obtener_instrccion_pc(t_proceso_memoria *proceso, uint32_t pc_pedido)
+{
+	return list_get(proceso->instrucciones, pc_pedido);
 }
 
-
+t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedido)
+{
+	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
+	return obtener_instrccion_pc(proceso, pc_pedido);
+}
 
 int paginas__necesarias_proceso(uint32_t tamanio_proc, uint32_t tamanio_pag)
 {
