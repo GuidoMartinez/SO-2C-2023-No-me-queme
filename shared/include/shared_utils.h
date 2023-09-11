@@ -112,7 +112,8 @@ typedef enum
 typedef enum
 {
     RECURSO_BLOCK,
-    ARCHIVO_BLOCK
+    ARCHIVO_BLOCK,
+    SLEEP_BLOCK
 } motivo_block;
 
 typedef struct
@@ -182,5 +183,7 @@ t_list *recibir_paquete(int);
 void realizar_handshake(int, op_code, t_log *);
 
 const char *obtener_nombre_instruccion(nombre_instruccion);
+
+uint32_t str_to_uint32(char *str);
 
 #endif

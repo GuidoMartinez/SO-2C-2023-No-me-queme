@@ -310,3 +310,18 @@ const char *obtener_nombre_instruccion(nombre_instruccion instruccion)
 		return "DESCONOCIDO";
 	}
 }
+
+uint32_t str_to_uint32(char *str)
+{
+    char *endptr;
+    uint32_t result = (uint32_t)strtoul(str, &endptr, 10);
+
+    // Comprobar si hubo errores durante la conversión
+    if (*endptr != '\0')
+    {
+        fprintf(stderr, "Error en la conversión de '%s' a uint32_t.\n", str);
+        exit(EXIT_FAILURE);
+    }
+
+    return result;
+}

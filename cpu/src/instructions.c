@@ -1,9 +1,9 @@
 #include "instructions.h"
 
 // Asigna al registro el valor pasado como parámetro.
-void _set(char *registro, uint32_t valor)
+void _set(char *registro, char* valor)
 {
-    *(get_registry(registro)) = valor;
+    *(get_registry(registro)) = str_to_uint32(valor);
 }
 
 // Suma al registro el valor pasado como parámetro.
@@ -35,13 +35,13 @@ void _sub(char *registro_destino, char *registro_origen)
 }
 
 // Si valor del registro != cero, actualiza el IP al número de instrucción pasada por parámetro.
-void _jnz(char *registro, uint32_t instruccion)
+void _jnz(char *registro, char* instruccion)
 {
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
     if (*(regis) != 0)
     {
-        // actualizar el IP
+        //pcb_actual.contexto_ejecucion->program_counter = str_to_uint32(instruccion);
     }
     else
     {
@@ -51,38 +51,42 @@ void _jnz(char *registro, uint32_t instruccion)
 
 // Syscall bloqueante. Devuelve el Contexto de Ejecución actualizado al Kernel
 // junto a la cantidad de segundos que va a bloquearse el proceso.
-void _sleep(uint32_t tiempo)
+void _sleep(char* tiempo)
 {
+    //devolver pcb al kernel
 }
 
 // Esta instrucción solicita al Kernel que se asigne una instancia del recurso indicado por parámetro.
 void _wait(char *recurso)
 {
+    //solicitar al kernel asignar recurso y que actualice su contexto
 }
 
 //  Esta instrucción solicita al Kernel que se libere una instancia del recurso indicado por parámetro.
 void _signal(char *recurso)
 {
+    //solicitar al kernel asignar recurso y que actualice su contexto
 }
 
 // Lee el valor de memoria correspondiente a la Dirección Lógica y lo almacena en el Registro.
-void _mov_in(char *registro, uint32_t direc_logica)
+void _mov_in(char *registro, char* direc_logica)
 {
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
 
-    *(regis) = direc_logica;
+    // obtener valor dede memoria
+    //*(regis) = valor;
     free(regis);
 }
 
 // Lee el valor del Registro y lo escribe en la dirección
 // física de memoria obtenida a partir de la Dirección Lógica.
-void _mov_out(uint32_t direc_logica, char *registro)
+void _mov_out(char* direc_logica, char *registro)
 {
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
 
-    // hace algo
+    // escribir en memoria el contenido del registro
     free(regis);
 }
 
@@ -97,24 +101,24 @@ void _f_close(char *nombre_archivo)
 }
 
 // Solicita al kernel actualizar el puntero del archivo a la posición pasada por parámetro.
-void _f_seek(char *nombre_archivo, uint32_t posicion)
+void _f_seek(char *nombre_archivo, char* posicion)
 {
 }
 
 // Solicita al Kernel que se lea del archivo indicado y
 // se escriba en la dirección física de Memoria la información leída
-void _f_read(char *nombre_archivo, uint32_t direc_logica)
+void _f_read(char *nombre_archivo, char* direc_logica)
 {
 }
 
 // Solicita al Kernel que se escriba en el archivo indicado l
 // la información que es obtenida a partir de la dirección física de Memoria.
-void _f_write(char *nombre_archivo, uint32_t direc_logica)
+void _f_write(char *nombre_archivo, char* direc_logica)
 {
 }
 
 //  Solicita al Kernel que se modifique el tamaño del archivo al indicado por parámetro.
-void _f_truncate(char *nombre_archivo, uint32_t tamanio)
+void _f_truncate(char *nombre_archivo, char* tamanio)
 {
 }
 
@@ -127,13 +131,13 @@ void __exit()
 uint32_t *get_registry(char *registro)
 {
     /*if (strcmp(registro, "AX") == 0)
-        return &_AX;
+        return pcb_actual->contexto_ejecucion->registros.ax;
     else if (strcmp(registro, "BX") == 0)
-        return &_BX;
+        return pcb_actual->contexto_ejecucion->registros.bx;
     else if (strcmp(registro, "CX") == 0)
-        return &_CX;
+        return pcb_actual->contexto_ejecucion->registros.cx;
     else if (strcmp(registro, "DX") == 0)
-        return &_DX;
+        return pcb_actual->contexto_ejecucion->registros.dx;
     else
     {
         //log_error(cpu_logger_info, "No se reconoce el registro %s", registro);

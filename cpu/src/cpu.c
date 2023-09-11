@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 
     iniciar_conexiones();
     // TODO: Recibir PCBs de los programas a ejecutar por DISPATCH
-    // If (cant(PCBS)!= 0) ejecutar_ciclo_instrucciones(PCBs)
+    // if (pcb_actual != null)ejecutar_ciclo_instrucciones();
 
     return EXIT_SUCCESS;
 }
@@ -108,184 +108,82 @@ void cargar_configuracion(char *path)
     config_valores_cpu.ip_escucha = config_get_string_value(config, "IP_ESCUCHA");
 }
 
-void ejecutar_ciclo_instrucciones(char **contextos)
+void ejecutar_ciclo_instrucciones()
 {
-    /*int i = 0;
-    int j = 0;
-    while (contextos[i] != NULL)
-    {
-        //instrucciones = fetch(pcB);
-        while (instrucciones[j] != NULL)
-        {
-            decode(instrucciones[j]);
-            j++;
-            if(check_interrupt()) break;;
-        }
-        i++;
-    }
+    /*
+        t_instruccion instruccion = fetch(pcb_actual->contexto_ejecucion.IP);
+        decode(instruccion);
+        if(check_interrupt()) interrumpir;
     */
     // devolver contexto de ejecucion al kernel al final por dispatch
 }
 
-// TODO: pide a memoria las instrucciones a ejecutar
+// TODO: pide a memoria la siguiente instruccion a ejecutar
 // Recibe por parametro la primer posicion de las instrucciones
-void fetch(int IP)
+t_instruccion fetch(int IP)
 {
-    // instrucciones = ["Instrucciones", "A ejecutar"]
+    t_instruccion ins;
+    ins.codigo = 0;
+    return ins;
 }
 
-// TODO: Partsea las instrucciones y las ejecuta
-void decode(char *instruccion)
+// Ejecuta instrucciones
+void decode(t_instruccion instruccion)
 {
-    uint32_t param1, param2;
-    char **ins_y_parametros = NULL;
-    dividirCadena(instruccion, ins_y_parametros);
-    char *ins = NULL;
-    strcpy(ins, ins_y_parametros[0]);
-
-    // Buscar instruccion
-
-    if (strcmp(ins, "SET") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param2 = str_to_uint32(ins_y_parametros[2]);
-            _set(ins_y_parametros[1], param2);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion SET");
+    switch(instruccion.codigo){
+        case SET:
+            _set(instruccion.parametro1, instruccion.parametro2);
+            break;
+        //revisar
+        case ADD:
+            _sum(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case SUB:
+            _sub(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case JNZ:
+            _jnz(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case SLEEP:
+            _sleep(instruccion.parametro1);
+            break;
+        case WAIT:
+            _wait(instruccion.parametro1);
+            break;
+        case SIGNAL:
+            _signal(instruccion.parametro1);
+            break;
+        case MOV_IN:
+            _mov_in(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case MOV_OUT:
+            _mov_out(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case F_OPEN:
+            _f_open(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case F_CLOSE:
+            _f_close(instruccion.parametro1);
+            break;
+        case F_SEEK:
+            _f_seek(instruccion.parametro1, instruccion.parametro2);
+        case F_READ:
+            _f_read(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case F_WRITE:
+            _f_write(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case F_TRUNCATE:
+            _f_truncate(instruccion.parametro1, instruccion.parametro2);
+            break;
+        case EXIT:
+            __exit();
+            break;
+        default:
+            log_error(cpu_logger_info, "Instruccion no reconocida");
+            break;
+        
     }
-    else if (strcmp(ins, "SUM") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            _sum(ins_y_parametros[1], ins_y_parametros[2]);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion SUM");
-    }
-    else if (strcmp(ins, "SUB") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            _sub(ins_y_parametros[1], ins_y_parametros[2]);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion SUB");
-    }
-    else if (strcmp(ins, "JNZ") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param2 = str_to_uint32(ins_y_parametros[2]);
-            _jnz(ins_y_parametros[1], param2);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion JNZ");
-    }
-    else if (strcmp(ins, "SLEEP") == 0)
-    {
-        if (ins_y_parametros[1] != NULL)
-        {
-            param1 = str_to_uint32(ins_y_parametros[1]);
-            _sleep(param1);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion SLEEP");
-    }
-    else if (strcmp(ins, "WAIT") == 0)
-    {
-        if (ins_y_parametros[1] != NULL)
-            _wait(ins_y_parametros[1]);
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion WAIT");
-    }
-    else if (strcmp(ins, "SIGNAL") == 0)
-    {
-        if (ins_y_parametros[1] != NULL)
-            _signal(ins_y_parametros[1]);
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion SIGNAL");
-    }
-    else if (strcmp(ins, "MOV_IN") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param2 = str_to_uint32(ins_y_parametros[2]);
-            _mov_in(ins_y_parametros[1], param2);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion MOV_IN");
-    }
-    else if (strcmp(ins, "MOV_OUT") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param1 = str_to_uint32(ins_y_parametros[1]);
-            _mov_out(param1, ins_y_parametros[1]);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion MOV_OUT");
-    }
-    else if (strcmp(ins, "F_OPEN") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-            _f_open(ins_y_parametros[1], ins_y_parametros[2]);
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion F_OPEN");
-    }
-    else if (strcmp(ins, "F_CLOSE") == 0)
-    {
-        if (ins_y_parametros[1] != NULL)
-            _f_close(ins_y_parametros[1]);
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion F_CLOSE");
-    }
-    else if (strcmp(ins, "F_SEEK") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param2 = str_to_uint32(ins_y_parametros[2]);
-            _f_seek(ins_y_parametros[1], param2);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion F_SEEK");
-    }
-    else if (strcmp(ins, "F_READ") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param2 = str_to_uint32(ins_y_parametros[2]);
-            _f_read(ins_y_parametros[1], param2);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion F_READ");
-    }
-    else if (strcmp(ins, "F_WRITE") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param2 = str_to_uint32(ins_y_parametros[2]);
-            _f_write(ins_y_parametros[1], param2);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion F_WRITE");
-    }
-    else if (strcmp(ins, "F_TRUNCATE") == 0)
-    {
-        if (ins_y_parametros[1] != NULL && ins_y_parametros[2] != NULL)
-        {
-            param2 = str_to_uint32(ins_y_parametros[2]);
-            _f_truncate(ins_y_parametros[1], param2);
-        }
-        else
-            log_error(cpu_logger_info, "Faltan parametros para la instruccion F_TRUNCATE");
-    }
-    else if (strcmp(ins, "EXIT") == 0)
-        __exit();
-
-    else
-        log_error(cpu_logger_info, "Instruccion no reconocida");
 }
 
 void dividirCadena(char *cadena, char **palabras)
@@ -308,21 +206,6 @@ void dividirCadena(char *cadena, char **palabras)
         // Obtener la siguiente palabra
         token = strtok(NULL, delimitador);
     }
-}
-
-uint32_t str_to_uint32(char *str)
-{
-    char *endptr;
-    uint32_t result = (uint32_t)strtoul(str, &endptr, 10);
-
-    // Comprobar si hubo errores durante la conversión
-    if (*endptr != '\0')
-    {
-        fprintf(stderr, "Error en la conversión de '%s' a uint32_t.\n", str);
-        exit(EXIT_FAILURE);
-    }
-
-    return result;
 }
 
 // TODO: recibir por interrupt interrupciones
