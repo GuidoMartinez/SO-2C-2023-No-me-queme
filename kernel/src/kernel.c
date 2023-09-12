@@ -87,8 +87,8 @@ int main(int argc, char **argv)
             int pid = palabras[1];
            
 
-            // log_info(kernel_logger_info, "Inicie proceso %s ",palabras[3]);
-            // iniciar_proceso(path,size,prioridad);
+           // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
+            finalizar_proceso(pid);
 
             free(linea);
             break;
@@ -141,11 +141,18 @@ void iniciar_proceso(char *path, int size, int prioridad)
     cola_block = list_create();
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
+    lista_global=list_create();
     pcb_create();
 }
 
 void finalizar_proceso(int pid)
 {
+    //aca tengo q buscar el proceso activo
+    pthread_mutex_lock(&mutex_cola_exit);
+   // cambiar_estado(pcb, FINISH_EXIT);
+   //  list_add(cola_exit, pcb);
+    pthread_mutex_unlock(&mutex_cola_exit);
+
 }
 
 void iniciar_planificacion()
@@ -155,6 +162,30 @@ void iniciar_planificacion()
     planificar_corto_plazo();
 }
 
+char* motivo_exit_to_string(motivo_exit motivo){
+	switch(motivo){
+	case SUCCESS: return "SUCCESS";
+	case SEG_FAULT: return "SEG_FAULT";
+	case OUT_OF_MEMORY: return "OUT_OF_MEMORY";
+	case RECURSO_INEXISTENTE: return "RECURSO_INEXISTENTE";
+	default: return "INDETERMINADO";
+	}
+}
+
+void exit_pcb(void) {
+	while (1)
+	{
+	
+		t_pcb *pcb = safe_pcb_remove(cola_exit, &mutex_cola_exit);
+		char* motivo = motivo_exit_to_string(pcb->motivo_exit);
+		pcb_destroy(pcb);
+	}
+}
+void pcb_destroy(t_pcb* pcb){
+	list_destroy(pcb->archivos_abiertos);
+	//contexto_destroyer(pcb->contexto_ejecucion);
+	free(pcb);
+}
 void detener_planificacion()
 {
 }
@@ -186,6 +217,7 @@ void pcb_create()
     pcb->contexto_ejecucion->program_counter = 0;
     pcb->estado = NEW;
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
+    list_add(lista_global,pcb);
     log_info(kernel_logger_info, "Llegue hasta PCB %d",pcb->pid);
     return pcb;
 }
@@ -268,7 +300,7 @@ void procesar_cambio_estado(t_pcb *pcb, estado_proceso estado_nuevo)
 void planificar_largo_plazo()
 {
     pthread_t hilo_ready;
-    // pthread_t hilo_exit;
+    pthread_t hilo_exit;
     pthread_t hilo_block;
 
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
