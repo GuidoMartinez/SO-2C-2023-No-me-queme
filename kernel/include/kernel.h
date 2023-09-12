@@ -13,7 +13,7 @@ t_list* cola_block ;
 t_list* cola_listos_para_ready;
 t_list* cola_exec;
 
-int generador_de_id;
+int generador_de_id=0;
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
 typedef struct // archivo de configuracion kernel
 {char *ip_memoria;char *puerto_memoria;char *ip_filesystem;char *puerto_filesystem;char *ip_cpu;char *puerto_cpu_dispatch;char *puerto_cpu_interrupt;char *algoritmo_planificacion;int quantum;int grado_multiprogramacion;char **recursos;char **instancias_recursos;
@@ -26,7 +26,7 @@ void finalizar_kernel();
 void sighandler(int);
 void cargar_configuracion(char *);
 void iniciar_proceso(char* , int , int );
-void finalizar_proceso();
+void finalizar_proceso(int);
 void iniciar_planificacion();
 void detener_planificacion();
 void cambiar_estado(t_pcb *, estado_proceso );

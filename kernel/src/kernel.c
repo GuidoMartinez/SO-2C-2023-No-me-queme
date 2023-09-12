@@ -64,12 +64,28 @@ int main(int argc, char **argv)
             break;
         }
 
+   
         if (!strncmp(linea, "iniciar_proceso", 15))
+
         {
             char **palabras = string_split(linea, " ");
             char path = palabras[1];
             int size = palabras[2];
             int prioridad = palabras[3];
+
+            // log_info(kernel_logger_info, "Inicie proceso %s ",palabras[3]);
+             iniciar_proceso(path,size,prioridad);
+
+            //free(linea);
+           // break;
+        }
+        
+
+        if (!strncmp(linea, "finalizar_proceso", 17))
+        {
+            char **palabras = string_split(linea, " ");
+            int pid = palabras[1];
+           
 
             // log_info(kernel_logger_info, "Inicie proceso %s ",palabras[3]);
             // iniciar_proceso(path,size,prioridad);
@@ -121,14 +137,14 @@ void finalizar_kernel()
 
 void iniciar_proceso(char *path, int size, int prioridad)
 {
-    generador_de_id = 0;
+   // generador_de_id = 0;
     cola_block = list_create();
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
     pcb_create();
 }
 
-void finalizar_proceso()
+void finalizar_proceso(int pid)
 {
 }
 
@@ -163,14 +179,14 @@ void pcb_create()
     t_pcb *pcb = malloc(sizeof(t_pcb));
     t_contexto_ejecucion *contexto = malloc(sizeof(t_contexto_ejecucion));
     pcb->archivos_abiertos = list_create();
+    pcb->contexto_ejecucion = contexto;
     pcb->pid = generador_de_id;
     pcb->contexto_ejecucion->pid = generador_de_id;
     generador_de_id++;
-    pcb->contexto_ejecucion = contexto;
     pcb->contexto_ejecucion->program_counter = 0;
     pcb->estado = NEW;
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
-    log_info(kernel_logger_info, "Llegue hasta OCB");
+    log_info(kernel_logger_info, "Llegue hasta PCB %d",pcb->pid);
     return pcb;
 }
 
