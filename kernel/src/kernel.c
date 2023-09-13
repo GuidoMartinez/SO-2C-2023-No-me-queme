@@ -90,8 +90,34 @@ int main(int argc, char **argv)
            // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
             finalizar_proceso(pid);
 
+           // free(linea);
+           // break;
+        }
+
+         if (!strncmp(linea, "iniciar_planificacion", 21))
+        {
+            //char **palabras = string_split(linea, " ");
+            //int pid = palabras[1];
+           
+
+           // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
+          //  finalizar_proceso(pid);
+
             free(linea);
-            break;
+           break;
+        }
+
+ if (!strncmp(linea, "detener_planificacion", 21))
+        {
+            //char **palabras = string_split(linea, " ");
+            //int pid = palabras[1];
+           
+
+           // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
+          //  finalizar_proceso(pid);
+
+            free(linea);
+           break;
         }
 
         // free(linea);
@@ -150,9 +176,12 @@ void finalizar_proceso(int pid)
     //aca tengo q buscar el proceso activo
     pthread_mutex_lock(&mutex_cola_exit);
    // cambiar_estado(pcb, FINISH_EXIT);
-   //  list_add(cola_exit, pcb);
+   // list_add(lista_global,pcb);
+   //char* motivo = motivo_exit_to_string(pcb->contexto_ejecucion->motivo_exit);
     pthread_mutex_unlock(&mutex_cola_exit);
-
+    //pcb_destroy(pcb);
+    //tener en cuenta semaforos
+    log_info(kernel_logger_info, "Llegue hasta finalizar ");
 }
 
 void iniciar_planificacion()
@@ -303,6 +332,7 @@ void planificar_largo_plazo()
     pthread_t hilo_exit;
     pthread_t hilo_block;
 
+    pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
     pthread_create(&hilo_block, NULL, (void *)block, NULL);
 
