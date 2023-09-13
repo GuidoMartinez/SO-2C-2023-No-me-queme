@@ -2,6 +2,8 @@
 #define FILESYSTEM_H
 
 #include "shared_utils.h"
+#include <dirent.h>
+#include "commons/bitarray.h"
 
 
 int socket_memoria,server_filesystem, socket_kernel;
@@ -51,5 +53,7 @@ t_config *config;
 fcb_list_t* lista_global_fcb;
 uint32_t fcb_id;
 arch_config config_valores_filesystem;
+int formatear;
+t_bitarray* bitarray;
 
 #endif
