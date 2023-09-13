@@ -4,6 +4,8 @@
 #include "shared_utils.h"
 #include <dirent.h>
 #include "commons/bitarray.h"
+#include <stdint.h>
+#define UINT32_MAX 4294967295 // Define UINT32_MAX si no está definido
 
 
 int socket_memoria,server_filesystem, socket_kernel;
@@ -54,6 +56,9 @@ fcb_list_t* lista_global_fcb;
 uint32_t fcb_id;
 arch_config config_valores_filesystem;
 int formatear;
-t_bitarray* bitarray;
+t_bitarray* fat_table;
+void* memoria_file_system;
+int tam_memoria_file_system;
+int tamanio_fat;
 
 #endif

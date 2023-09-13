@@ -19,7 +19,8 @@ int main(int argc, char **argv)
     cargar_configuracion(argv[1]);
 
 	formatear = 0;
-	int tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
+	tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
+	tamanio_fat = (config_valores_filesystem.cant_bloques_total - config_valores_filesystem.cant_bloques_swap) * sizeof(uint32_t);
 
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
@@ -38,7 +39,7 @@ int main(int argc, char **argv)
 		inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
 	inicializar_fcb_list(config_valores_filesystem.path_fcb, fcb_id, filesystem_logger_info);
 
-	int exit_status = crear_fat(config_valores_filesystem.cant_bloques_total, config_valores_filesystem.path_fat, filesystem_logger_info);
+	int exit_status = crear_fat(tamanio_fat, config_valores_filesystem.path_fat, filesystem_logger_info);
 	if (exit_status == -1)
 	{
 		return -1;
@@ -142,41 +143,43 @@ off_t obtener_bit_en_bitmap(t_bitarray *bitarray, off_t id_bloque) // Devuelve e
 	return bitarray_test_bit(bitarray, id_bloque);
 }
 
-int crear_fat(int cantidad_de_bloques, char *path_bitmap, t_log *logger)
+int crear_fat(int cantidad_de_bloques, char *path_fat, t_log *logger)
 {
-	int tamanio_bitmap = cantidad_de_bloques / 8;
-	int file_descriptor = open(path_bitmap, O_CREAT | O_RDWR, 0644); // 0644 -> permissions for read/write
-	if (file_descriptor < 0)
-	{
-		log_error(logger, "Failed to create the bitmap file");
-		return -1;
-	}
+    int tamanio_fat = cantidad_de_bloques;
+    int file_descriptor = open(path_fat, O_CREAT | O_RDWR, 0644); // 0644 -> permissions for read/write
+    if (file_descriptor < 0)
+    {
+        log_error(logger, "Failed to create the FAT file");
+        return -1;
+    }
 
-	if (ftruncate(file_descriptor, tamanio_bitmap) != 0)
-	{
-		log_error(logger, "Failed to allocate disk space for the bitmap file");
-		close(file_descriptor);
-		return -1;
-	}
-	else
-		ftruncate(file_descriptor, tamanio_bitmap);
+    if (ftruncate(file_descriptor, tamanio_fat) != 0)
+    {
+        log_error(logger, "Failed to allocate disk space for the FAT file");
+        close(file_descriptor);
+        return -1;
+    }
 
-	void *bitmap_data = mmap(NULL, tamanio_bitmap, PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
-	if (bitmap_data == MAP_FAILED)
-	{
-		log_error(logger, "Failed to map the bitmap file into memory");
-		close(file_descriptor);
-		return -1;
-	}
+    void *fat_data = mmap(NULL, tamanio_fat, PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
+    if (fat_data == MAP_FAILED)
+    {
+        log_error(logger, "Failed to map the FAT file into memory");
+        close(file_descriptor);
+        return -1;
+    }
 
-	if (formatear == 1)
-	{
-		memset(bitmap_data, 0, tamanio_bitmap);
-		log_info(logger, "Bitmap formateado exitosamente");
-	}
-	bitarray = bitarray_create_with_mode(bitmap_data, tamanio_bitmap, LSB_FIRST);
-	log_info(logger, "Bitmap creado");
-	return 0;
+    fat_table = bitarray_create_with_mode(fat_data, tamanio_fat * 8, LSB_FIRST); // * 8 para obtener el tamaño en bits
+    if (formatear == 1)
+    {
+        memset(fat_data, 0, tamanio_fat);
+        log_info(logger, "FAT table formateada exitosamente");
+    }
+
+    // Marcar el bloque lógico 0 como reservado
+    bitarray_set_bit(fat_table, 0);
+
+    log_info(logger, "FAT table creada");
+    return 0;
 }
 
 uint32_t buscar_fcb(char *nombre_fcb)
