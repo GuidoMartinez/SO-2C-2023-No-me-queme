@@ -18,6 +18,9 @@ int main(int argc, char **argv)
     filesystem_logger_info = log_create("./cfg/filesystem.log", "FILESYSTEM", true, LOG_LEVEL_INFO);
     cargar_configuracion(argv[1]);
 
+	formatear = 0;
+	int tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
+
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
 
@@ -26,7 +29,28 @@ int main(int argc, char **argv)
     log_info(filesystem_logger_info, "Filesystem listo para recibir al Kernel");
     op_code codigo_operacion = recibir_operacion(socket_kernel);
 
-    switch (codigo_operacion)
+    // Mapeo de memoria
+	int fd;
+	fd = open(config_valores_filesystem.path_bloques, O_RDWR);
+	ftruncate(fd, tam_memoria_file_system);
+	void* memoria_file_system = mmap(NULL, tam_memoria_file_system, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (formatear == 1)
+		inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
+	inicializar_fcb_list(config_valores_filesystem.path_fcb, fcb_id, filesystem_logger_info);
+
+	int exit_status = crear_fat(config_valores_filesystem.cant_bloques_total, config_valores_filesystem.path_fat, filesystem_logger_info);
+	if (exit_status == -1)
+	{
+		return -1;
+	}
+
+	pthread_t thread_kernel;
+	//pthread_create(&thread_kernel, NULL, (void *)comunicacion_kernel, (void *)cliente);
+	//pthread_join(thread_kernel, NULL);
+
+	//eliminar_paquete(respuesta);
+
+	switch (codigo_operacion)
     {
     case HANDSHAKE_KERNEL:
         log_info(filesystem_logger_info, "Handshake exitoso con KERNEL, se conecto un KERNEL");
@@ -71,6 +95,89 @@ void finalizar_filesystem()
     close(socket_memoria);
 }
 
+void inicializar_datos_memoria(int tam_memoria_file_system, void *memoria_file_system)
+{
+	int offset = tam_memoria_file_system;
+	char caracter = '0';
+
+	for (int i = 0; i < offset; i++)
+	{
+		memcpy(memoria_file_system + i, &caracter, sizeof(char));
+	}
+}
+
+off_t obtener_primer_bloque_libre(t_bitarray *bitarray)
+{
+	off_t bit_libre;
+	size_t tamanio_bitarray = bitarray_get_max_bit(bitarray);
+	for (bit_libre = 0; bitarray_test_bit(bitarray, bit_libre); bit_libre++)
+	{
+		log_info(filesystem_logger_info, "El valor del bit analizado es: %ld", bit_libre);
+		if (tamanio_bitarray == bit_libre)
+		{
+			log_info(filesystem_logger_info, "No hay bit libre dentro del bitmap");
+			return -1;
+		}
+	}
+	log_info(filesystem_logger_info, "El valor del bit libre es: %ld", bit_libre);
+	return bit_libre;
+}
+
+void setear_bit_en_bitmap(t_bitarray *bitarray, off_t id_bloque) // Setea el bit en 1 para el bloque indicado
+{
+	bitarray_set_bit(bitarray, id_bloque);
+	msync(memoria_file_system, bitarray->size, MS_SYNC);
+	log_info(filesystem_logger_info, "Acceso a Bitmap - Bloque: %d - Estado: 1", id_bloque);
+}
+
+void limpiar_bit_en_bitmap(t_bitarray *bitarray, off_t id_bloque) // Setea el bit en 0 para el bloque indicado
+{
+	bitarray_clean_bit(bitarray, id_bloque);
+	msync(memoria_file_system, bitarray->size, MS_SYNC);
+	log_info(filesystem_logger_info, "Acceso a Bitmap - Bloque: %d - Estado: 0", id_bloque);
+}
+
+off_t obtener_bit_en_bitmap(t_bitarray *bitarray, off_t id_bloque) // Devuelve el bit del bloque indicado
+{
+	return bitarray_test_bit(bitarray, id_bloque);
+}
+
+int crear_fat(int cantidad_de_bloques, char *path_bitmap, t_log *logger)
+{
+	int tamanio_bitmap = cantidad_de_bloques / 8;
+	int file_descriptor = open(path_bitmap, O_CREAT | O_RDWR, 0644); // 0644 -> permissions for read/write
+	if (file_descriptor < 0)
+	{
+		log_error(logger, "Failed to create the bitmap file");
+		return -1;
+	}
+
+	if (ftruncate(file_descriptor, tamanio_bitmap) != 0)
+	{
+		log_error(logger, "Failed to allocate disk space for the bitmap file");
+		close(file_descriptor);
+		return -1;
+	}
+	else
+		ftruncate(file_descriptor, tamanio_bitmap);
+
+	void *bitmap_data = mmap(NULL, tamanio_bitmap, PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
+	if (bitmap_data == MAP_FAILED)
+	{
+		log_error(logger, "Failed to map the bitmap file into memory");
+		close(file_descriptor);
+		return -1;
+	}
+
+	if (formatear == 1)
+	{
+		memset(bitmap_data, 0, tamanio_bitmap);
+		log_info(logger, "Bitmap formateado exitosamente");
+	}
+	bitarray = bitarray_create_with_mode(bitmap_data, tamanio_bitmap, LSB_FIRST);
+	log_info(logger, "Bitmap creado");
+	return 0;
+}
 
 uint32_t buscar_fcb(char *nombre_fcb)
 {
@@ -123,6 +230,89 @@ fcb_t *inicializar_fcb()
 	new_fcb->tamanio_archivo = 0;
 
 	return new_fcb;
+}
+
+void inicializar_fcb_list(char *path_fcb, int fcb_id, t_log *logger)
+{
+	lista_global_fcb = malloc(sizeof(fcb_list_t));
+	if (lista_global_fcb == NULL)
+	{
+		log_error(logger, "No se puedo alocar memoria para fcb_list_t");
+		return -1;
+	}
+	lista_global_fcb->lista_fcb = list_create();
+
+	char *directorio = path_fcb;
+
+	DIR *dir_fcb = opendir(directorio);
+	if (dir_fcb == NULL)
+	{
+		log_error(logger, "No se pudo abrir directorio: %s", directorio);
+		return;
+	}
+
+	struct dirent *dir_entry;
+
+	while ((dir_entry = readdir(dir_fcb)) != NULL)
+	{
+		if (strcmp(dir_entry->d_name, ".") == 0 || strcmp(dir_entry->d_name, "..") == 0)
+			continue;
+
+		int error = 0;
+		if (formatear == 1)
+		{
+			char *nombre_completo = string_new();
+			string_append(&nombre_completo, directorio);
+			string_append(&nombre_completo, dir_entry->d_name);
+
+			remove(nombre_completo);
+		}
+		else
+		{
+			fcb_t *fcb_existente = malloc(sizeof(fcb_t));
+
+			fcb_existente->nombre_archivo = string_new();
+
+			char *nombre_completo = string_new();
+			string_append(&nombre_completo, directorio);
+			string_append(&nombre_completo, dir_entry->d_name);
+
+			t_config *fcb = config_create(nombre_completo);
+			if (config_has_property(fcb, "NOMBRE_ARCHIVO"))
+				string_append(&fcb_existente->nombre_archivo, config_get_string_value(fcb, "NOMBRE_ARCHIVO"));
+			else
+				error = 1;
+			if (config_has_property(fcb, "TAMANIO_ARCHIVO"))
+				fcb_existente->tamanio_archivo = (uint32_t)config_get_int_value(fcb, "TAMANIO_ARCHIVO");
+			else
+				error = 1;
+			if (config_has_property(fcb, "BLOQUE_INICIAL"))
+				fcb_existente->bloque_inicial = (uint32_t)config_get_int_value(fcb, "PUNTERO_DIRECTO");
+			else
+				error = 1;
+			fcb_existente->ruta_archivo = string_new();
+			string_append(&fcb_existente->ruta_archivo, nombre_completo);
+			fcb_existente->id = fcb_id;
+
+			if (error == 0)
+			{
+				list_add(lista_global_fcb->lista_fcb, fcb_existente);
+				fcb_id++;
+			}
+			else
+			{
+				log_error(logger, "Formato incorrecto de FCB");
+				free(fcb_existente->nombre_archivo);
+				free(fcb_existente->ruta_archivo);
+				free(fcb_existente);
+			}
+
+			free(nombre_completo);
+			config_destroy(fcb);
+		}
+	}
+	log_info(logger, "Lista de FCB creada correctamente");
+	closedir(dir_fcb);
 }
 
 int crear_fcb(char *nombre_fcb, t_log *logger, fcb_list_t *lista_global_fcb)
@@ -249,4 +439,11 @@ int modificar_fcb(int id, fcb_prop_t llave, uint32_t valor)
 	int resultado = _modificar_fcb(fcb, llave, valor);
 
 	return resultado;
+}
+
+void escribir_int(uint32_t dato, int offset)
+{
+	memcpy(memoria_file_system + offset, &dato, 4);
+	msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
+	sleep(config_valores_filesystem.retardo_acceso_bloque);
 }
