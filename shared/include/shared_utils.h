@@ -42,7 +42,7 @@ typedef enum
 typedef enum
 {
     SET,
-    ADD,
+    SUM,
     SUB,
     JNZ,
     SLEEP,
@@ -113,7 +113,7 @@ typedef enum
 {
     RECURSO_BLOCK,
     ARCHIVO_BLOCK,
-    SLEEP_BLOCK
+    SLEEP_BN
 } motivo_block;
 
 typedef struct

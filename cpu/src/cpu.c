@@ -135,7 +135,7 @@ void decode(t_instruccion instruccion)
             _set(instruccion.parametro1, instruccion.parametro2);
             break;
         //revisar
-        case ADD:
+        case SUM:
             _sum(instruccion.parametro1, instruccion.parametro2);
             break;
         case SUB:

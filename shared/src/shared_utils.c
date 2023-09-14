@@ -273,8 +273,8 @@ const char *obtener_nombre_instruccion(nombre_instruccion instruccion)
 	{
 	case SET:
 		return "SET";
-	case ADD:
-		return "ADD";
+	case SUM:
+		return "SUM";
 	case SUB:
 		return "SUB";
 	case JNZ:
@@ -324,4 +324,30 @@ uint32_t str_to_uint32(char *str)
     }
 
     return result;
+}
+
+void *serializar_pcb(t_pcb *pcb, int bytes)
+{
+	/*void *magic = malloc(bytes);
+	int desplazamiento = 0;
+
+	memcpy(magic + desplazamiento, &(pcb->pid), sizeof(int));
+	desplazamiento += sizeof(int);
+	memcpy(magic + desplazamiento, &(pcb->prioridad), sizeof(int));
+	desplazamiento += sizeof(int);
+	memcpy(magic + desplazamiento, &(pcb->prioridad), sizeof(int));
+	desplazamiento += sizeof(int);
+
+typedef struct
+{
+    int pid;
+    int prioridad;
+    int tamanio;
+    t_contexto_ejecucion *contexto_ejecucion;
+    estado_proceso estado;
+    motivo_exit motivo_exit;
+    motivo_block motivo_block;
+    t_list *archivos_abiertos;
+} t_pcb;
+	return magic;*/
 }
