@@ -36,7 +36,8 @@ typedef enum
     PROCESO_INICIALIZADO,
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
-    INSTRUCCION_PEDIDA
+    INSTRUCCION_PEDIDA,
+    CONTEXTO
 } op_code;
 
 typedef enum
@@ -118,7 +119,10 @@ typedef enum
 
 typedef struct
 {
-
+    u_int32_t ax;
+    u_int32_t bx;
+    u_int32_t cx;
+    u_int32_t dx;
 } t_registros;
 
 typedef struct
@@ -183,6 +187,9 @@ t_list *recibir_paquete(int);
 void realizar_handshake(int, op_code, t_log *);
 
 const char *obtener_nombre_instruccion(nombre_instruccion);
+
+void *serializar_contexto(t_contexto_ejecucion *ctx, int bytes);
+t_contexto_ejecucion* deserializar_contexto(t_buffer* buffer);
 
 uint32_t str_to_uint32(char *str);
 

@@ -326,28 +326,53 @@ uint32_t str_to_uint32(char *str)
     return result;
 }
 
-void *serializar_pcb(t_pcb *pcb, int bytes)
+void *serializar_contexto(t_contexto_ejecucion *ctx, int bytes)
 {
-	/*void *magic = malloc(bytes);
+	void *magic = malloc(bytes);
 	int desplazamiento = 0;
 
-	memcpy(magic + desplazamiento, &(pcb->pid), sizeof(int));
+	memcpy(magic + desplazamiento, &(ctx->pid), sizeof(int));
 	desplazamiento += sizeof(int);
-	memcpy(magic + desplazamiento, &(pcb->prioridad), sizeof(int));
+	memcpy(magic + desplazamiento, &(ctx->program_counter), sizeof(int));
 	desplazamiento += sizeof(int);
-	memcpy(magic + desplazamiento, &(pcb->prioridad), sizeof(int));
+	memcpy(magic + desplazamiento, &(ctx->registros)->ax, sizeof(u_int32_t));
+	desplazamiento += sizeof(u_int32_t);
+	memcpy(magic + desplazamiento, &(ctx->registros)->bx, sizeof(u_int32_t));
+	desplazamiento += sizeof(u_int32_t);
+	memcpy(magic + desplazamiento, &(ctx->registros)->cx, sizeof(u_int32_t));
+	desplazamiento += sizeof(u_int32_t);
+	memcpy(magic + desplazamiento, &(ctx->registros)->dx, sizeof(u_int32_t));
+	desplazamiento += sizeof(u_int32_t);
+	memcpy(magic + desplazamiento, &(ctx->numero_marco), sizeof(int));
+	desplazamiento += sizeof(int);
+	memcpy(magic + desplazamiento, &(ctx->nro_pf), sizeof(int));
 	desplazamiento += sizeof(int);
 
-typedef struct
-{
-    int pid;
-    int prioridad;
-    int tamanio;
-    t_contexto_ejecucion *contexto_ejecucion;
-    estado_proceso estado;
-    motivo_exit motivo_exit;
-    motivo_block motivo_block;
-    t_list *archivos_abiertos;
-} t_pcb;
-	return magic;*/
+	return magic;
+}
+
+t_contexto_ejecucion* deserializar_contexto(t_buffer* buffer) {
+
+	t_contexto_ejecucion* ctx = malloc(sizeof(t_contexto_ejecucion));
+
+	void* stream = buffer -> stream;
+
+	memcpy(&(ctx -> pid), stream, sizeof(int));
+	stream += sizeof(int);
+	memcpy(&(ctx -> program_counter), stream, sizeof(int));
+	stream += sizeof(int);
+	memcpy(&(ctx -> registros -> ax), stream, sizeof(u_int32_t));
+	stream += sizeof(u_int32_t);
+	memcpy(&(ctx -> registros -> bx), stream, sizeof(u_int32_t));
+	stream += sizeof(u_int32_t);
+	memcpy(&(ctx -> registros -> cx), stream, sizeof(u_int32_t));
+	stream += sizeof(u_int32_t);
+	memcpy(&(ctx -> registros -> dx), stream, sizeof(u_int32_t));
+	stream += sizeof(u_int32_t);
+	memcpy(&(ctx -> numero_marco), stream, sizeof(int));
+	stream += sizeof(int);
+	memcpy(&(ctx -> nro_pf), stream, sizeof(int));
+	stream += sizeof(int);
+
+	return ctx;
 }

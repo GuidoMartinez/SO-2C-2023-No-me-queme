@@ -20,8 +20,10 @@ int main(int argc, char **argv)
     cargar_configuracion(argv[1]);
 
     iniciar_conexiones();
-    // TODO: Recibir PCBs de los programas a ejecutar por DISPATCH
-    // if (pcb_actual != null)ejecutar_ciclo_instrucciones();
+
+    //t_contexto_ejecucion contexto_actual;
+    // recibir_contexto(contexto_actual)
+    // if (contexto_actual != null)ejecutar_ciclo_instrucciones();
 
     return EXIT_SUCCESS;
 }
@@ -91,6 +93,25 @@ void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code
     }
 }
 
+void recibir_contexto(t_contexto_ejecucion contexto){
+
+    op_code codigo_op = recibir_operacion(servidor_cpu_dispatch);
+    
+    if (codigo_op == CONTEXTO)
+    {
+        int size;
+        void *buffer = recibir_buffer(&size, servidor_cpu_dispatch);
+        void* ctx = deserializar_contexto(buffer);
+        memcpy(&contexto, ctx, sizeof(t_contexto_ejecucion));
+        free(buffer);
+        free(ctx);
+    }
+    else
+    {
+        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta del kernel.");
+    }
+}
+
 void cargar_configuracion(char *path)
 {
 
@@ -111,7 +132,7 @@ void cargar_configuracion(char *path)
 void ejecutar_ciclo_instrucciones()
 {
     /*
-        t_instruccion instruccion = fetch(pcb_actual->contexto_ejecucion.IP);
+        t_instruccion instruccion = fetch(contexto_ejecucion->IP);
         decode(instruccion);
         if(check_interrupt()) interrumpir;
     */
@@ -122,9 +143,29 @@ void ejecutar_ciclo_instrucciones()
 // Recibe por parametro la primer posicion de las instrucciones
 t_instruccion fetch(int IP)
 {
-    t_instruccion ins;
-    ins.codigo = 0;
-    return ins;
+    t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(PEDIDO_INSTRUCCION);
+    agregar_a_paquete(paquete_instruccion, &IP, sizeof(int));
+    enviar_paquete(paquete_instruccion, servidor_cpu_dispatch);
+    eliminar_paquete(paquete_instruccion);
+
+    t_instruccion instruccion;
+
+    op_code respuesta = recibir_operacion(servidor_cpu_dispatch);
+    if (respuesta == INSTRUCCION)
+    {
+        int size;
+        //revisar esta parte
+        void *buffer = recibir_buffer(&size, servidor_cpu_dispatch);
+        // aca
+        memcpy(&instruccion, buffer, sizeof(t_instruccion));
+        free(buffer);
+    }
+    else
+    {
+        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de dispatch.");
+    }
+    log_info(cpu_logger_info, "Instruccón recibida");
+    return instruccion;
 }
 
 // Ejecuta instrucciones
