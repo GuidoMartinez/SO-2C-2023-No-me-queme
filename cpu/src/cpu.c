@@ -1,6 +1,8 @@
 #include "cpu.h"
 #include "instructions.h"
 
+t_contexto_ejecucion contexto_actual;
+
 void sighandler(int s)
 {
     finalizar_cpu();
@@ -21,9 +23,9 @@ int main(int argc, char **argv)
 
     iniciar_conexiones();
 
-    //t_contexto_ejecucion contexto_actual;
     // recibir_contexto(contexto_actual)
     // if (contexto_actual != null)ejecutar_ciclo_instrucciones();
+    //enviar_contexto_actualizado(contexto_actual);
 
     return EXIT_SUCCESS;
 }
@@ -112,6 +114,35 @@ void recibir_contexto(t_contexto_ejecucion contexto){
     }
 }
 
+void recibir_instruccion(t_instruccion* instruccion){
+
+    op_code codigo_op = recibir_operacion(socket_memoria);
+    
+    if (codigo_op == INSTRUCCION)
+    {
+        int size;
+        void *buffer = recibir_buffer(&size, socket_memoria);
+        void* ins = deserializar_instruccion(buffer);
+        memcpy(instruccion, ins, sizeof(t_instruccion));
+        free(buffer);
+        free(ins);
+    }
+    else
+    {
+        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta del kernel.");
+    }
+}
+
+void enviar_contexto_actualizado(t_contexto_ejecucion contexto){
+
+    t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(CONTEXTO);
+    t_buffer* contextoSerializado = serializar_contexto(&contexto);
+    agregar_a_paquete(paquete_instruccion, contextoSerializado, contextoSerializado->size);
+    enviar_paquete(paquete_instruccion, servidor_cpu_dispatch);
+
+    eliminar_paquete(paquete_instruccion);
+}
+
 void cargar_configuracion(char *path)
 {
 
@@ -149,22 +180,8 @@ t_instruccion fetch(int IP)
     eliminar_paquete(paquete_instruccion);
 
     t_instruccion instruccion;
+    recibir_instruccion(&instruccion);
 
-    op_code respuesta = recibir_operacion(servidor_cpu_dispatch);
-    if (respuesta == INSTRUCCION)
-    {
-        int size;
-        //revisar esta parte
-        void *buffer = recibir_buffer(&size, servidor_cpu_dispatch);
-        // aca
-        memcpy(&instruccion, buffer, sizeof(t_instruccion));
-        free(buffer);
-    }
-    else
-    {
-        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de dispatch.");
-    }
-    log_info(cpu_logger_info, "Instruccón recibida");
     return instruccion;
 }
 
@@ -173,49 +190,48 @@ void decode(t_instruccion instruccion)
 {
     switch(instruccion.codigo){
         case SET:
-            _set(instruccion.parametro1, instruccion.parametro2);
+            _set(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
-        //revisar
         case SUM:
-            _sum(instruccion.parametro1, instruccion.parametro2);
+            _sum(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case SUB:
-            _sub(instruccion.parametro1, instruccion.parametro2);
+            _sub(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case JNZ:
-            _jnz(instruccion.parametro1, instruccion.parametro2);
+            _jnz(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case SLEEP:
-            _sleep(instruccion.parametro1);
+            _sleep(instruccion.parametro1, &contexto_actual);
             break;
         case WAIT:
-            _wait(instruccion.parametro1);
+            _wait(instruccion.parametro1, &contexto_actual);
             break;
         case SIGNAL:
-            _signal(instruccion.parametro1);
+            _signal(instruccion.parametro1, &contexto_actual);
             break;
         case MOV_IN:
-            _mov_in(instruccion.parametro1, instruccion.parametro2);
+            _mov_in(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case MOV_OUT:
-            _mov_out(instruccion.parametro1, instruccion.parametro2);
+            _mov_out(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case F_OPEN:
-            _f_open(instruccion.parametro1, instruccion.parametro2);
+            _f_open(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case F_CLOSE:
-            _f_close(instruccion.parametro1);
+            _f_close(instruccion.parametro1,&contexto_actual);
             break;
         case F_SEEK:
-            _f_seek(instruccion.parametro1, instruccion.parametro2);
+            _f_seek(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
         case F_READ:
-            _f_read(instruccion.parametro1, instruccion.parametro2);
+            _f_read(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case F_WRITE:
-            _f_write(instruccion.parametro1, instruccion.parametro2);
+            _f_write(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case F_TRUNCATE:
-            _f_truncate(instruccion.parametro1, instruccion.parametro2);
+            _f_truncate(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
             break;
         case EXIT:
             __exit();

@@ -326,29 +326,37 @@ uint32_t str_to_uint32(char *str)
     return result;
 }
 
-void *serializar_contexto(t_contexto_ejecucion *ctx, int bytes)
+t_buffer *serializar_contexto(t_contexto_ejecucion *ctx)
 {
-	void *magic = malloc(bytes);
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+
+	buffer-> size = sizeof(int) * 4 + 
+					sizeof(uint32_t) * 4;
+
+	void* stream = malloc(buffer -> size);
+
 	int desplazamiento = 0;
 
-	memcpy(magic + desplazamiento, &(ctx->pid), sizeof(int));
+	memcpy(stream + desplazamiento, &(ctx->pid), sizeof(int));
 	desplazamiento += sizeof(int);
-	memcpy(magic + desplazamiento, &(ctx->program_counter), sizeof(int));
+	memcpy(stream + desplazamiento, &(ctx->program_counter), sizeof(int));
 	desplazamiento += sizeof(int);
-	memcpy(magic + desplazamiento, &(ctx->registros)->ax, sizeof(u_int32_t));
-	desplazamiento += sizeof(u_int32_t);
-	memcpy(magic + desplazamiento, &(ctx->registros)->bx, sizeof(u_int32_t));
-	desplazamiento += sizeof(u_int32_t);
-	memcpy(magic + desplazamiento, &(ctx->registros)->cx, sizeof(u_int32_t));
-	desplazamiento += sizeof(u_int32_t);
-	memcpy(magic + desplazamiento, &(ctx->registros)->dx, sizeof(u_int32_t));
-	desplazamiento += sizeof(u_int32_t);
-	memcpy(magic + desplazamiento, &(ctx->numero_marco), sizeof(int));
+	memcpy(stream + desplazamiento, &(ctx->registros)->ax, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(stream + desplazamiento, &(ctx->registros)->bx, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(stream + desplazamiento, &(ctx->registros)->cx, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(stream + desplazamiento, &(ctx->registros)->dx, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(stream + desplazamiento, &(ctx->numero_marco), sizeof(int));
 	desplazamiento += sizeof(int);
-	memcpy(magic + desplazamiento, &(ctx->nro_pf), sizeof(int));
+	memcpy(stream + desplazamiento, &(ctx->nro_pf), sizeof(int));
 	desplazamiento += sizeof(int);
 
-	return magic;
+	buffer->stream = stream;
+
+	return buffer;
 }
 
 t_contexto_ejecucion* deserializar_contexto(t_buffer* buffer) {
@@ -361,18 +369,68 @@ t_contexto_ejecucion* deserializar_contexto(t_buffer* buffer) {
 	stream += sizeof(int);
 	memcpy(&(ctx -> program_counter), stream, sizeof(int));
 	stream += sizeof(int);
-	memcpy(&(ctx -> registros -> ax), stream, sizeof(u_int32_t));
-	stream += sizeof(u_int32_t);
-	memcpy(&(ctx -> registros -> bx), stream, sizeof(u_int32_t));
-	stream += sizeof(u_int32_t);
-	memcpy(&(ctx -> registros -> cx), stream, sizeof(u_int32_t));
-	stream += sizeof(u_int32_t);
-	memcpy(&(ctx -> registros -> dx), stream, sizeof(u_int32_t));
-	stream += sizeof(u_int32_t);
+	memcpy(&(ctx -> registros -> ax), stream, sizeof(uint32_t));
+	stream += sizeof(uint32_t);
+	memcpy(&(ctx -> registros -> bx), stream, sizeof(uint32_t));
+	stream += sizeof(uint32_t);
+	memcpy(&(ctx -> registros -> cx), stream, sizeof(uint32_t));
+	stream += sizeof(uint32_t);
+	memcpy(&(ctx -> registros -> dx), stream, sizeof(uint32_t));
+	stream += sizeof(uint32_t);
 	memcpy(&(ctx -> numero_marco), stream, sizeof(int));
 	stream += sizeof(int);
 	memcpy(&(ctx -> nro_pf), stream, sizeof(int));
 	stream += sizeof(int);
 
 	return ctx;
+}
+
+t_buffer *serializar_instruccion(t_instruccion *instruccion)
+{
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+
+	buffer-> size = sizeof(int) + 
+					sizeof(uint32_t) * 2 + 
+					strlen( instruccion->parametro1) + 
+					strlen( instruccion->parametro1) + 2;
+
+	void* stream = malloc(buffer -> size);
+
+	int desplazamiento = 0;
+
+	memcpy(stream + desplazamiento, &(instruccion->codigo), sizeof(nombre_instruccion));
+	desplazamiento += sizeof(nombre_instruccion);
+
+	memcpy(stream + desplazamiento, instruccion->parametro1, strlen(instruccion->parametro1) + 1);
+	desplazamiento += strlen(instruccion->parametro1);
+
+	memcpy(stream + desplazamiento, &(instruccion->longitud_parametro1), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(stream + desplazamiento, instruccion->parametro2, strlen(instruccion->parametro2) + 1);
+	desplazamiento += strlen(instruccion->parametro2);
+
+	memcpy(stream + desplazamiento, &(instruccion->longitud_parametro2), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	buffer -> stream = stream;
+
+	return buffer;
+}
+
+t_instruccion* deserializar_instruccion(t_buffer* buffer) {
+
+	t_instruccion* instruccion = malloc(sizeof(t_instruccion));
+
+	void* stream = buffer -> stream;
+
+	memcpy(&(instruccion -> codigo), stream, sizeof(nombre_instruccion));
+	stream += sizeof(nombre_instruccion);
+
+	memcpy(instruccion -> parametro1, stream, instruccion->longitud_parametro1);
+	stream += instruccion->longitud_parametro1;
+	memcpy(instruccion -> parametro2, stream, instruccion->longitud_parametro2);
+	stream += instruccion->longitud_parametro2;
+
+	return instruccion;
 }

@@ -119,10 +119,10 @@ typedef enum
 
 typedef struct
 {
-    u_int32_t ax;
-    u_int32_t bx;
-    u_int32_t cx;
-    u_int32_t dx;
+    uint32_t ax;
+    uint32_t bx;
+    uint32_t cx;
+    uint32_t dx;
 } t_registros;
 
 typedef struct
@@ -188,8 +188,11 @@ void realizar_handshake(int, op_code, t_log *);
 
 const char *obtener_nombre_instruccion(nombre_instruccion);
 
-void *serializar_contexto(t_contexto_ejecucion *ctx, int bytes);
+t_buffer *serializar_contexto(t_contexto_ejecucion *ctx);
 t_contexto_ejecucion* deserializar_contexto(t_buffer* buffer);
+
+t_buffer *serializar_contexto(t_contexto_ejecucion *ctx);
+t_instruccion* deserializar_instruccion(t_buffer* buffer);
 
 uint32_t str_to_uint32(char *str);
 
