@@ -36,7 +36,6 @@ typedef enum
     PROCESO_INICIALIZADO,
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
-    INSTRUCCION_PEDIDA,
     CONTEXTO
 } op_code;
 
@@ -117,6 +116,15 @@ typedef enum
     SLEEP_BN
 } motivo_block;
 
+typedef enum
+{
+    SYSCALL,
+    INTERRUPT_FIN_QUANTUM,
+    INTERRUPT_FIN_PROCESO,
+    PAGE_FAULT
+} motivoDesalojo;
+
+
 typedef struct
 {
     uint32_t ax;
@@ -132,6 +140,9 @@ typedef struct
     t_registros *registros;
     int numero_marco;
     int nro_pf;
+    t_instruccion* instruccion_ejecutada;
+    nombre_instruccion codigo_ultima_instru;
+    motivoDesalojo motivo_desalojado;
 } t_contexto_ejecucion;
 typedef struct
 {
@@ -191,8 +202,13 @@ const char *obtener_nombre_instruccion(nombre_instruccion);
 t_buffer *serializar_contexto(t_contexto_ejecucion *ctx);
 t_contexto_ejecucion* deserializar_contexto(t_buffer* buffer);
 
-t_buffer *serializar_contexto(t_contexto_ejecucion *ctx);
-t_instruccion* deserializar_instruccion(t_buffer* buffer);
+
+void ask_instruccion_pid_pc(int, int,int);
+void pedido_instruccion(uint32_t*,uint32_t*, int);
+void enviar_instruccion_cpu(int, t_instruccion *);
+void serializar_instruccion(t_paquete*,t_instruccion *);
+t_instruccion* deserializar_instruccion(int);
+t_instruccion* deserializar_instruccion_viejo(t_buffer*);
 
 uint32_t str_to_uint32(char *str);
 

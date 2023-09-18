@@ -150,18 +150,19 @@ void *manejo_conexion_cpu(void *arg)
 		send_page_size(config_valores_memoria.tamanio_pagina, socket_cpu_int);
 		break;
 	case PEDIDO_INSTRUCCION:
-		/*// TODO - RECIBIR el pedido del CPU
-		uint32_t pid = 0;
-		uint32_t pc = 4;
-		t_instruccion* instruccion = obtener_instruccion_pid_pc(pid,pc);
-		// TODO -- ENVIAR INSTRUCCION A cpu*/
+		uint32_t pid,pc;
+		pedido_instruccion(&pid,&pc,socket_cpu_int);
+		t_instruccion* instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
+		log_warning(logger_memoria_info, " ESPACIO PARA VER LA INSTRUCCION");
+		printf("La instruccion de PC %d para el PID %d es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
+		enviar_instruccion_cpu(socket_cpu_int,instruccion_pedida);
 		break;
 	default:
 		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
 		close(socket_cpu_int);
 		break;
 	}
-	//}
+	//
 }
 
 void *manejo_conexion_kernel(void *arg)
@@ -178,40 +179,13 @@ void *manejo_conexion_kernel(void *arg)
 	case HANDSHAKE_KERNEL:
 		log_info(logger_memoria_info, "Handshake exitoso con KERNEL, se conecto un KERNEL");
 		enviar_mensaje("Handshake exitoso con Memoria", socket_kernel_int);
-
-		// TODO - MOVER - CODIGO DE KERNEL - INICIALIZAR PROCESO
-
-		t_proceso_memoria *proceso_nuevo = malloc(sizeof(t_proceso_memoria));
-		proceso_nuevo->pid = 0;
-		proceso_nuevo->tamano = 16;
-		proceso_nuevo->path = string_new();
-
-		string_append(&(proceso_nuevo->path), "./cfg/pseudocodigo");
-
-		iniciar_proceso_path(proceso_nuevo);
-
-		// TODO - MOVER -CODIGO DE CPU - PEDIDO INSTRUCCION
-		uint32_t pid = 0;
-		uint32_t pc = 4;
-		t_instruccion *instruccion = obtener_instruccion_pid_pc(pid, pc);
-		log_warning(logger_memoria_info, " ESPACIO PARA VER LA INSTRUCCION");
-
-		printf("La instruccion de PC %d para el PID %d es: %s - %s - %s \n",pc,pid, obtener_nombre_instruccion(instruccion->codigo), instruccion->parametro1, instruccion->parametro2);
-
 		break;
 	case INICIALIZAR_PROCESO:
 		// recibir y deserializar para instanciar el t_ini_proceso;
 		// inicializo t_ini_proceso para probar
-		/*
-		t_proceso_memoria *proceso_nuevo = malloc(sizeof(t_proceso_memoria));
-		proceso_nuevo->pid = 0;
-		proceso_nuevo->tamano = 16;
-		proceso_nuevo->path = string_new();
-		string_append(&(proceso_nuevo->path), "./cfg/pseudocodigo");
-
-		iniciar_proceso_path(proceso_nuevo);
+		cargar_proceso_prueba();
 		// responder a kernel con lo que corresponda
-*/
+
 		break;
 	default:
 		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
@@ -219,6 +193,7 @@ void *manejo_conexion_kernel(void *arg)
 		break;
 	}
 	//}
+
 }
 
 void *manejo_conexion_filesystem(void *arg)
@@ -425,6 +400,19 @@ int paginas__necesarias_proceso(uint32_t tamanio_proc, uint32_t tamanio_pag)
 		entero++;
 	}
 	return (int)ceil(entero);
+}
+
+
+void cargar_proceso_prueba(){
+
+		t_proceso_memoria *proceso_nuevo = malloc(sizeof(t_proceso_memoria));
+		proceso_nuevo->pid = 0;
+		proceso_nuevo->tamano = 16;
+		proceso_nuevo->path = string_new();
+
+		string_append(&(proceso_nuevo->path), "./cfg/pseudocodigo");
+
+		iniciar_proceso_path(proceso_nuevo);
 }
 
 void finalizar_memoria()

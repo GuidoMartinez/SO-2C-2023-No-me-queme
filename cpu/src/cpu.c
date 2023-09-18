@@ -1,7 +1,7 @@
 #include "cpu.h"
 #include "instructions.h"
 
-t_contexto_ejecucion contexto_actual;
+t_contexto_ejecucion *contexto_actual;
 
 void sighandler(int s)
 {
@@ -23,9 +23,31 @@ int main(int argc, char **argv)
 
     iniciar_conexiones();
 
+    //while (1)
+    //{
+
+        codigo_operacion = recibir_operacion(conexion_kernel_dispatch);
+
+        switch (codigo_operacion)
+        {
+        case CONTEXTO:
+            contexto_actual = recibir_contexto(conexion_kernel_dispatch);
+            ejecutar_ciclo_instrucciones();
+
+            break;
+            /*      case -1:
+                      log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
+                      finalizar_cpu();
+                      return EXIT_FAILURE;*/
+        default:
+            log_warning(cpu_logger_info, "Operacion desconocida \n");
+            break;
+        }
+    //}
+
     // recibir_contexto(contexto_actual)
     // if (contexto_actual != null)ejecutar_ciclo_instrucciones();
-    //enviar_contexto_actualizado(contexto_actual);
+    // enviar_contexto_actualizado(contexto_actual);
 
     return EXIT_SUCCESS;
 }
@@ -44,7 +66,6 @@ void conectar_memoria()
     enviar_paquete(paquete_handshake, socket_memoria);
     eliminar_paquete(paquete_handshake);
 
-    // TODO: recibir informacion para traducir direcciones de memoria
     op_code respuesta = recibir_operacion(socket_memoria);
     if (respuesta == MENSAJE)
     {
@@ -62,7 +83,7 @@ void conectar_memoria()
 void receive_page_size(int socket)
 {
     op_code codigo_op = recibir_operacion(socket);
-    
+
     if (codigo_op == TAMANO_PAGINA)
     {
         int size;
@@ -95,52 +116,35 @@ void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code
     }
 }
 
-void recibir_contexto(t_contexto_ejecucion contexto){
+t_contexto_ejecucion *recibir_contexto(int socket)
+{
+    t_contexto_ejecucion *ctx;
 
-    op_code codigo_op = recibir_operacion(servidor_cpu_dispatch);
-    
+    op_code codigo_op = recibir_operacion(socket);
+
     if (codigo_op == CONTEXTO)
     {
         int size;
-        void *buffer = recibir_buffer(&size, servidor_cpu_dispatch);
-        void* ctx = deserializar_contexto(buffer);
-        memcpy(&contexto, ctx, sizeof(t_contexto_ejecucion));
+        void *buffer = recibir_buffer(&size, socket);
+        ctx = deserializar_contexto(buffer);
         free(buffer);
-        free(ctx);
     }
     else
     {
         log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta del kernel.");
     }
+    return ctx;
 }
 
-void recibir_instruccion(t_instruccion* instruccion){
+void enviar_contexto_actualizado(t_contexto_ejecucion *contexto)
+{
+    /*
+        t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(CONTEXTO);
+        t_buffer *contextoSerializado = serializar_contexto(&contexto);
+        agregar_a_paquete(paquete_instruccion, contextoSerializado, contextoSerializado->size);
+        enviar_paquete(paquete_instruccion, servidor_cpu_dispatch);
 
-    op_code codigo_op = recibir_operacion(socket_memoria);
-    
-    if (codigo_op == INSTRUCCION)
-    {
-        int size;
-        void *buffer = recibir_buffer(&size, socket_memoria);
-        void* ins = deserializar_instruccion(buffer);
-        memcpy(instruccion, ins, sizeof(t_instruccion));
-        free(buffer);
-        free(ins);
-    }
-    else
-    {
-        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta del kernel.");
-    }
-}
-
-void enviar_contexto_actualizado(t_contexto_ejecucion contexto){
-
-    t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(CONTEXTO);
-    t_buffer* contextoSerializado = serializar_contexto(&contexto);
-    agregar_a_paquete(paquete_instruccion, contextoSerializado, contextoSerializado->size);
-    enviar_paquete(paquete_instruccion, servidor_cpu_dispatch);
-
-    eliminar_paquete(paquete_instruccion);
+        eliminar_paquete(paquete_instruccion);*/
 }
 
 void cargar_configuracion(char *path)
@@ -162,84 +166,92 @@ void cargar_configuracion(char *path)
 
 void ejecutar_ciclo_instrucciones()
 {
-    /*
-        t_instruccion instruccion = fetch(contexto_ejecucion->IP);
-        decode(instruccion);
-        if(check_interrupt()) interrumpir;
+    t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
+    decode(instruccion);
+    /*if (check_interrupt())
+        interrumpir;
     */
     // devolver contexto de ejecucion al kernel al final por dispatch
 }
 
 // TODO: pide a memoria la siguiente instruccion a ejecutar
-// Recibe por parametro la primer posicion de las instrucciones
-t_instruccion fetch(int IP)
+// Recibe por parametro el pid, el pc de la instruccion a pedir
+t_instruccion *fetch(int pid, int pc)
 {
-    t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(PEDIDO_INSTRUCCION);
-    agregar_a_paquete(paquete_instruccion, &IP, sizeof(int));
-    enviar_paquete(paquete_instruccion, servidor_cpu_dispatch);
-    eliminar_paquete(paquete_instruccion);
+    ask_instruccion_pid_pc(pid, pc, socket_memoria);
 
-    t_instruccion instruccion;
-    recibir_instruccion(&instruccion);
+    op_code codigo_op = recibir_operacion(socket_memoria);
+
+    t_instruccion *instruccion;
+
+    if (codigo_op == INSTRUCCION)
+    {
+        instruccion = deserializar_instruccion(socket_memoria);
+    }
+    else
+    {
+        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la instruccion de memoria.");
+        abort();
+    }
 
     return instruccion;
 }
 
 // Ejecuta instrucciones
-void decode(t_instruccion instruccion)
+void decode(t_instruccion *instruccion)
 {
-    switch(instruccion.codigo){
-        case SET:
-            _set(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case SUM:
-            _sum(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case SUB:
-            _sub(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case JNZ:
-            _jnz(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case SLEEP:
-            _sleep(instruccion.parametro1, &contexto_actual);
-            break;
-        case WAIT:
-            _wait(instruccion.parametro1, &contexto_actual);
-            break;
-        case SIGNAL:
-            _signal(instruccion.parametro1, &contexto_actual);
-            break;
-        case MOV_IN:
-            _mov_in(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case MOV_OUT:
-            _mov_out(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case F_OPEN:
-            _f_open(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case F_CLOSE:
-            _f_close(instruccion.parametro1,&contexto_actual);
-            break;
-        case F_SEEK:
-            _f_seek(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-        case F_READ:
-            _f_read(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case F_WRITE:
-            _f_write(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case F_TRUNCATE:
-            _f_truncate(instruccion.parametro1, instruccion.parametro2, &contexto_actual);
-            break;
-        case EXIT:
-            __exit();
-            break;
-        default:
-            log_error(cpu_logger_info, "Instruccion no reconocida");
-            break;
-        
+    switch (instruccion->codigo)
+    {
+    case SET:
+        _set(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case SUM:
+        _sum(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case SUB:
+        _sub(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case JNZ:
+        _jnz(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case SLEEP:
+        _sleep(instruccion->parametro1, contexto_actual);
+        break;
+    case WAIT:
+        _wait(instruccion->parametro1, contexto_actual);
+        break;
+    case SIGNAL:
+        _signal(instruccion->parametro1, contexto_actual);
+        break;
+    case MOV_IN:
+        _mov_in(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case MOV_OUT:
+        _mov_out(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case F_OPEN:
+        _f_open(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case F_CLOSE:
+        _f_close(instruccion->parametro1, contexto_actual);
+        break;
+    case F_SEEK:
+        _f_seek(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+    case F_READ:
+        _f_read(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case F_WRITE:
+        _f_write(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case F_TRUNCATE:
+        _f_truncate(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        break;
+    case EXIT:
+        __exit();
+        break;
+    default:
+        log_error(cpu_logger_info, "Instruccion no reconocida");
+        break;
     }
 }
 

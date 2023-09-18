@@ -35,11 +35,13 @@ void cargar_servidor(int* servidor, char* puerto_escucha, int* conexion, op_code
 void ejecutar_ciclo_instrucciones();
 
 //funciones de instrucciones
-t_instruccion fetch(int IP);
-void decode(t_instruccion instruccion);
+t_instruccion* fetch(int,int);
+void decode(t_instruccion* instruccion);
 bool check_interrupt();
 
 void dividirCadena(char* cadena, char** cadena_dividida);
+
+t_contexto_ejecucion* recibir_contexto(int);
 
 void receive_page_size(int);
 #endif

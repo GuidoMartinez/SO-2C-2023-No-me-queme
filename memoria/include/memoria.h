@@ -51,6 +51,9 @@ t_proceso_memoria *obtener_proceso_pid(uint32_t);
 t_instruccion *obtener_instrccion_pc(t_proceso_memoria*, uint32_t);
 t_instruccion* obtener_instruccion_pid_pc(uint32_t, uint32_t);
 
+
+void cargar_proceso_prueba();
+
 void finalizar_memoria();
 
 #endif
