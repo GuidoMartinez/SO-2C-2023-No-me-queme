@@ -23,8 +23,9 @@ int main(int argc, char **argv)
 
     iniciar_conexiones();
 
-    //while (1)
-    //{
+    //cambiar a uno para recibir la operacion de kernel
+    while (0)
+    {
 
         codigo_operacion = recibir_operacion(conexion_kernel_dispatch);
 
@@ -43,7 +44,7 @@ int main(int argc, char **argv)
             log_warning(cpu_logger_info, "Operacion desconocida \n");
             break;
         }
-    //}
+    }
 
     return EXIT_SUCCESS;
 }
@@ -53,8 +54,8 @@ void iniciar_conexiones()
     conectar_memoria();
     cargar_servidor(&servidor_cpu_dispatch, config_valores_cpu.puerto_escucha_dispatch, &conexion_kernel_dispatch, HANDSHAKE_CPU_DISPATCH, "DISPATCH");
     cargar_servidor(&servidor_cpu_interrupt, config_valores_cpu.puerto_escucha_interrupt, &conexion_kernel_interrupt, HANDSHAKE_CPU_INTERRUPT, "INTERRUPT");
-    pthread_create(hiloInterrupt, NULL, recibir_interrupcion, NULL);
-    pthread_detach(*(hiloInterrupt));
+    //pthread_create(hiloInterrupt, NULL, recibir_interrupcion, NULL);
+    //pthread_detach(*(hiloInterrupt));
 
 }
 
