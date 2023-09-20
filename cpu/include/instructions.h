@@ -22,8 +22,8 @@ void _f_seek(char* nombre_archivo, char* posicion, t_contexto_ejecucion *context
 void _f_read(char* nombre_archivo, char* direc_logica, t_contexto_ejecucion *contexto);
 void _f_write(char* nombre_archivo, char* direc_logica, t_contexto_ejecucion *contexto);
 void _f_truncate(char* nombre_archivo, char* tamanio, t_contexto_ejecucion *contexto);
-void __exit();
+void __exit(t_contexto_ejecucion *contexto);
 
-uint32_t *get_registry(char* registry);
+uint32_t *get_registry(char* registry, t_contexto_ejecucion *contexto);
 
 #endif

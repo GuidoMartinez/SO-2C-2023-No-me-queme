@@ -36,7 +36,8 @@ typedef enum
     PROCESO_INICIALIZADO,
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
-    CONTEXTO
+    CONTEXTO,
+    INTERRUPCION
 } op_code;
 
 typedef enum

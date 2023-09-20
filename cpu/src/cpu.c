@@ -32,8 +32,8 @@ int main(int argc, char **argv)
         {
         case CONTEXTO:
             contexto_actual = recibir_contexto(conexion_kernel_dispatch);
-            ejecutar_ciclo_instrucciones();
-
+            while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir) ejecutar_ciclo_instruccion();
+            enviar_contexto_actualizado();
             break;
             /*      case -1:
                       log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
@@ -45,10 +45,6 @@ int main(int argc, char **argv)
         }
     //}
 
-    // recibir_contexto(contexto_actual)
-    // if (contexto_actual != null)ejecutar_ciclo_instrucciones();
-    // enviar_contexto_actualizado(contexto_actual);
-
     return EXIT_SUCCESS;
 }
 
@@ -57,6 +53,25 @@ void iniciar_conexiones()
     conectar_memoria();
     cargar_servidor(&servidor_cpu_dispatch, config_valores_cpu.puerto_escucha_dispatch, &conexion_kernel_dispatch, HANDSHAKE_CPU_DISPATCH, "DISPATCH");
     cargar_servidor(&servidor_cpu_interrupt, config_valores_cpu.puerto_escucha_interrupt, &conexion_kernel_interrupt, HANDSHAKE_CPU_INTERRUPT, "INTERRUPT");
+    pthread_create(hiloInterrupt, NULL, recibir_interrupcion, NULL);
+    pthread_detach(*(hiloInterrupt));
+
+}
+
+void* recibir_interrupcion(void* arg){
+    codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
+    switch (codigo_operacion)
+    {
+    case INTERRUPCION:
+        log_info(cpu_logger_info, "Se recibio una interrupcion");
+        interrumpir = true;
+        break;
+    default:
+        log_warning(cpu_logger_info, "Operacion desconocida \n");
+        break;
+    }
+
+    return NULL;
 }
 
 void conectar_memoria()
@@ -136,11 +151,11 @@ t_contexto_ejecucion *recibir_contexto(int socket)
     return ctx;
 }
 
-void enviar_contexto_actualizado(t_contexto_ejecucion *contexto)
+void enviar_contexto_actualizado()
 {
     /*
         t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(CONTEXTO);
-        t_buffer *contextoSerializado = serializar_contexto(&contexto);
+        t_buffer *contextoSerializado = serializar_contexto(contexto_actual);
         agregar_a_paquete(paquete_instruccion, contextoSerializado, contextoSerializado->size);
         enviar_paquete(paquete_instruccion, servidor_cpu_dispatch);
 
@@ -164,17 +179,14 @@ void cargar_configuracion(char *path)
     config_valores_cpu.ip_escucha = config_get_string_value(config, "IP_ESCUCHA");
 }
 
-void ejecutar_ciclo_instrucciones()
+void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
-    /*if (check_interrupt())
-        interrumpir;
-    */
-    // devolver contexto de ejecucion al kernel al final por dispatch
+    contexto_actual->program_counter++;
 }
 
-// TODO: pide a memoria la siguiente instruccion a ejecutar
+// Pide a memoria la siguiente instruccion a ejecutar
 // Recibe por parametro el pid, el pc de la instruccion a pedir
 t_instruccion *fetch(int pid, int pc)
 {
@@ -247,7 +259,7 @@ void decode(t_instruccion *instruccion)
         _f_truncate(instruccion->parametro1, instruccion->parametro2, contexto_actual);
         break;
     case EXIT:
-        __exit();
+        __exit(contexto_actual);
         break;
     default:
         log_error(cpu_logger_info, "Instruccion no reconocida");
@@ -277,11 +289,6 @@ void dividirCadena(char *cadena, char **palabras)
     }
 }
 
-// TODO: recibir por interrupt interrupciones
-bool check_interrupt()
-{
-    return false;
-}
 
 void finalizar_cpu()
 {
