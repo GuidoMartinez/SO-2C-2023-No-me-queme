@@ -9,6 +9,13 @@ pthread_mutex_t mutex_cola_listos_para_ready;
 pthread_mutex_t mutex_cola_block;
 pthread_mutex_t mutex_cola_exec;
 pthread_mutex_t mutex_cola_exit;
+pthread_mutex_t leer_grado;
+sem_t sem_multiprog;
+sem_t sem_exit;
+sem_t sem_listos_ready;
+sem_t sem_ready;
+sem_t sem_exec;
+
 t_list* lista_ready;
 t_list* cola_block ;
 t_list* cola_listos_para_ready;
@@ -17,10 +24,18 @@ t_list* cola_exit;
 t_list* lista_global;
 
 int generador_de_id=0;
+int grado_multiprogramacion_ini;
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
 typedef struct // archivo de configuracion kernel
 {char *ip_memoria;char *puerto_memoria;char *ip_filesystem;char *puerto_filesystem;char *ip_cpu;char *puerto_cpu_dispatch;char *puerto_cpu_interrupt;char *algoritmo_planificacion;int quantum;int grado_multiprogramacion;char **recursos;char **instancias_recursos;
 } arch_config;
+
+typedef struct
+{
+    int g_multiprog_ini;
+} sem_t1;
+
+sem_t1 sem;
 
 typedef enum{FIFO,RR,PRIORIDADES} t_algoritmo;
 t_algoritmo ALGORITMO_PLANIFICACION;
@@ -49,5 +64,6 @@ void set_pcb_ready(t_pcb *) ;
 void prceso_admitido(t_pcb* );
 void pcb_destroy(t_pcb* );
 char* motivo_exit_to_string(motivo_exit );
+t_pcb *buscarProceso(int );
 
 #endif

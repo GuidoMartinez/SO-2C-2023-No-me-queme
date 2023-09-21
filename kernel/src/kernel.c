@@ -41,6 +41,20 @@ int main(int argc, char **argv)
 
     log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
 
+	pthread_mutex_init(&mutex_cola_ready, NULL);
+	pthread_mutex_init(&mutex_cola_listos_para_ready, NULL);
+	pthread_mutex_init(&mutex_cola_exit, NULL);
+	pthread_mutex_init(&mutex_cola_exec, NULL);
+	pthread_mutex_init(&mutex_cola_block, NULL);
+
+	
+	/*sem_init(&sem_listos_ready, 0, 0);
+	sem_init(&sem_ready, 0, 0);
+	sem_init(&sem_exec, 0, 1);
+	sem_init(&sem_exit, 0, 0);
+	sem_init(&sem_block_return, 0, 0);*/
+	
+
     while (1)
     {
         char *linea;
@@ -84,11 +98,11 @@ int main(int argc, char **argv)
         if (!strncmp(linea, "finalizar_proceso", 17))
         {
             char **palabras = string_split(linea, " ");
-            int pid = palabras[1];
+            int pid = atoi(palabras[1]);
            
 
            // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
-            finalizar_proceso(pid);
+          finalizar_proceso(pid);
 
            // free(linea);
            // break;
@@ -96,12 +110,10 @@ int main(int argc, char **argv)
 
          if (!strncmp(linea, "iniciar_planificacion", 21))
         {
-            //char **palabras = string_split(linea, " ");
-            //int pid = palabras[1];
            
 
-           // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
-          //  finalizar_proceso(pid);
+           // log_info(kernel_logger_info, "Inicie plani");
+            iniciar_planificacion();
 
             free(linea);
            break;
@@ -119,8 +131,22 @@ int main(int argc, char **argv)
             free(linea);
            break;
         }
+if (!strncmp(linea, "modificar_grado", 15))
+        {
+            char **palabras = string_split(linea, " ");
+            int grado = atoi(palabras[1]);
+          
+           sem.g_multiprog_ini=grado;
 
-        // free(linea);
+       //    int valor =sem.g_multiprog_ini;
+
+  log_info(kernel_logger_info, " Modifique %d ", grado);
+          //  free(linea);
+          // break;
+        }
+
+        // fr
+
     }
 
     return 0;
@@ -147,6 +173,7 @@ void cargar_configuracion(char *path)
     config_valores_kernel.quantum = config_get_int_value(config, "QUANTUM");
     config_valores_kernel.algoritmo_planificacion = config_get_string_value(config, "ALGORITMO_PLANIFICACION");
     config_valores_kernel.grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
+    sem.g_multiprog_ini=config_valores_kernel.grado_multiprogramacion ; //esto es una struct
     config_valores_kernel.recursos = config_get_array_value(config, "RECURSOS");
     config_valores_kernel.instancias_recursos = config_get_array_value(config, "INSTANCIAS_RECURSOS");
 }
@@ -173,15 +200,28 @@ void iniciar_proceso(char *path, int size, int prioridad)
 
 void finalizar_proceso(int pid)
 {
-    //aca tengo q buscar el proceso activo
+     t_pcb *proceso_encontrado;
+     list_add(lista_global,proceso_encontrado);
+    proceso_encontrado= buscarProceso(pid);
     pthread_mutex_lock(&mutex_cola_exit);
-   // cambiar_estado(pcb, FINISH_EXIT);
-   // list_add(lista_global,pcb);
-   //char* motivo = motivo_exit_to_string(pcb->contexto_ejecucion->motivo_exit);
+    list_add(cola_exit,proceso_encontrado);
     pthread_mutex_unlock(&mutex_cola_exit);
-    //pcb_destroy(pcb);
-    //tener en cuenta semaforos
+    cambiar_estado(proceso_encontrado, FINISH_EXIT);
+   list_add(lista_global,proceso_encontrado);
+   char* motivo = motivo_exit_to_string(proceso_encontrado->motivo_exit);
+    //sem_post(&sem_exit);
     log_info(kernel_logger_info, "Llegue hasta finalizar ");
+}
+
+t_pcb *buscarProceso(int pid_pedido)
+{
+	bool _proceso_id(void *elemento)
+	{
+		return ((t_pcb *)elemento)->pid == pid_pedido;
+	}
+	t_pcb *proceso_elegido;
+	proceso_elegido = list_find(lista_global, _proceso_id);
+	return proceso_elegido;
 }
 
 void iniciar_planificacion()
@@ -204,7 +244,7 @@ char* motivo_exit_to_string(motivo_exit motivo){
 void exit_pcb(void) {
 	while (1)
 	{
-	
+	    sem_wait(&sem_exit);
 		t_pcb *pcb = safe_pcb_remove(cola_exit, &mutex_cola_exit);
 		char* motivo = motivo_exit_to_string(pcb->motivo_exit);
 		pcb_destroy(pcb);
@@ -251,18 +291,18 @@ void pcb_create()
     return pcb;
 }
 
-/*t_pcb* elegir_pcb_segun_algoritmo(){
+t_pcb* elegir_pcb_segun_algoritmo(){
     switch (ALGORITMO_PLANIFICACION) {
     case FIFO:
         return safe_pcb_remove(lista_ready, &mutex_cola_ready);
     case RR:
-        return algo;
+        return 0;
     case PRIORIDADES:
-    return    algo;
+    return    0;
     default:
         exit(1);
     }
-}*/
+}
 char *estado_to_string(estado_proceso estado)
 {
     switch (estado)
@@ -336,8 +376,10 @@ void planificar_largo_plazo()
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
     pthread_create(&hilo_block, NULL, (void *)block, NULL);
 
+    pthread_detach(hilo_exit);
     pthread_detach(hilo_ready);
     pthread_detach(hilo_block);
+
 }
 
 void planificar_corto_plazo()
@@ -351,10 +393,22 @@ void ready_pcb(void)
 {
     while (1)
     {
-
+        sem_wait(&sem_listos_ready);
         t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
+       pthread_mutex_lock(&leer_grado);
+        int procesos_activos = list_size(lista_ready) + list_size(cola_exec) + list_size(cola_block);
 
-        set_pcb_ready(pcb);
+        if (procesos_activos < sem.g_multiprog_ini) {
+
+            procesos_activos = procesos_activos + 1;
+             pthread_mutex_unlock(&leer_grado);
+              set_pcb_ready(pcb);
+                sem_post(&sem_ready);
+        }
+        
+
+       
+       
     }
 }
 
@@ -362,9 +416,10 @@ void exec_pcb()
 {
     while (1)
     {
-
-        // t_pcb *pcb = elegir_pcb_segun_algoritmo();
-        // prceso_admitido(pcb);
+        sem_wait(&sem_ready);
+		sem_wait(&sem_exec);
+        t_pcb *pcb = elegir_pcb_segun_algoritmo();
+        prceso_admitido(pcb);
     }
 }
 
