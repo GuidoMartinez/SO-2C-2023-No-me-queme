@@ -48,10 +48,10 @@ int main(int argc, char **argv)
 	pthread_mutex_init(&mutex_cola_block, NULL);
 
 	
-	/*sem_init(&sem_listos_ready, 0, 0);
+	sem_init(&sem_listos_ready, 0, 0);
 	sem_init(&sem_ready, 0, 0);
 	sem_init(&sem_exec, 0, 1);
-	sem_init(&sem_exit, 0, 0);
+	/*sem_init(&sem_exit, 0, 0);
 	sem_init(&sem_block_return, 0, 0);*/
 	
 
@@ -84,8 +84,8 @@ int main(int argc, char **argv)
         {
             char **palabras = string_split(linea, " ");
             char path = palabras[1];
-            int size = palabras[2];
-            int prioridad = palabras[3];
+            int size = atoi(palabras[2]);
+            int prioridad = atoi(palabras[3]);
 
             // log_info(kernel_logger_info, "Inicie proceso %s ",palabras[3]);
              iniciar_proceso(path,size,prioridad);
@@ -115,8 +115,8 @@ int main(int argc, char **argv)
            // log_info(kernel_logger_info, "Inicie plani");
             iniciar_planificacion();
 
-            free(linea);
-           break;
+          //  free(linea);
+          // break;
         }
 
  if (!strncmp(linea, "detener_planificacion", 21))
@@ -192,6 +192,7 @@ void iniciar_proceso(char *path, int size, int prioridad)
 {
    // generador_de_id = 0;
     cola_block = list_create();
+    cola_exec= list_create();
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
     lista_global=list_create();
@@ -288,12 +289,14 @@ void pcb_create()
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
     list_add(lista_global,pcb);
     log_info(kernel_logger_info, "Llegue hasta PCB %d",pcb->pid);
-    return pcb;
+    //return pcb;
+    sem_post(&sem_listos_ready);
 }
 
 t_pcb* elegir_pcb_segun_algoritmo(){
     switch (ALGORITMO_PLANIFICACION) {
     case FIFO:
+      log_info(kernel_logger_info, "ELEGI FIFO");
         return safe_pcb_remove(lista_ready, &mutex_cola_ready);
     case RR:
         return 0;
@@ -337,8 +340,8 @@ void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado)
         char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
         char *estado_anterior_string = strdup(estado_to_string(pcb->estado));
         pcb->estado = nuevo_estado;
-        free(estado_anterior_string);
-        free(nuevo_estado_string);
+       // free(estado_anterior_string);
+        //free(nuevo_estado_string);
     }
 }
 
@@ -368,22 +371,24 @@ void procesar_cambio_estado(t_pcb *pcb, estado_proceso estado_nuevo)
 
 void planificar_largo_plazo()
 {
+    log_info(kernel_logger_info, "Entre al largo plazo");
     pthread_t hilo_ready;
     pthread_t hilo_exit;
     pthread_t hilo_block;
 
-    pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
+    //pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
-    pthread_create(&hilo_block, NULL, (void *)block, NULL);
+   // pthread_create(&hilo_block, NULL, (void *)block, NULL);
 
-    pthread_detach(hilo_exit);
+   // pthread_detach(hilo_exit);
     pthread_detach(hilo_ready);
-    pthread_detach(hilo_block);
+   // pthread_detach(hilo_block);
 
 }
 
 void planificar_corto_plazo()
 {
+    log_info(kernel_logger_info, "Entre corto plazo");
     pthread_t hilo_corto_plazo;
     pthread_create(&hilo_corto_plazo, NULL, (void *)exec_pcb, NULL);
     pthread_detach(hilo_corto_plazo);
@@ -395,15 +400,18 @@ void ready_pcb(void)
     {
         sem_wait(&sem_listos_ready);
         t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
+        log_info(kernel_logger_info, "pASE AL READY PCB %d",pcb->pid);
        pthread_mutex_lock(&leer_grado);
-        int procesos_activos = list_size(lista_ready) + list_size(cola_exec) + list_size(cola_block);
+        int procesos_activos = list_size(lista_ready) ;
+        //+ list_size(cola_exec) + list_size(cola_block);
 
         if (procesos_activos < sem.g_multiprog_ini) {
 
             procesos_activos = procesos_activos + 1;
              pthread_mutex_unlock(&leer_grado);
+             log_info(kernel_logger_info, "VOy a pasar al ready %d",pcb->pid);
               set_pcb_ready(pcb);
-                sem_post(&sem_ready);
+               sem_post(&sem_ready);
         }
         
 
@@ -416,10 +424,12 @@ void exec_pcb()
 {
     while (1)
     {
+        log_info(kernel_logger_info, "Entre exec");
         sem_wait(&sem_ready);
 		sem_wait(&sem_exec);
         t_pcb *pcb = elegir_pcb_segun_algoritmo();
-        prceso_admitido(pcb);
+        log_info(kernel_logger_info, "Sale pcb  %d",pcb->pid);
+       prceso_admitido(pcb);
     }
 }
 
@@ -461,4 +471,5 @@ void set_pcb_ready(t_pcb *pcb)
     cambiar_estado(pcb, READY);
     list_add(lista_ready, pcb);
     pthread_mutex_unlock(&mutex_cola_ready);
+    log_info(kernel_logger_info, "SET PCB READY %d",pcb->pid);
 }
