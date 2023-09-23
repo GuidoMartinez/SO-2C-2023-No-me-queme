@@ -10,6 +10,7 @@ pthread_mutex_t mutex_cola_block;
 pthread_mutex_t mutex_cola_exec;
 pthread_mutex_t mutex_cola_exit;
 pthread_mutex_t leer_grado;
+pthread_mutex_t mutex_generador_pid;
 sem_t sem_multiprog;
 sem_t sem_exit;
 sem_t sem_listos_ready;

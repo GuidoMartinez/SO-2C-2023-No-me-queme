@@ -39,13 +39,20 @@ int main(int argc, char **argv)
     conexion_filesystem = crear_conexion(config_valores_kernel.ip_filesystem, config_valores_kernel.puerto_filesystem);
     realizar_handshake(conexion_filesystem, HANDSHAKE_KERNEL, kernel_logger_info);
 
-    log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
+   // log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
+
+    cola_block = list_create();
+    cola_exec= list_create();
+    cola_listos_para_ready = list_create();
+    lista_ready = list_create();
+    lista_global=list_create();
 
 	pthread_mutex_init(&mutex_cola_ready, NULL);
 	pthread_mutex_init(&mutex_cola_listos_para_ready, NULL);
 	pthread_mutex_init(&mutex_cola_exit, NULL);
 	pthread_mutex_init(&mutex_cola_exec, NULL);
 	pthread_mutex_init(&mutex_cola_block, NULL);
+    pthread_mutex_init(&mutex_generador_pid, NULL);
 
 	
 	sem_init(&sem_listos_ready, 0, 0);
@@ -191,11 +198,6 @@ void finalizar_kernel()
 void iniciar_proceso(char *path, int size, int prioridad)
 {
    // generador_de_id = 0;
-    cola_block = list_create();
-    cola_exec= list_create();
-    cola_listos_para_ready = list_create();
-    lista_ready = list_create();
-    lista_global=list_create();
     pcb_create();
 }
 
@@ -281,15 +283,17 @@ void pcb_create()
     t_contexto_ejecucion *contexto = malloc(sizeof(t_contexto_ejecucion));
     pcb->archivos_abiertos = list_create();
     pcb->contexto_ejecucion = contexto;
+    pthread_mutex_lock(&mutex_generador_pid);
     pcb->pid = generador_de_id;
     pcb->contexto_ejecucion->pid = generador_de_id;
     generador_de_id++;
+    pthread_mutex_unlock(&mutex_generador_pid);
     pcb->contexto_ejecucion->program_counter = 0;
     pcb->estado = NEW;
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
     list_add(lista_global,pcb);
     log_info(kernel_logger_info, "Llegue hasta PCB %d",pcb->pid);
-    //return pcb;
+   // return pcb;
     sem_post(&sem_listos_ready);
 }
 
@@ -412,6 +416,7 @@ void ready_pcb(void)
              log_info(kernel_logger_info, "VOy a pasar al ready %d",pcb->pid);
               set_pcb_ready(pcb);
                sem_post(&sem_ready);
+               
         }
         
 
@@ -437,6 +442,8 @@ void prceso_admitido(t_pcb *pcb)
 {
     cambiar_estado(pcb, EXEC);
     safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
+    sem_post(&sem_exec);
+    
 }
 
 void block()
