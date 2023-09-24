@@ -6,6 +6,7 @@
 t_log* logger_memoria_info;
 t_config* config;
 t_list *procesos_totales,*tablas_de_paginas_en_memoria;
+t_proceso_memoria* proceso_memoria;
 
 int server_memoria, socket_fs, socket_cpu, socket_kernel;
 int tamanio_memoria;
@@ -51,6 +52,8 @@ t_proceso_memoria *obtener_proceso_pid(uint32_t);
 t_instruccion *obtener_instrccion_pc(t_proceso_memoria*, uint32_t);
 t_instruccion* obtener_instruccion_pid_pc(uint32_t, uint32_t);
 
+
+t_proceso_memoria *recibir_proceso_nuevo(int);
 
 void cargar_proceso_prueba();
 

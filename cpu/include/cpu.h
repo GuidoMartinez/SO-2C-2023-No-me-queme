@@ -42,8 +42,8 @@ void cargar_servidor(int* servidor, char* puerto_escucha, int* conexion, op_code
 
 void* recibir_interrupcion(void* arg);
 
-t_contexto_ejecucion* recibir_contexto(int);
-void enviar_contexto_actualizado();
+/*t_contexto_ejecucion* recibir_contexto(int);
+void enviar_contexto_actualizado();*/
 
 
 //funciones de instrucciones

@@ -34,7 +34,7 @@ int main(int argc, char **argv)
         case CONTEXTO:
             contexto_actual = recibir_contexto(conexion_kernel_dispatch);
             while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir) ejecutar_ciclo_instruccion();
-            enviar_contexto_actualizado();
+            enviar_contexto(conexion_kernel_dispatch,contexto_actual);
             break;
             /*      case -1:
                       log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
@@ -42,6 +42,7 @@ int main(int argc, char **argv)
                       return EXIT_FAILURE;*/
         default:
             log_warning(cpu_logger_info, "Operacion desconocida \n");
+            abort();
             break;
         }
     }
@@ -131,7 +132,7 @@ void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code
         finalizar_cpu();
     }
 }
-
+/*
 t_contexto_ejecucion *recibir_contexto(int socket)
 {
     t_contexto_ejecucion *ctx;
@@ -151,7 +152,7 @@ t_contexto_ejecucion *recibir_contexto(int socket)
     }
     return ctx;
 }
-
+*/
 void enviar_contexto_actualizado()
 {
     /*
@@ -184,7 +185,7 @@ void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
-    contexto_actual->program_counter++;
+    contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
 }
 
 // Pide a memoria la siguiente instruccion a ejecutar

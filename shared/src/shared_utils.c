@@ -326,64 +326,117 @@ uint32_t str_to_uint32(char *str)
 	return result;
 }
 
-t_buffer *serializar_contexto(t_contexto_ejecucion *ctx)
+void serializar_contexto(t_paquete *paquete, t_contexto_ejecucion *ctx)
 {
-	t_buffer *buffer = malloc(sizeof(t_buffer));
 
-	buffer->size = sizeof(int) * 4 +
-				   sizeof(uint32_t) * 4;
+	paquete->buffer->size = sizeof(int) * 4 +
+							sizeof(t_registros) +
+							sizeof(nombre_instruccion) +
+							sizeof(uint32_t) * 2 +
+							ctx->instruccion_ejecutada->longitud_parametro1 +
+							ctx->instruccion_ejecutada->longitud_parametro2 +
+							sizeof(nombre_instruccion) +
+							sizeof(motivoDesalojo);
 
-	void *stream = malloc(buffer->size);
+	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+	paquete->buffer->stream = malloc(paquete->buffer->size);
 
 	int desplazamiento = 0;
 
-	memcpy(stream + desplazamiento, &(ctx->pid), sizeof(int));
-	desplazamiento += sizeof(int);
-	memcpy(stream + desplazamiento, &(ctx->program_counter), sizeof(int));
-	desplazamiento += sizeof(int);
-	memcpy(stream + desplazamiento, &(ctx->registros)->ax, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
-	memcpy(stream + desplazamiento, &(ctx->registros)->bx, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
-	memcpy(stream + desplazamiento, &(ctx->registros)->cx, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
-	memcpy(stream + desplazamiento, &(ctx->registros)->dx, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
-	memcpy(stream + desplazamiento, &(ctx->numero_marco), sizeof(int));
-	desplazamiento += sizeof(int);
-	memcpy(stream + desplazamiento, &(ctx->nro_pf), sizeof(int));
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->pid), sizeof(int));
 	desplazamiento += sizeof(int);
 
-	buffer->stream = stream;
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->program_counter), sizeof(int));
+	desplazamiento += sizeof(int);
 
-	return buffer;
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->registros), sizeof(t_registros));
+	desplazamiento += sizeof(t_registros);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->numero_marco), sizeof(int));
+	desplazamiento += sizeof(int);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->nro_pf), sizeof(int));
+	desplazamiento += sizeof(int);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->instruccion_ejecutada->codigo), sizeof(nombre_instruccion));
+	desplazamiento += sizeof(nombre_instruccion);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->instruccion_ejecutada->longitud_parametro1), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->instruccion_ejecutada->longitud_parametro2), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(paquete->buffer->stream + desplazamiento, ctx->instruccion_ejecutada->parametro1, ctx->instruccion_ejecutada->longitud_parametro1);
+	desplazamiento += ctx->instruccion_ejecutada->longitud_parametro1;
+
+	memcpy(paquete->buffer->stream + desplazamiento, ctx->instruccion_ejecutada->parametro2, ctx->instruccion_ejecutada->longitud_parametro2);
+	desplazamiento += ctx->instruccion_ejecutada->longitud_parametro2;
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->codigo_ultima_instru), sizeof(nombre_instruccion));
+	desplazamiento += sizeof(nombre_instruccion);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->motivo_desalojado), sizeof(motivoDesalojo));
+	desplazamiento += sizeof(motivoDesalojo);
 }
 
-t_contexto_ejecucion *deserializar_contexto(t_buffer *buffer)
+void enviar_contexto(int socket, t_contexto_ejecucion *contexto_a_enviar)
 {
 
-	t_contexto_ejecucion *ctx = malloc(sizeof(t_contexto_ejecucion));
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(CONTEXTO);
+	serializar_contexto(paquete, contexto_a_enviar);
+	enviar_paquete(paquete, socket);
+	eliminar_paquete(paquete);
+}
 
-	void *stream = buffer->stream;
+t_contexto_ejecucion *recibir_contexto(int socket)
+{
+	int size;
+	void *buffer;
 
-	memcpy(&(ctx->pid), stream, sizeof(int));
-	stream += sizeof(int);
-	memcpy(&(ctx->program_counter), stream, sizeof(int));
-	stream += sizeof(int);
-	memcpy(&(ctx->registros->ax), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
-	memcpy(&(ctx->registros->bx), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
-	memcpy(&(ctx->registros->cx), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
-	memcpy(&(ctx->registros->dx), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
-	memcpy(&(ctx->numero_marco), stream, sizeof(int));
-	stream += sizeof(int);
-	memcpy(&(ctx->nro_pf), stream, sizeof(int));
-	stream += sizeof(int);
+	buffer = recibir_buffer(&size, socket);
+	printf("Size del stream a deserializar: %d \n", size);
 
-	return ctx;
+	t_contexto_ejecucion *contexto_recibido = malloc(sizeof(t_contexto_ejecucion));
+
+	int offset = 0;
+
+	memcpy(&(contexto_recibido->pid), buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&(contexto_recibido->program_counter), buffer + offset, sizeof(int));
+	offset += sizeof(int);
+
+	contexto_recibido->registros = malloc(sizeof(t_registros));
+	memcpy(contexto_recibido->registros, buffer + offset, sizeof(t_registros));
+	offset += sizeof(t_registros);
+
+	memcpy(&(contexto_recibido->numero_marco), buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&(contexto_recibido->nro_pf), buffer + offset, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(&(contexto_recibido->instruccion_ejecutada->codigo), buffer + offset, sizeof(nombre_instruccion));
+	offset += sizeof(nombre_instruccion);
+	memcpy(&(contexto_recibido->instruccion_ejecutada->longitud_parametro1), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(&(contexto_recibido->instruccion_ejecutada->longitud_parametro2), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	contexto_recibido->instruccion_ejecutada->parametro1 = malloc(contexto_recibido->instruccion_ejecutada->longitud_parametro1);
+	memcpy(contexto_recibido->instruccion_ejecutada->parametro1, buffer + offset, contexto_recibido->instruccion_ejecutada->longitud_parametro1);
+	offset += sizeof(uint32_t);
+
+	contexto_recibido->instruccion_ejecutada->parametro2 = malloc(contexto_recibido->instruccion_ejecutada->longitud_parametro2);
+	memcpy(contexto_recibido->instruccion_ejecutada->parametro2, buffer + offset, contexto_recibido->instruccion_ejecutada->longitud_parametro2);
+	offset += sizeof(uint32_t);
+
+	memcpy(&(contexto_recibido->codigo_ultima_instru), buffer + offset, sizeof(nombre_instruccion));
+	offset += sizeof(nombre_instruccion);
+
+	memcpy(&(contexto_recibido->motivo_desalojado), buffer + offset, sizeof(motivoDesalojo));
+	offset += sizeof(motivoDesalojo);
+
+	return contexto_recibido;
 }
 
 void enviar_instruccion_cpu(int socket, t_instruccion *instruccion)
@@ -453,6 +506,7 @@ t_instruccion *deserializar_instruccion(int socket)
 	return instruccion_recibida;
 }
 
+// pedido de CPU a MEMORIA para la instruccion segun PC y PID
 void ask_instruccion_pid_pc(int pid, int pc, int socket)
 {
 
@@ -465,7 +519,8 @@ void ask_instruccion_pid_pc(int pid, int pc, int socket)
 	eliminar_paquete(paquete_instruccion);
 }
 
-void pedido_instruccion(uint32_t* pid, uint32_t* pc, int socket)
+// RECIBO PEDIDO DE CPU EN MEMORIA SOBRE LA INSTRUCCION CON PC Y PID INDICADO
+void pedido_instruccion(uint32_t *pid, uint32_t *pc, int socket)
 {
 	int size;
 	void *buffer = recibir_buffer(&size, socket);

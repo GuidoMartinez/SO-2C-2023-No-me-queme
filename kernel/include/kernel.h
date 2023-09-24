@@ -27,6 +27,10 @@ t_list* lista_global;
 int generador_de_id=0;
 int grado_multiprogramacion_ini;
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
+int pid_nuevo;
+op_code codigo_operacion;
+
+
 typedef struct // archivo de configuracion kernel
 {char *ip_memoria;char *puerto_memoria;char *ip_filesystem;char *puerto_filesystem;char *ip_cpu;char *puerto_cpu_dispatch;char *puerto_cpu_interrupt;char *algoritmo_planificacion;int quantum;int grado_multiprogramacion;char **recursos;char **instancias_recursos;
 } arch_config;
@@ -54,7 +58,7 @@ void planificar_largo_plazo();
 void planificar_corto_plazo() ;
 char *estado_to_string(estado_proceso );
 void safe_pcb_add(t_list*, t_pcb*, pthread_mutex_t*);
-void pcb_create();
+void pcb_create(int,int,int);
 t_pcb* safe_pcb_remove(t_list* , pthread_mutex_t* );
 t_pcb* elegir_pcb_segun_algoritmo();
 void ready_pcb(void);
@@ -66,5 +70,6 @@ void prceso_admitido(t_pcb* );
 void pcb_destroy(t_pcb* );
 char* motivo_exit_to_string(motivo_exit );
 t_pcb *buscarProceso(int );
-
+void crear_proceso_memoria(int,int,char*,int);
+void serializar_pedido_proceso_nuevo(t_paquete*, int, int,char*);
 #endif
