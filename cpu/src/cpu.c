@@ -80,6 +80,9 @@ void conectar_memoria()
 {
     socket_memoria = crear_conexion(config_valores_cpu.ip_memoria, config_valores_cpu.puerto_memoria);
     t_paquete *paquete_handshake = crear_paquete_con_codigo_de_operacion(HANDSHAKE_CPU);
+    op_code* codigo = malloc(sizeof(op_code));
+    *(codigo) = HANDSHAKE_CPU;
+    agregar_a_paquete(paquete_handshake, codigo, sizeof(op_code));
     enviar_paquete(paquete_handshake, socket_memoria);
     eliminar_paquete(paquete_handshake);
 
@@ -95,6 +98,8 @@ void conectar_memoria()
     }
     receive_page_size(socket_memoria);
     log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
+
+    free(codigo);
 }
 
 void receive_page_size(int socket)

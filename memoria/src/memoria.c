@@ -19,8 +19,7 @@ int main(int argc, char **argv)
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
 
 	atender_clientes_memoria();
-	//while(1);
-	// sleep(5);
+	while(1) sleep(5);
 	finalizar_memoria();
 	return EXIT_SUCCESS;
 }
@@ -143,10 +142,11 @@ void *manejo_conexion_cpu(void *arg)
 {
 
 	int socket_cpu_int = *(int *)arg;
-//	while (1)
-//	{
+    while (1)
+	{
 		op_code codigo_operacion = recibir_operacion(socket_cpu_int);
 
+		log_info(logger_memoria_info, "Se recibio una operacion de CPU: %d", codigo_operacion);
 		switch (codigo_operacion)
 		{
 		case HANDSHAKE_CPU:
@@ -168,15 +168,15 @@ void *manejo_conexion_cpu(void *arg)
 			//finalizar_memoria();
 			break;
 		}
-//	}
+	}
 }
 
 void *manejo_conexion_kernel(void *arg)
 {
 
 	int socket_kernel_int = *(int *)arg;
-//	while (1)
-//	{
+	while (1)
+	{
 
 		op_code codigo_operacion = recibir_operacion(socket_kernel_int);
 
@@ -202,7 +202,7 @@ void *manejo_conexion_kernel(void *arg)
 			close(socket_kernel_int);
 			break;
 		}
-//	}
+	}
 	return NULL;
 }
 
@@ -210,10 +210,14 @@ void *manejo_conexion_filesystem(void *arg)
 {
 
 	int socket_fs_int = *(int *)arg;
-	// while (1)
-	//{
+	 while (1)
+	{
 
 	op_code codigo_operacion = recibir_operacion(socket_fs_int);
+
+	//Se puede descomentar esto para ver lo que pasa con los mensajes
+	//sleep(5);
+	//log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
 
 	switch (codigo_operacion)
 	{
@@ -227,7 +231,7 @@ void *manejo_conexion_filesystem(void *arg)
 		;
 		break;
 	}
-	//}
+	}
 	return NULL;
 }
 

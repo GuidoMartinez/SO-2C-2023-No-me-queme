@@ -254,6 +254,9 @@ void realizar_handshake(int conexion, op_code codigo_op, t_log *logger)
 
 	t_paquete *paquete_handshake = crear_paquete_con_codigo_de_operacion(codigo_op);
 	enviar_paquete(paquete_handshake, conexion);
+	op_code *codigo = malloc(sizeof(op_code));
+	*(codigo) = codigo_op;
+	agregar_a_paquete(paquete_handshake, codigo, sizeof(op_code));
 	eliminar_paquete(paquete_handshake);
 	op_code recibir_cod_op = recibir_operacion(conexion);
 	if (recibir_cod_op == MENSAJE)
