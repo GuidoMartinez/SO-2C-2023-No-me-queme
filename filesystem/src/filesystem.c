@@ -552,3 +552,57 @@ t_list *obtener_lista_total_de_bloques(int id_fcb)
 
 	return lista_de_bloques;
 }
+
+void asignar_bloques(int id_fcb, int nuevo_tamanio)
+{
+	t_list *lista_total_de_bloques = obtener_lista_total_de_bloques(id_fcb);
+	int size_inicial = list_size(lista_total_de_bloques);
+	int cant_bloques_a_asignar = ceil((double)nuevo_tamanio / config_valores_filesystem.tam_bloque);
+	int cant_bloques_actual = ceil((double)valor_fcb(id_fcb, TAMANIO_ARCHIVO, lista_global_fcb) / config_valores_filesystem.tam_bloque);
+	for (int i = cant_bloques_actual; i < cant_bloques_a_asignar; i++)
+	{
+		int id_bloque = obtener_primer_bloque_libre(fat_table);
+		offset_fcb_t *bloque = malloc(sizeof(offset_fcb_t));
+
+		size_inicial++;
+		modificar_fcb(id_fcb, BLOQUE_INICIAL, id_bloque);
+		setear_bit_en_bitmap(fat_table, id_bloque);
+		bloque->id_bloque = id_bloque;
+		list_add(lista_total_de_bloques, bloque);
+
+		bloque->id_bloque = id_bloque;
+		setear_bit_en_bitmap(fat_table, id_bloque);
+		list_add(lista_total_de_bloques, bloque);
+	}
+
+	int size_final = list_size(lista_total_de_bloques);
+
+
+	list_destroy_and_destroy_elements(lista_total_de_bloques, free);
+
+	modificar_fcb(id_fcb, TAMANIO_ARCHIVO, nuevo_tamanio);
+}
+
+void desasignar_bloques(int id_fcb, int nuevo_tamanio)
+{
+	t_list *lista_de_bloques = obtener_lista_total_de_bloques(id_fcb);
+	int tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO, lista_global_fcb);
+	int cant_bloques_a_desasignar = ceil(((double)(tamanio_archivo - nuevo_tamanio) / config_valores_filesystem.tam_bloque)); // Usar ceil()
+
+	int i = 0;
+	if (nuevo_tamanio <= config_valores_filesystem.tam_bloque && tamanio_archivo > config_valores_filesystem.tam_bloque)
+	{
+		cant_bloques_a_desasignar++;
+	}
+
+	while (i < cant_bloques_a_desasignar)
+	{
+		offset_fcb_t *bloque = list_pop(lista_de_bloques);
+		limpiar_bit_en_bitmap(fat_table, bloque->id_bloque);
+		i++;
+	}
+
+	list_destroy_and_destroy_elements(lista_de_bloques, free);
+
+	modificar_fcb(id_fcb, TAMANIO_ARCHIVO, nuevo_tamanio);
+}
