@@ -450,3 +450,105 @@ void escribir_int(uint32_t dato, int offset)
 	msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
 	sleep(config_valores_filesystem.retardo_acceso_bloque);
 }
+/*
+t_instruccion_fs *inicializar_instruc_mov()
+{
+	t_instruccion_fs *instruccion = malloc(sizeof(t_instruccion_fs));
+	instruccion->pid = 0;
+	instruccion->param1 = malloc(sizeof(char) * 2);
+	memcpy(instruccion->param1, "0", (sizeof(char) * 2));
+	instruccion->param1_length = sizeof(char) * 2;
+	instruccion->param2 = malloc(sizeof(char) * 2);
+	memcpy(instruccion->param2, "0", (sizeof(char) * 2));
+	instruccion->param2_length = sizeof(char) * 2;
+	instruccion->param3 = malloc(sizeof(char) * 2);
+	memcpy(instruccion->param3, "0", (sizeof(char)));
+	instruccion->param3_length = sizeof(char);
+	instruccion->estado = CREATE_SEGMENT;
+	log_info(filesystem_logger_info, "Instruccion mov inicializada exitosamente");
+
+	return instruccion;
+}
+*/
+void escribir_bloques(t_list *lista_bloques, int indice_inicial)
+{
+	int size = list_size(lista_bloques);
+
+	for (int i = indice_inicial; i < size; i++)
+	{
+		offset_fcb_t *bloque = list_get(lista_bloques, i);
+
+		int offset = (i * sizeof(uint32_t));
+
+		escribir_int(bloque->id_bloque, offset);
+	}
+
+	sleep(config_valores_filesystem.retardo_acceso_bloque);
+}
+
+uint32_t leer_int(int offset, int size)
+{
+	uint32_t dato = 0;
+
+	memcpy(&dato, memoria_file_system + offset, size);
+	msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
+	sleep(config_valores_filesystem.retardo_acceso_bloque);
+
+	return dato;
+}
+
+void leer_bloques(int id_fcb, t_list *lista_de_bloques, int offset_inicial, int offset_final)
+{
+	/*
+	int offset_fcb = offset_inicial;
+	uint32_t bloque = valor_fcb(id_fcb, PUNTERO_INDIRECTO, lista_global_fcb);
+	int offset = floor(((double)offset_fcb / block_size) - 1) * sizeof(uint32_t);
+
+	while (offset_fcb < offset_final)
+	{
+		offset_fcb_t *bloque = malloc(sizeof(offset_fcb_t));
+		uint32_t dato = leer_int((bloque_indirecto * block_size) + offset, sizeof(uint32_t));
+		memcpy(&bloque->id_bloque, &dato, sizeof(uint32_t));
+		bloque->offset = bloque->id_bloque * block_size;
+		list_add(lista_de_bloques, bloque);
+		offset += sizeof(uint32_t);
+		offset_fcb += block_size;
+	}
+
+	log_info(logger, "Acceso Bloque - Archivo: %s - Bloque File System: %d", nombre_archivo, valor_fcb(id_fcb, PUNTERO_INDIRECTO, lista_global_fcb));
+	sleep(retardo_acceso_bloque);
+	*/
+}
+
+
+int obtener_cantidad_de_bloques(int id_fcb)
+{
+	int tamanio_fcb = valor_fcb(id_fcb, TAMANIO_ARCHIVO, lista_global_fcb);
+	int cant_bloques_fcb = ceil((double)tamanio_fcb / config_valores_filesystem.tam_bloque);
+
+	return cant_bloques_fcb;
+}
+
+t_list *obtener_lista_total_de_bloques(int id_fcb)
+{
+	t_list *lista_de_bloques = list_create();
+	int tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO, lista_global_fcb);
+	if (tamanio_archivo == 0)
+		return lista_de_bloques;
+	int offset_fcb = 0;
+
+	int cant_bloques_fcb = obtener_cantidad_de_bloques(id_fcb);
+	int size_final = cant_bloques_fcb * config_valores_filesystem.tam_bloque;
+
+	offset_fcb_t *bloque = malloc(sizeof(offset_fcb_t));
+	bloque->id_bloque = valor_fcb(id_fcb, BLOQUE_INICIAL, lista_global_fcb);
+	bloque->offset = bloque->id_bloque * config_valores_filesystem.tam_bloque;
+	cant_bloques_fcb--;
+	offset_fcb += config_valores_filesystem.tam_bloque;
+
+	list_add(lista_de_bloques, bloque);
+
+	leer_bloques(id_fcb, lista_de_bloques, offset_fcb, size_final);
+
+	return lista_de_bloques;
+}

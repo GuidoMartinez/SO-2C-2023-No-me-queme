@@ -46,6 +46,14 @@ typedef enum
 	BLOQUE_INICIAL
 } fcb_prop_t;
 
+typedef struct
+{
+	uint32_t id_bloque;
+	uint32_t offset;
+	uint32_t tamanio;
+} offset_fcb_t;
+
+
 void finalizar_filesystem();
 void sighandler(int);
 void cargar_configuracion(char *);
