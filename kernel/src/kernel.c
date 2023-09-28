@@ -42,6 +42,7 @@ int main(int argc, char **argv)
     // log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
 
     cola_block = list_create();
+    cola_exit= list_create();
     cola_exec = list_create();
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
@@ -57,8 +58,8 @@ int main(int argc, char **argv)
     sem_init(&sem_listos_ready, 0, 0);
     sem_init(&sem_ready, 0, 0);
     sem_init(&sem_exec, 0, 1);
-    /*sem_init(&sem_exit, 0, 0);
-    sem_init(&sem_block_return, 0, 0);*/
+    sem_init(&sem_exit, 0, 0);
+    /*sem_init(&sem_block_return, 0, 0);*/
 
     while (1)
     {
@@ -202,13 +203,13 @@ void iniciar_proceso(char *path, int size, int prioridad)
 
 void finalizar_proceso(int pid)
 {
-    //t_pcb *proceso_encontrado;
+    t_pcb *proceso_encontrado;
     //list_add(lista_global, proceso_encontrado);
-    //proceso_encontrado = buscarProceso(pid);
+    proceso_encontrado = buscarProceso(pid);
     pthread_mutex_lock(&mutex_cola_exit);
-    //list_add(cola_exit, proceso_encontrado);
+    list_add(cola_exit, proceso_encontrado);
     pthread_mutex_unlock(&mutex_cola_exit);
-    //cambiar_estado(proceso_encontrado, FINISH_EXIT);
+    cambiar_estado(proceso_encontrado, FINISH_EXIT);
     //list_add(lista_global, proceso_encontrado);
     //char *motivo = motivo_exit_to_string(proceso_encontrado->motivo_exit);
     // sem_post(&sem_exit);
