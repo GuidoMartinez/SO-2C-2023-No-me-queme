@@ -107,7 +107,7 @@ int crear_conexion(char *ip, char *puerto)
 
 	if (connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1)
 	{
-		printf("error"); // TODO // eliminar
+		printf("error al conectar a algun modulo"); // TODO // eliminar
 		// freeaddrinfo(server_info); // TODO -- VER SI TIENE QUE ESTAR
 		return -1;
 	}
@@ -251,23 +251,30 @@ t_list *recibir_paquete(int socket_cliente)
 
 void realizar_handshake(int conexion, op_code codigo_op, t_log *logger)
 {
-
 	t_paquete *paquete_handshake = crear_paquete_con_codigo_de_operacion(codigo_op);
+
+	paquete_handshake->buffer->size += sizeof(uint32_t);
+	paquete_handshake->buffer->stream = realloc(paquete_handshake->buffer->stream, paquete_handshake->buffer->size);
+	memcpy(paquete_handshake->buffer->stream, &(codigo_op), sizeof(codigo_op));
 	enviar_paquete(paquete_handshake, conexion);
-	op_code *codigo = malloc(sizeof(op_code));
-	*(codigo) = codigo_op;
-	agregar_a_paquete(paquete_handshake, codigo, sizeof(op_code));
 	eliminar_paquete(paquete_handshake);
-	op_code recibir_cod_op = recibir_operacion(conexion);
-	if (recibir_cod_op == MENSAJE)
-	{
-		char *mensaje = recibir_mensaje(conexion, logger);
-		free(mensaje);
-	}
-	else
-	{
-		log_warning(logger, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
-	}
+}
+
+op_code recibir_handshake(int conexion, t_log *logger)
+{
+
+	int size;
+	void *buffer;
+	buffer = recibir_buffer(&size, conexion);
+	printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
+
+	op_code codigo_recibido;
+
+	int offset = 0;
+
+	memcpy(&(codigo_recibido), buffer + offset, sizeof(op_code));
+
+	return codigo_recibido;
 }
 
 const char *obtener_nombre_instruccion(nombre_instruccion instruccion)
@@ -418,6 +425,8 @@ t_contexto_ejecucion *recibir_contexto(int socket)
 	memcpy(&(contexto_recibido->nro_pf), buffer + offset, sizeof(int));
 	offset += sizeof(int);
 
+	contexto_recibido->instruccion_ejecutada = malloc(sizeof(t_instruccion));
+
 	memcpy(&(contexto_recibido->instruccion_ejecutada->codigo), buffer + offset, sizeof(nombre_instruccion));
 	offset += sizeof(nombre_instruccion);
 	memcpy(&(contexto_recibido->instruccion_ejecutada->longitud_parametro1), buffer + offset, sizeof(uint32_t));
@@ -515,9 +524,9 @@ void ask_instruccion_pid_pc(int pid, int pc, int socket)
 
 	t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(PEDIDO_INSTRUCCION);
 	paquete_instruccion->buffer->size += sizeof(int) * 2;
-	paquete_instruccion->buffer->stream = realloc(paquete_instruccion->buffer->stream, paquete_instruccion->buffer->size);
+	paquete_instruccion->buffer->stream = malloc(paquete_instruccion->buffer->size);
 	memcpy(paquete_instruccion->buffer->stream, &(pid), sizeof(int));
-	memcpy(paquete_instruccion->buffer->stream, &(pc), sizeof(int));
+	memcpy(paquete_instruccion->buffer->stream +sizeof(int), &(pc), sizeof(int));
 	enviar_paquete(paquete_instruccion, socket);
 	eliminar_paquete(paquete_instruccion);
 }
@@ -529,8 +538,10 @@ void pedido_instruccion(uint32_t *pid, uint32_t *pc, int socket)
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
-	memcpy(pid, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(pc, buffer + offset, sizeof(uint32_t));
+	printf("size del stream a deserializar \n%d", size);
+	memcpy(pid, buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(pc, buffer + offset, sizeof(int));
+
 	free(buffer);
 }

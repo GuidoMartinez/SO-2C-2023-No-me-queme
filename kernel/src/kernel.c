@@ -27,22 +27,57 @@ int main(int argc, char **argv)
     conexion_memoria = crear_conexion(config_valores_kernel.ip_memoria, config_valores_kernel.puerto_memoria);
     realizar_handshake(conexion_memoria, HANDSHAKE_KERNEL, kernel_logger_info);
 
+    op_code respuesta = recibir_operacion(conexion_memoria);
+    if (respuesta == HANDSHAKE_MEMORIA)
+    {
+        op_code prueba = recibir_handshake(conexion_memoria, kernel_logger_info);
+        log_info(kernel_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        log_info(kernel_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
+    }
+    else
+    {
+        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
+    }
+
     // CONEXION CON CPU - DISPATCH
     conexion_cpu_dispatch = crear_conexion(config_valores_kernel.ip_cpu, config_valores_kernel.puerto_cpu_dispatch);
     realizar_handshake(conexion_cpu_dispatch, HANDSHAKE_CPU_DISPATCH, kernel_logger_info);
 
+    respuesta = recibir_operacion(conexion_cpu_dispatch);
+    if (respuesta == HANDSHAKE_CPU_DISPATCH)
+    {
+        op_code prueba = recibir_handshake(conexion_cpu_dispatch, kernel_logger_info);
+        log_info(kernel_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        log_info(kernel_logger_info, "HANDSHAKE EXITOSO CON CPU DISPATCH");
+    }
+    else
+    {
+        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta de CPU DISPATCH.");
+    }
     // CONEXION CON CPU - INTERRUPT
     conexion_cpu_interrupt = crear_conexion(config_valores_kernel.ip_cpu, config_valores_kernel.puerto_cpu_interrupt);
     realizar_handshake(conexion_cpu_interrupt, HANDSHAKE_CPU_INTERRUPT, kernel_logger_info);
 
-    // conexion FILESYSTEM
+    respuesta = recibir_operacion(conexion_cpu_interrupt);
+    if (respuesta == HANDSHAKE_CPU_INTERRUPT)
+    {
+        op_code prueba = recibir_handshake(conexion_cpu_interrupt, kernel_logger_info);
+        log_info(kernel_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        log_info(kernel_logger_info, "HANDSHAKE EXITOSO CON CPU INTERRUPT");
+    }
+    else
+    {
+        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta de CPU INTERRUPT.");
+    }
+
+    /*// conexion FILESYSTEM
     conexion_filesystem = crear_conexion(config_valores_kernel.ip_filesystem, config_valores_kernel.puerto_filesystem);
     realizar_handshake(conexion_filesystem, HANDSHAKE_KERNEL, kernel_logger_info);
-
+*/
     // log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
 
     cola_block = list_create();
-    cola_exit= list_create();
+    cola_exit = list_create();
     cola_exec = list_create();
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
@@ -88,7 +123,7 @@ int main(int argc, char **argv)
 
         {
             char **palabras = string_split(linea, " ");
-            char* path = palabras[1];
+            char *path = palabras[1];
             int size = atoi(palabras[2]);
             int prioridad = atoi(palabras[3]);
 
@@ -204,15 +239,15 @@ void iniciar_proceso(char *path, int size, int prioridad)
 void finalizar_proceso(int pid)
 {
     t_pcb *proceso_encontrado;
-    //list_add(lista_global, proceso_encontrado);
+    // list_add(lista_global, proceso_encontrado);
     proceso_encontrado = buscarProceso(pid);
     pthread_mutex_lock(&mutex_cola_exit);
     list_add(cola_exit, proceso_encontrado);
     pthread_mutex_unlock(&mutex_cola_exit);
     cambiar_estado(proceso_encontrado, FINISH_EXIT);
-    //list_add(lista_global, proceso_encontrado);
-    //char *motivo = motivo_exit_to_string(proceso_encontrado->motivo_exit);
-    // sem_post(&sem_exit);
+    // list_add(lista_global, proceso_encontrado);
+    // char *motivo = motivo_exit_to_string(proceso_encontrado->motivo_exit);
+    //  sem_post(&sem_exit);
     log_info(kernel_logger_info, "Llegue hasta finalizar ");
 }
 
@@ -295,6 +330,12 @@ void pcb_create(int prio, int tamano, int pid_ok)
     pcb->contexto_ejecucion = contexto;
     pcb->contexto_ejecucion->pid = pid_ok;
     pcb->contexto_ejecucion->program_counter = 0;
+    pcb->contexto_ejecucion->instruccion_ejecutada = malloc(sizeof(t_instruccion));
+    pcb->contexto_ejecucion->instruccion_ejecutada->longitud_parametro1 = 1;
+    pcb->contexto_ejecucion->instruccion_ejecutada->longitud_parametro2 = 1;
+    pcb->contexto_ejecucion->instruccion_ejecutada->parametro1 = string_new();
+    pcb->contexto_ejecucion->instruccion_ejecutada->parametro2 = string_new();
+    pcb->contexto_ejecucion->registros = malloc(sizeof(t_registros));
     pcb->estado = NEW;
     safe_pcb_add(cola_listos_para_ready, pcb, &mutex_cola_listos_para_ready);
     list_add(lista_global, pcb);
@@ -431,18 +472,21 @@ void exec_pcb()
 {
     while (1)
     {
-        log_info(kernel_logger_info, "Entre exec");
+
         sem_wait(&sem_ready);
         sem_wait(&sem_exec);
+        log_info(kernel_logger_info, "Entre a hilo exec");
         t_pcb *pcb = elegir_pcb_segun_algoritmo();
         log_info(kernel_logger_info, "Sale pcb  %d", pcb->pid);
         prceso_admitido(pcb);
-        enviar_contexto(conexion_cpu_dispatch,pcb->contexto_ejecucion);
+        enviar_contexto(conexion_cpu_dispatch, pcb->contexto_ejecucion);
+        log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcb->pid,pcb->contexto_ejecucion->program_counter);
+     
 
         codigo_operacion = recibir_operacion(conexion_cpu_dispatch);
-        log_info(kernel_logger_info,"Recibi el codigo de operacion de CPU %d",codigo_operacion);
+        log_info(kernel_logger_info, "Recibi el codigo de operacion de CPU %d", codigo_operacion);
 
-        //    sem_post(&sem_exec);
+        //     sem_post(&sem_exec);
     }
 }
 
@@ -450,7 +494,7 @@ void prceso_admitido(t_pcb *pcb)
 {
     cambiar_estado(pcb, EXEC);
     safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
-    // sem_post(&sem_exec);
+    sem_post(&sem_exec);
 }
 
 void block()
@@ -488,7 +532,7 @@ void set_pcb_ready(t_pcb *pcb)
     log_info(kernel_logger_info, "SET PCB READY %d", pcb->pid);
 }
 
-void crear_proceso_memoria(int pid_nuevo,int  size,char* path,int conexion_memoria)
+void crear_proceso_memoria(int pid_nuevo, int size, char *path, int conexion_memoria)
 {
     t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(INICIALIZAR_PROCESO);
     serializar_pedido_proceso_nuevo(paquete_proceso_nuevo, pid_nuevo, size, path);
@@ -496,10 +540,10 @@ void crear_proceso_memoria(int pid_nuevo,int  size,char* path,int conexion_memor
     eliminar_paquete(paquete_proceso_nuevo);
 }
 
-void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size,char* path)
+void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char *path)
 {
-    paquete->buffer->size += sizeof(uint32_t) * 3 + 
-                            strlen(path) + 1;
+    paquete->buffer->size += sizeof(uint32_t) * 3 +
+                             strlen(path) + 1;
 
     printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
     paquete->buffer->stream = malloc(paquete->buffer->size);
@@ -512,7 +556,7 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size,char*
     memcpy(paquete->buffer->stream + desplazamiento, &(size), sizeof(uint32_t));
     desplazamiento += sizeof(uint32_t);
 
-    uint32_t long_path = strlen(path) +1;
+    uint32_t long_path = strlen(path) + 1;
     memcpy(paquete->buffer->stream + desplazamiento, &(long_path), sizeof(uint32_t));
     desplazamiento += sizeof(uint32_t);
 

@@ -57,6 +57,7 @@ typedef struct
 void finalizar_filesystem();
 void sighandler(int);
 void cargar_configuracion(char *);
+void desasignar_bloques(int id_fcb, int nuevo_tamanio);
 
 t_log *filesystem_logger_info;
 t_config *config;

@@ -196,6 +196,7 @@ void *recibir_mensaje(int, t_log *);
 t_list *recibir_paquete(int);
 
 void realizar_handshake(int, op_code, t_log *);
+op_code recibir_handshake(int conexion, t_log *logger);
 
 const char *obtener_nombre_instruccion(nombre_instruccion);
 

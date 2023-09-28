@@ -25,6 +25,19 @@ int main(int argc, char **argv)
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
 
+
+    op_code respuesta = recibir_operacion(socket_memoria);
+    if (respuesta == HANDSHAKE_MEMORIA)
+    {
+        op_code prueba = recibir_handshake(socket_memoria,filesystem_logger_info);
+        log_info(filesystem_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        log_info(filesystem_logger_info,"HANDSHAKE EXITOSO CON MEMORIA");
+    }
+    else
+    {
+        log_warning(filesystem_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
+    }
+
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
     socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);
     log_info(filesystem_logger_info, "Filesystem listo para recibir al Kernel");
@@ -583,6 +596,8 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
 	modificar_fcb(id_fcb, TAMANIO_ARCHIVO, nuevo_tamanio);
 }
 
+/*
+
 void desasignar_bloques(int id_fcb, int nuevo_tamanio)
 {
 	t_list *lista_de_bloques = obtener_lista_total_de_bloques(id_fcb);
@@ -605,4 +620,4 @@ void desasignar_bloques(int id_fcb, int nuevo_tamanio)
 	list_destroy_and_destroy_elements(lista_de_bloques, free);
 
 	modificar_fcb(id_fcb, TAMANIO_ARCHIVO, nuevo_tamanio);
-}
+}*/

@@ -19,7 +19,8 @@ int main(int argc, char **argv)
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
 
 	atender_clientes_memoria();
-	while(1) sleep(5);
+	while (1)
+		sleep(5);
 	finalizar_memoria();
 	return EXIT_SUCCESS;
 }
@@ -61,16 +62,16 @@ void inicializar_memoria()
 
 void atender_clientes_memoria()
 {
-	//atender_cliente_cpu();
-	socket_cpu = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
-	manejo_conexion_cpu((void *)&socket_cpu);
-	socket_fs = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
-	manejo_conexion_filesystem((void *)&socket_fs);
-	
-	//atender_cliente_kernel();
+	 atender_cliente_cpu();
+	//socket_cpu = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
+	//manejo_conexion_cpu((void *)&socket_cpu);
+	//socket_fs = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
+	//manejo_conexion_filesystem((void *)&socket_fs);
 
-	socket_kernel = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
-	manejo_conexion_kernel((void *)&socket_kernel);
+	 atender_cliente_kernel();
+
+	//socket_kernel = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
+	//manejo_conexion_kernel((void *)&socket_kernel);
 }
 
 int atender_cliente_cpu()
@@ -90,7 +91,7 @@ int atender_cliente_cpu()
 	{
 		log_error(logger_memoria_info, "Error al escuchar clientes para CPU... Finalizando servidor \n"); // log para fallo de comunicaciones
 		abort();
-		//finalizar_memoria();
+		// finalizar_memoria();
 	}
 	return 0;
 }
@@ -112,7 +113,7 @@ int atender_cliente_kernel()
 	{
 		log_error(logger_memoria_info, "Error al escuchar clientes en kernel... Finalizando servidor \n"); // log para fallo de comunicaciones
 		abort();
-		//finalizar_memoria();
+		// finalizar_memoria();
 	}
 	return 0;
 }
@@ -142,7 +143,7 @@ void *manejo_conexion_cpu(void *arg)
 {
 
 	int socket_cpu_int = *(int *)arg;
-    while (1)
+	while (1)
 	{
 		op_code codigo_operacion = recibir_operacion(socket_cpu_int);
 
@@ -151,21 +152,25 @@ void *manejo_conexion_cpu(void *arg)
 		{
 		case HANDSHAKE_CPU:
 			log_info(logger_memoria_info, "Handshake exitosa con CPU, se conecto un CPU");
-			enviar_mensaje("Handshake exitoso con Memoria", socket_cpu_int);
+		
+			recibir_handshake(socket_cpu_int, logger_memoria_info);
+			realizar_handshake(socket_cpu_int, HANDSHAKE_MEMORIA, logger_memoria_info);
+
 			send_page_size(config_valores_memoria.tamanio_pagina, socket_cpu_int);
 			break;
 		case PEDIDO_INSTRUCCION:
 			uint32_t pid, pc;
 			pedido_instruccion(&pid, &pc, socket_cpu_int);
 			t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
-			log_warning(logger_memoria_info, " ESPACIO PARA VER LA INSTRUCCION");
 			printf("La instruccion de PC %d para el PID %d es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
 			enviar_instruccion_cpu(socket_cpu_int, instruccion_pedida);
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
+			close(socket_cpu_int);
+			close(server_memoria);
 			abort();
-			//finalizar_memoria();
+			// finalizar_memoria();
 			break;
 		}
 	}
@@ -180,11 +185,13 @@ void *manejo_conexion_kernel(void *arg)
 
 		op_code codigo_operacion = recibir_operacion(socket_kernel_int);
 
+		log_info(logger_memoria_info, "Se recibio una operacion de KERNEL: %d", codigo_operacion);
 		switch (codigo_operacion)
 		{
 		case HANDSHAKE_KERNEL:
-			log_info(logger_memoria_info, "Handshake exitoso con KERNEL, se conecto un KERNEL");
-			enviar_mensaje("Handshake exitoso con Memoria", socket_kernel_int);
+			log_info(logger_memoria_info, "Handshake exitosa con KERNEL, se conecto un KERNEL");
+			recibir_handshake(socket_kernel_int, logger_memoria_info);
+			realizar_handshake(socket_kernel_int, HANDSHAKE_MEMORIA, logger_memoria_info);
 			break;
 		case INICIALIZAR_PROCESO:
 			// recibir y deserializar para instanciar el t_ini_proceso;
@@ -200,6 +207,8 @@ void *manejo_conexion_kernel(void *arg)
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion la comunicacion con KERNEL. Abortando \n");
 			close(socket_kernel_int);
+			close(server_memoria);
+			abort();
 			break;
 		}
 	}
@@ -210,27 +219,27 @@ void *manejo_conexion_filesystem(void *arg)
 {
 
 	int socket_fs_int = *(int *)arg;
-	 while (1)
+	while (1)
 	{
 
-	op_code codigo_operacion = recibir_operacion(socket_fs_int);
+		op_code codigo_operacion = recibir_operacion(socket_fs_int);
 
-	//Se puede descomentar esto para ver lo que pasa con los mensajes
-	//sleep(5);
-	//log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
+		// Se puede descomentar esto para ver lo que pasa con los mensajes
+		// sleep(5);
+		// log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
 
-	switch (codigo_operacion)
-	{
-	case HANDSHAKE_FILESYSTEM:
-		log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FS");
-		enviar_mensaje("Handshake exitoso con Memoria", socket_fs_int);
-		break;
-	default:
-		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
-		close(socket_fs_int);
-		;
-		break;
-	}
+		switch (codigo_operacion)
+		{
+		case HANDSHAKE_FILESYSTEM:
+			log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FS");
+			enviar_mensaje("Handshake exitoso con Memoria", socket_fs_int);
+			break;
+		default:
+			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
+			close(socket_fs_int);
+			;
+			break;
+		}
 	}
 	return NULL;
 }
@@ -403,6 +412,7 @@ t_instruccion *obtener_instrccion_pc(t_proceso_memoria *proceso, uint32_t pc_ped
 
 t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedido)
 {
+	log_error(logger_memoria_info,"Voy a buscar la instruccion de PID %d con PC %d", pid_pedido,pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
@@ -457,7 +467,7 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 	proceso_nuevo->path = malloc(long_path);
 	memcpy(proceso_nuevo->path, buffer + offset, long_path);
 
-	printf("mi path recibido es %s", proceso_nuevo->path); // TODO - BORRAR
+	printf("mi path recibido es %s \n", proceso_nuevo->path); // TODO - BORRAR
 
 	return proceso_nuevo;
 }
@@ -469,5 +479,6 @@ void finalizar_memoria()
 	close(socket_cpu);
 	close(socket_kernel);
 	close(socket_fs);
-	config_destroy(config);;
+	config_destroy(config);
+	;
 }

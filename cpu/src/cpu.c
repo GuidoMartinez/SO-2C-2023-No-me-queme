@@ -22,9 +22,8 @@ int main(int argc, char **argv)
     cargar_configuracion(argv[1]);
 
     iniciar_conexiones();
-
-    //cambiar a uno para recibir la operacion de kernel
-    while (0)
+    // cambiar a uno para recibir la operacion de kernel
+    while (1)
     {
 
         codigo_operacion = recibir_operacion(conexion_kernel_dispatch);
@@ -33,14 +32,17 @@ int main(int argc, char **argv)
         {
         case CONTEXTO:
             contexto_actual = recibir_contexto(conexion_kernel_dispatch);
-            while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir) ejecutar_ciclo_instruccion();
-            enviar_contexto(conexion_kernel_dispatch,contexto_actual);
+
+            while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir)
+                ejecutar_ciclo_instruccion();
+            enviar_contexto(conexion_kernel_dispatch, contexto_actual);
             break;
             /*      case -1:
                       log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
                       finalizar_cpu();
                       return EXIT_FAILURE;*/
         default:
+            log_error(cpu_logger_info, "El codigo que me llego es %d",codigo_operacion);
             log_warning(cpu_logger_info, "Operacion desconocida \n");
             abort();
             break;
@@ -55,12 +57,12 @@ void iniciar_conexiones()
     conectar_memoria();
     cargar_servidor(&servidor_cpu_dispatch, config_valores_cpu.puerto_escucha_dispatch, &conexion_kernel_dispatch, HANDSHAKE_CPU_DISPATCH, "DISPATCH");
     cargar_servidor(&servidor_cpu_interrupt, config_valores_cpu.puerto_escucha_interrupt, &conexion_kernel_interrupt, HANDSHAKE_CPU_INTERRUPT, "INTERRUPT");
-    //pthread_create(hiloInterrupt, NULL, recibir_interrupcion, NULL);
-    //pthread_detach(*(hiloInterrupt));
-
+    // pthread_create(hiloInterrupt, NULL, recibir_interrupcion, NULL);
+    // pthread_detach(*(hiloInterrupt));
 }
 
-void* recibir_interrupcion(void* arg){
+void *recibir_interrupcion(void *arg)
+{
     codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
     switch (codigo_operacion)
     {
@@ -79,18 +81,15 @@ void* recibir_interrupcion(void* arg){
 void conectar_memoria()
 {
     socket_memoria = crear_conexion(config_valores_cpu.ip_memoria, config_valores_cpu.puerto_memoria);
-    t_paquete *paquete_handshake = crear_paquete_con_codigo_de_operacion(HANDSHAKE_CPU);
-    op_code* codigo = malloc(sizeof(op_code));
-    *(codigo) = HANDSHAKE_CPU;
-    agregar_a_paquete(paquete_handshake, codigo, sizeof(op_code));
-    enviar_paquete(paquete_handshake, socket_memoria);
-    eliminar_paquete(paquete_handshake);
+
+    realizar_handshake(socket_memoria, HANDSHAKE_CPU, cpu_logger_info);
 
     op_code respuesta = recibir_operacion(socket_memoria);
-    if (respuesta == MENSAJE)
+    if (respuesta == HANDSHAKE_MEMORIA)
     {
-        char *mensaje = recibir_mensaje(socket_memoria, cpu_logger_info);
-        free(mensaje);
+        op_code prueba = recibir_handshake(socket_memoria, cpu_logger_info);
+        log_info(cpu_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        log_info(cpu_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
     }
     else
     {
@@ -99,7 +98,7 @@ void conectar_memoria()
     receive_page_size(socket_memoria);
     log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
 
-    free(codigo);
+    // free(codigo);
 }
 
 void receive_page_size(int socket)
@@ -124,12 +123,11 @@ void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code
     *(servidor) = iniciar_servidor(cpu_logger_info, config_valores_cpu.ip_escucha, puerto_escucha);
     *(conexion) = esperar_cliente(*(servidor), cpu_logger_info);
     codigo_operacion = recibir_operacion(*(conexion));
-    char mensaje_a_enviar[100];
     if (codigo_operacion == handshake)
     {
-        sprintf(mensaje_a_enviar, "Handshake para %s existoso con CPU", nombre_servidor);
         log_info(cpu_logger_info, "Handshake exitoso con KERNEL para la conexion %s", nombre_servidor);
-        enviar_mensaje(mensaje_a_enviar, *(conexion));
+        recibir_handshake(*(conexion) , cpu_logger_info);
+        realizar_handshake(*(conexion), handshake, cpu_logger_info);
     }
     else
     {
@@ -295,7 +293,6 @@ void dividirCadena(char *cadena, char **palabras)
         token = strtok(NULL, delimitador);
     }
 }
-
 
 void finalizar_cpu()
 {
