@@ -37,7 +37,10 @@ typedef enum
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
     CONTEXTO,
-    INTERRUPCION
+    INTERRUPCION,
+    PEDIDO_WAIT,
+    PEDIDO_SIGNAL,
+    PEDIDO_SLEEP
 } op_code;
 
 typedef enum
@@ -175,6 +178,12 @@ typedef struct
     t_list *tabla_paginas;
 
 } t_proceso_memoria;
+
+typedef struct
+{
+    uint32_t id;
+    t_list cola_pendientes;
+} t_recurso;
 
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);

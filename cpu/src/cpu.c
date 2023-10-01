@@ -36,6 +36,7 @@ int main(int argc, char **argv)
             while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir)
                 ejecutar_ciclo_instruccion();
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
+            interrumpir = false;
             break;
             /*      case -1:
                       log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
@@ -57,8 +58,8 @@ void iniciar_conexiones()
     conectar_memoria();
     cargar_servidor(&servidor_cpu_dispatch, config_valores_cpu.puerto_escucha_dispatch, &conexion_kernel_dispatch, HANDSHAKE_CPU_DISPATCH, "DISPATCH");
     cargar_servidor(&servidor_cpu_interrupt, config_valores_cpu.puerto_escucha_interrupt, &conexion_kernel_interrupt, HANDSHAKE_CPU_INTERRUPT, "INTERRUPT");
-    // pthread_create(hiloInterrupt, NULL, recibir_interrupcion, NULL);
-    // pthread_detach(*(hiloInterrupt));
+    pthread_create(&hiloInterrupt, NULL, recibir_interrupcion, NULL);
+    pthread_detach(hiloInterrupt);
 }
 
 void *recibir_interrupcion(void *arg)
@@ -68,7 +69,7 @@ void *recibir_interrupcion(void *arg)
     {
     case INTERRUPCION:
         log_info(cpu_logger_info, "Se recibio una interrupcion");
-        interrumpir = true;
+        if (!descartar_instruccion) interrumpir = true;
         break;
     default:
         log_warning(cpu_logger_info, "Operacion desconocida \n");
@@ -76,6 +77,10 @@ void *recibir_interrupcion(void *arg)
     }
 
     return NULL;
+}
+
+void descartar_interrupcion(){
+    descartar_instruccion = true; //TODO - Logica de descartar interrupciones
 }
 
 void conectar_memoria()
@@ -97,8 +102,6 @@ void conectar_memoria()
     }
     receive_page_size(socket_memoria);
     log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
-
-    // free(codigo);
 }
 
 void receive_page_size(int socket)
@@ -135,37 +138,6 @@ void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code
         finalizar_cpu();
     }
 }
-/*
-t_contexto_ejecucion *recibir_contexto(int socket)
-{
-    t_contexto_ejecucion *ctx;
-
-    op_code codigo_op = recibir_operacion(socket);
-
-    if (codigo_op == CONTEXTO)
-    {
-        int size;
-        void *buffer = recibir_buffer(&size, socket);
-        ctx = deserializar_contexto(buffer);
-        free(buffer);
-    }
-    else
-    {
-        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta del kernel.");
-    }
-    return ctx;
-}
-*/
-void enviar_contexto_actualizado()
-{
-    /*
-        t_paquete *paquete_instruccion = crear_paquete_con_codigo_de_operacion(CONTEXTO);
-        t_buffer *contextoSerializado = serializar_contexto(contexto_actual);
-        agregar_a_paquete(paquete_instruccion, contextoSerializado, contextoSerializado->size);
-        enviar_paquete(paquete_instruccion, servidor_cpu_dispatch);
-
-        eliminar_paquete(paquete_instruccion);*/
-}
 
 void cargar_configuracion(char *path)
 {
@@ -188,7 +160,7 @@ void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
-    contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
+    if(!page_fault) contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
 }
 
 // Pide a memoria la siguiente instruccion a ejecutar
@@ -232,13 +204,13 @@ void decode(t_instruccion *instruccion)
         _jnz(instruccion->parametro1, instruccion->parametro2, contexto_actual);
         break;
     case SLEEP:
-        _sleep(instruccion->parametro1, contexto_actual);
+        _sleep(instruccion->parametro1, contexto_actual, conexion_kernel_dispatch);
         break;
     case WAIT:
-        _wait(instruccion->parametro1, contexto_actual);
+        _wait(instruccion->parametro1, contexto_actual, conexion_kernel_dispatch);
         break;
     case SIGNAL:
-        _signal(instruccion->parametro1, contexto_actual);
+        _signal(instruccion->parametro1, contexto_actual, conexion_kernel_dispatch);
         break;
     case MOV_IN:
         _mov_in(instruccion->parametro1, instruccion->parametro2, contexto_actual);
