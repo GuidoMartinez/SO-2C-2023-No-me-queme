@@ -243,7 +243,7 @@ void finalizar_proceso(int pid)
     cambiar_estado(proceso_encontrado, FINISH_EXIT);
     // list_add(lista_global, proceso_encontrado);
     // char *motivo = motivo_exit_to_string(proceso_encontrado->motivo_exit);
-    //  sem_post(&sem_exit);
+    sem_post(&sem_exit);
     log_info(kernel_logger_info, "Llegue hasta finalizar ");
 }
 
@@ -426,11 +426,11 @@ void planificar_largo_plazo()
     pthread_t hilo_exit;
     pthread_t hilo_block;
 
-    // pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
+    pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
     // pthread_create(&hilo_block, NULL, (void *)block, NULL);
 
-    // pthread_detach(hilo_exit);
+    pthread_detach(hilo_exit);
     pthread_detach(hilo_ready);
     // pthread_detach(hilo_block);
 }
@@ -483,6 +483,33 @@ void exec_pcb()
 
         codigo_operacion = recibir_operacion(conexion_cpu_dispatch);
         log_info(kernel_logger_info, "Recibi el codigo de operacion de CPU %d", codigo_operacion);
+
+        /*switch (codigo_operacion)
+        {
+        case SET:
+           
+            break;
+        case SUM:
+           
+            break;
+        case SUB:
+          
+            break;  
+        case EXIT:
+           sem_post(&sem_exit);
+            break;  
+        case SLEEP:
+          
+            break;
+        case WAIT:
+          
+            break; 
+        case SIGNAL:
+          
+            break;    
+        default:
+            break;
+        }*/
 
         //     sem_post(&sem_exec);
     }
