@@ -158,14 +158,11 @@ int main(int argc, char **argv)
 
         if (!strncmp(linea, "detener_planificacion", 21))
         {
-            // char **palabras = string_split(linea, " ");
-            // int pid = palabras[1];
 
             // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
-            //  finalizar_proceso(pid);
+             detener_planificacion();
 
-            free(linea);
-            break;
+           // break;
         }
         if (!strncmp(linea, "modificar_grado", 15))
         {
@@ -239,7 +236,6 @@ void iniciar_proceso(char *path, int size, int prioridad)
 void finalizar_proceso(int pid)
 {
     t_pcb *proceso_encontrado;
-    // list_add(lista_global, proceso_encontrado);
     proceso_encontrado = buscarProceso(pid);
     pthread_mutex_lock(&mutex_cola_exit);
     list_add(cola_exit, proceso_encontrado);
@@ -293,7 +289,8 @@ void exit_pcb(void)
         sem_wait(&sem_exit);
         t_pcb *pcb = safe_pcb_remove(cola_exit, &mutex_cola_exit);
         char *motivo = motivo_exit_to_string(pcb->motivo_exit);
-        pcb_destroy(pcb);
+        pcb_destroy(pcb);// duda si pegarle a los proc activos
+        
     }
 }
 void pcb_destroy(t_pcb *pcb)
@@ -351,7 +348,8 @@ t_pcb *elegir_pcb_segun_algoritmo()
         log_info(kernel_logger_info, "ELEGI FIFO");
         return safe_pcb_remove(lista_ready, &mutex_cola_ready);
     case RR:
-        return 0;
+     log_info(kernel_logger_info, "ELEGI RR");
+        return obtener_pcb_RR();
     case PRIORIDADES:
         return 0;
     default:
@@ -493,6 +491,7 @@ void exec_pcb()
 void prceso_admitido(t_pcb *pcb)
 {
     cambiar_estado(pcb, EXEC);
+    //pcb->tiempo_ingreso_exec = time(NULL);
     safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
     sem_post(&sem_exec);
 }
@@ -561,4 +560,14 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
     desplazamiento += sizeof(uint32_t);
 
     memcpy(paquete->buffer->stream + desplazamiento, path, long_path);
+}
+
+
+t_pcb* obtener_pcb_RR(){
+    //aca ver si va un if del contexto de ejecucion
+	pthread_mutex_lock(&mutex_cola_ready);
+	t_pcb* pcb = list_remove(lista_ready, 0);
+	//log_info(logger, "Se eligio el proceso %d por RR", pcb->pid);
+	pthread_mutex_unlock(&mutex_cola_ready);
+	return pcb;
 }

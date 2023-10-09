@@ -72,4 +72,5 @@ char* motivo_exit_to_string(motivo_exit );
 t_pcb *buscarProceso(int );
 void crear_proceso_memoria(int,int,char*,int);
 void serializar_pedido_proceso_nuevo(t_paquete*, int, int,char*);
+t_pcb* obtener_pcb_RR();
 #endif
