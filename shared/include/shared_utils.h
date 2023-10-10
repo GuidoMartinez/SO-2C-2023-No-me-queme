@@ -181,7 +181,7 @@ typedef struct
 
 typedef struct
 {
-    uint32_t id;
+    char* name;
     t_list cola_pendientes;
 } t_recurso;
 
