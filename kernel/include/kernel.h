@@ -16,7 +16,9 @@ sem_t sem_exit;
 sem_t sem_listos_ready;
 sem_t sem_ready;
 sem_t sem_exec;
+sem_t sem_detener;
 
+t_list* recursosKernel; 
 t_list* lista_ready;
 t_list* cola_block ;
 t_list* cola_listos_para_ready;
@@ -28,7 +30,10 @@ int generador_de_id=0;
 int grado_multiprogramacion_ini;
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
 int pid_nuevo;
+bool frenado=0;
 op_code codigo_operacion;
+recurso_instancia*  recursoProceso;
+recurso_instancia*  recurso_signal;
 
 
 typedef struct // archivo de configuracion kernel
@@ -45,6 +50,7 @@ sem_t1 sem;
 typedef enum{FIFO,RR,PRIORIDADES} t_algoritmo;
 t_algoritmo ALGORITMO_PLANIFICACION;
 arch_config config_valores_kernel;
+recurso_instancia* buscarRecursoW(t_list* , char* );
 void finalizar_kernel();
 void sighandler(int);
 void cargar_configuracion(char *);

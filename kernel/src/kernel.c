@@ -70,6 +70,22 @@ int main(int argc, char **argv)
         log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta de CPU INTERRUPT.");
     }
 
+     // Cargo lista de recursosKernel con el archivo config
+    recursosKernel = list_create();
+ 
+
+    int i;
+
+    for (i = 0; config_valores_kernel.recursos[i] != NULL; i++)
+    {
+        recurso_instancia *recurso = (recurso_instancia *)malloc(sizeof(recurso_instancia));
+        recurso->nombre = strdup(config_valores_kernel.recursos[i]);
+        recurso->cantidad = (uint32_t)atoi(config_valores_kernel.instancias_recursos[i]);
+        recurso->colabloqueado = queue_create();
+        list_add(recursosKernel, recurso);
+    }
+
+
     /*// conexion FILESYSTEM
     conexion_filesystem = crear_conexion(config_valores_kernel.ip_filesystem, config_valores_kernel.puerto_filesystem);
     realizar_handshake(conexion_filesystem, HANDSHAKE_KERNEL, kernel_logger_info);
@@ -94,6 +110,7 @@ int main(int argc, char **argv)
     sem_init(&sem_ready, 0, 0);
     sem_init(&sem_exec, 0, 1);
     sem_init(&sem_exit, 0, 0);
+    sem_init(&sem_detener, 0, 0);
     /*sem_init(&sem_block_return, 0, 0);*/
 
     while (1)
@@ -301,6 +318,8 @@ void pcb_destroy(t_pcb *pcb)
 }
 void detener_planificacion()
 {
+    frenado=1;
+    log_info(kernel_logger_info, "Cambie el frenado ");
 }
 
 void safe_pcb_add(t_list *list, t_pcb *pcb, pthread_mutex_t *mutex)
@@ -426,6 +445,7 @@ void planificar_largo_plazo()
     pthread_t hilo_exit;
     pthread_t hilo_block;
 
+
     pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
     // pthread_create(&hilo_block, NULL, (void *)block, NULL);
@@ -461,7 +481,12 @@ void ready_pcb(void)
             pthread_mutex_unlock(&leer_grado);
             log_info(kernel_logger_info, "VOy a pasar al ready %d", pcb->pid);
             set_pcb_ready(pcb);
+          //  if (frenado!=1){
             sem_post(&sem_ready);
+           // } else {
+           // sem_wait(&sem_detener);
+           // log_info(kernel_logger_info,"Me frene");
+         //   }
         }
     }
 }
@@ -502,7 +527,75 @@ void exec_pcb()
           
             break;
         case WAIT:
-          
+           log_info(kernel_logger_info, "ESTOY EN WAIT %s", proceso->pcb->recursoInstruccion);
+
+           recurso_instancia *recursoKernel = (recurso_instancia *)malloc(sizeof(recurso_instancia));
+            recursoKernel = buscarRecursoW(recursosKernel, proceso->pcb->recursoInstruccion);
+
+             if (recursoKernel != NULL) 
+            {
+                log_info(kernel_logger_info, "El recurso [%s] existe en mi lista de recursosKernel", proceso->pcb->recursoInstruccion);
+                if (recursoKernel->cantidad <= 0)
+                {
+                    pthread_mutex_lock(&mutex_exec);
+                   t_pcb* procesoAux = list_remove(colaExec, 0);
+                    pthread_mutex_unlock(&mutex_exec);
+                    log_info(kernel_logger_info, "No tengo instancias disponibles del recurso: [%s] -instancias %d", proceso->pcb->recursoInstruccion, recursoKernel->cantidad);
+                    pthread_mutex_lock(&mutex_blocked);
+                    proceso->pcb->estado_proceso = BLOCK;
+                    queue_push(recursoKernel->colabloqueado, proceso);
+                    list_add(colaBlockedRecurso, procesoAux);
+                    pthread_mutex_unlock(&mutex_blocked);
+                    log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", proceso->pcb->id_proceso, recursoKernel->nombre);
+                    sem_post(&ready_disponible); CHEQUEAR ESTE SEMAFORO
+                   
+                }
+                else
+                {
+
+                    recursoKernel->cantidad -= 1;
+                    log_info(kernel_logger_info, "PID: <%d> - Wait: <%s> - Instancias restantes: <%d>", proceso->pcb->id_proceso, recursoKernel->nombre, recursoKernel->cantidad);
+                    recurso_instancia *recursoProceso = buscarRecursoW(proceso->recursosAsignados, recursoKernel->nombre);
+                    recursoProceso->cantidad += 1;
+                    log_info(kernel_logger_info, "PID[%d] se asigno recurso %s - INSTANCIAS %d en PROCESO", proceso->pcb->id_proceso, recursoProceso->nombre, recursoProceso->cantidad);
+                    sem_post(&sem_exec);
+                }
+            }
+            else
+            {
+
+                pthread_mutex_lock(&mutex_exec);
+                t_pcb *procesoAux = list_remove(colaExec, 0);
+                pthread_mutex_unlock(&mutex_exec);
+                log_info(kernel_logger_info, "El recurso [%s] pedido por PID [%d] no existe. Se manda proceso a exit", proceso->pcb->recursoInstruccion, proceso->pcb->id_proceso);
+                pthread_mutex_lock(&mutex_exit);
+                proceso->pcb->estado_proceso = FINISH;
+                list_add(cola_exit, proceso);
+                pthread_mutex_unlock(&mutex_exit);
+
+                log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual  <%s>\n", proceso->pcb->id_proceso, "EXEC", "EXIT");
+
+                for (int i = 0; i < list_size(proceso->recursosAsignados); i++)
+                {
+
+                    recurso_signal = list_get(recursosKernel, i);
+                    recursoProceso = list_get(proceso->recursosAsignados, i);
+
+                    if (strcmp(recurso_signal->nombre, recursoProceso->nombre) == 0)
+                    {
+                        log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_signal->cantidad);
+
+                        recurso_signal->cantidad += recursoProceso->cantidad;
+                        log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_signal->cantidad);
+
+                        recursoProceso->cantidad -= recursoProceso->cantidad;
+                    }
+                }
+                log_info(kernel_logger_info, "Finaliza el proceso <%d> Motivo <%s> \n", proceso->pcb->id_proceso, "INVALID_RESOURCE");
+
+                sem_post(&sem_exit); 
+                sem_post(&ready_disponible); CHEQUEAR
+            }
             break; 
         case SIGNAL:
           
