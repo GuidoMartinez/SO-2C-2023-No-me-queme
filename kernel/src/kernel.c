@@ -111,6 +111,7 @@ int main(int argc, char **argv)
     sem_init(&sem_exec, 0, 1);
     sem_init(&sem_exit, 0, 0);
     sem_init(&sem_detener, 0, 0);
+    sem_init(&sem_blocked_w,0,0);
     /*sem_init(&sem_block_return, 0, 0);*/
 
     while (1)
@@ -306,7 +307,25 @@ void exit_pcb(void)
         sem_wait(&sem_exit);
         t_pcb *pcb = safe_pcb_remove(cola_exit, &mutex_cola_exit);
         char *motivo = motivo_exit_to_string(pcb->motivo_exit);
-        pcb_destroy(pcb);// duda si pegarle a los proc activos
+        pcb_destroy(pcb);
+         /*   for (int i = 0; i < list_size(proceso->recursosAsignados); i++)
+            {
+
+                recurso_signal = list_get(recursosKernel, i);
+                recursoProceso = list_get(proceso->recursosAsignados, i);
+
+                if (strcmp(recurso_signal->nombre, recursoProceso->nombre) == 0)
+                {
+                    // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n",recurso_signal->cantidad);
+
+                    recurso_signal->cantidad += recursoProceso->cantidad;
+                    // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n",recurso_signal->cantidad);
+
+                    recursoProceso->cantidad -= recursoProceso->cantidad;
+                }
+            }*/
+            sem_post(&sem_ready);
+         
         
     }
 }
@@ -446,11 +465,11 @@ void planificar_largo_plazo()
     pthread_t hilo_block;
 
 
-    pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
+    //pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
     // pthread_create(&hilo_block, NULL, (void *)block, NULL);
 
-    pthread_detach(hilo_exit);
+    //pthread_detach(hilo_exit);
     pthread_detach(hilo_ready);
     // pthread_detach(hilo_block);
 }
@@ -521,7 +540,10 @@ void exec_pcb()
           
             break;  
         case EXIT:
-           sem_post(&sem_exit);
+        pthread_mutex_lock(&mutex_cola_exit);
+        proceso->pcb->estado_proceso = FINISH_EXIT;
+        pthread_mutex_unlock(&mutex_cola_exit);
+        sem_post(&sem_exit);
             break;  
         case SLEEP:
           
