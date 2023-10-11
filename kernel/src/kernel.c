@@ -598,7 +598,63 @@ void exec_pcb()
             }
             break; 
         case SIGNAL:
-          
+           log_info(kernel_logger_info, "ESTOY EN SIGNAL %s", proceso->pcb->recursoInstruccion);
+            recurso_instancia *recurso_signal = (recurso_instancia *)malloc(sizeof(recurso_instancia));
+            recurso_signal = buscarRecursoW(recursosKernel, proceso->pcb->recursoInstruccion);
+            if (recurso_signal != NULL)
+            {
+                log_info(kernel_logger_info, "El recurso [%s] existe en mi lista de recursosKernel y le devuelvo una instancia del PID %d", proceso->pcb->recursoInstruccion, proceso->pcb->id_proceso);
+
+                recurso_signal->cantidad = recurso_signal->cantidad + 1;
+                recurso_instancia *recursoProceso = buscarRecursoW(proceso->recursosAsignados, recurso_signal->nombre);
+                log_info(kernel_logger_info, "PID: <%d> - Signal: <%s> - Instancias restantes: <%d>", proceso->pcb->id_proceso, recurso_signal->nombre, recurso_signal->cantidad);
+                recursoProceso->cantidad -= 1;
+
+                if (queue_size(recurso_signal->colabloqueado) > 0)
+                {
+                    log_info(kernel_logger_info, "popie proceso bloquedo por %s", recurso_signal->nombre);
+                    sem_post(&sem_blocked_w);
+                }
+                else
+                {
+                    log_info(kernel_logger_info, "NO QUEDAN RECURSOS BLOQUEADOS");
+                }
+                sem_post(&sem_exec);
+                // sem_post(&ready_disponible); chequear nonbre
+            }
+            else
+            {
+                pthread_mutex_lock(&mutex_exec);
+                procesoAux = list_remove(colaExec, 0);
+                pthread_mutex_unlock(&mutex_exec);
+                log_info(kernel_logger_info, "El recurso [%s] pedido por PID [%d] no existe. Se manda proceso a exit", proceso->pcb->recursoInstruccion, proceso->pcb->id_proceso);
+
+                for (int i = 0; i < list_size(proceso->recursosAsignados); i++)
+                {
+
+                    recurso_signal = list_get(recursosKernel, i);
+                    recursoProceso = list_get(proceso->recursosAsignados, i);
+
+                    if (strcmp(recurso_signal->nombre, recursoProceso->nombre) == 0)
+                    {
+                        // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n",recurso_signal->cantidad);
+
+                        recurso_signal->cantidad += recursoProceso->cantidad;
+                        // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n",recurso_signal->cantidad);
+
+                        recursoProceso->cantidad -= recursoProceso->cantidad;
+                    }
+                }
+                pthread_mutex_lock(&mutex_exit);
+                proceso->pcb->estado_proceso = FINISH;
+                list_add(cola_exit, proceso);
+                pthread_mutex_unlock(&mutex_exit);
+                log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", proceso->pcb->id_proceso, "EXEC", "EXIT");
+
+                sem_post(&sem_exit); // despertar exit
+                sem_post(&ready_disponible); chequeaar
+            }
+
             break;    
         default:
             break;

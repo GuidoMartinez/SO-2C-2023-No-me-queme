@@ -17,6 +17,7 @@ sem_t sem_listos_ready;
 sem_t sem_ready;
 sem_t sem_exec;
 sem_t sem_detener;
+sem_t sem_blocked_w;
 
 t_list* recursosKernel; 
 t_list* lista_ready;
