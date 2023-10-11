@@ -19,6 +19,7 @@
 #include <sys/mman.h>
 #include "pthread.h"
 #include "semaphore.h"
+#include <commons/collections/queue.h>
 
 typedef enum
 {
@@ -136,6 +137,11 @@ typedef struct
     uint32_t dx;
 } t_registros;
 
+typedef struct {
+    char* nombre;
+    uint32_t cantidad;
+    t_queue* colabloqueado;
+} recurso_instancia;
 typedef struct
 {
     int pid;
@@ -157,6 +163,7 @@ typedef struct
     motivo_exit motivo_exit;
     motivo_block motivo_block;
     t_list *archivos_abiertos;
+    //time_t tiempo_ingreso_exec;
 } t_pcb;
 
 typedef struct
@@ -181,7 +188,7 @@ typedef struct
 
 typedef struct
 {
-    char* name;
+    uint32_t id;
     t_list cola_pendientes;
 } t_recurso;
 
