@@ -38,10 +38,12 @@ typedef enum
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
     CONTEXTO,
-    INTERRUPCION,
     PEDIDO_WAIT,
     PEDIDO_SIGNAL,
-    PEDIDO_SLEEP
+    PEDIDO_SLEEP,
+    FIN_QUANTUM,
+    FIN_PROCESO,
+    MENOR_PRIORIDAD
 } op_code;
 
 typedef enum
@@ -127,7 +129,7 @@ typedef enum
     INTERRUPT_FIN_QUANTUM,
     INTERRUPT_FIN_PROCESO,
     PAGE_FAULT
-} motivoDesalojo;
+} motivo_desalojo;
 
 typedef struct
 {
@@ -151,7 +153,7 @@ typedef struct
     int nro_pf;
     t_instruccion *instruccion_ejecutada;
     nombre_instruccion codigo_ultima_instru;
-    motivoDesalojo motivo_desalojado;
+    motivo_desalojo motivo_desalojado;
 } t_contexto_ejecucion;
 typedef struct
 {

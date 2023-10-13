@@ -477,9 +477,23 @@ void planificar_largo_plazo()
 void planificar_corto_plazo()
 {
     log_info(kernel_logger_info, "Entre corto plazo");
-    pthread_t hilo_corto_plazo;
+    pthread_t hilo_corto_plazo, hilo_quantum;
     pthread_create(&hilo_corto_plazo, NULL, (void *)exec_pcb, NULL);
     pthread_detach(hilo_corto_plazo);
+    pthread_create(&hilo_quantum, NULL, (void*)quantum_interrupter, NULL);
+    pthread_detach(hilo_quantum);
+}
+
+void quantum_interrupter(void){
+    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(FIN_QUANTUM);
+    while(1){
+        sleep(config_valores_kernel.quantum);
+        //if(ALGORITMO_PLANIFICACION == RR){
+            enviar_paquete(paquete, conexion_cpu_interrupt);
+            log_info(kernel_logger_info, "Envie fin de quantum.");
+        //}
+    }
+    eliminar_paquete(paquete);
 }
 
 void ready_pcb(void)
@@ -488,7 +502,7 @@ void ready_pcb(void)
     {
         sem_wait(&sem_listos_ready);
         t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
-        log_info(kernel_logger_info, "pASE AL READY PCB %d", pcb->pid);
+        log_info(kernel_logger_info, "Pase a READY el PCB: %d", pcb->pid);
         pthread_mutex_lock(&leer_grado);
         int procesos_activos = list_size(lista_ready);
         //+ list_size(cola_exec) + list_size(cola_block);
@@ -498,7 +512,7 @@ void ready_pcb(void)
 
             procesos_activos = procesos_activos + 1;
             pthread_mutex_unlock(&leer_grado);
-            log_info(kernel_logger_info, "VOy a pasar al ready %d", pcb->pid);
+            log_info(kernel_logger_info, "Voy a pasar al ready %d", pcb->pid);
             set_pcb_ready(pcb);
           //  if (frenado!=1){
             sem_post(&sem_ready);

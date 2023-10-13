@@ -72,6 +72,7 @@ void ready_pcb(void);
 void block(void);
 void exec_pcb(void);
 void exit_pcb(void);
+void quantum_interrupter(void);
 void set_pcb_ready(t_pcb *) ;
 void prceso_admitido(t_pcb* );
 void pcb_destroy(t_pcb* );

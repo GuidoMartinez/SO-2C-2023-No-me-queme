@@ -346,7 +346,7 @@ void serializar_contexto(t_paquete *paquete, t_contexto_ejecucion *ctx)
 							ctx->instruccion_ejecutada->longitud_parametro1 +
 							ctx->instruccion_ejecutada->longitud_parametro2 +
 							sizeof(nombre_instruccion) +
-							sizeof(motivoDesalojo);
+							sizeof(motivo_desalojo);
 
 	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
 	paquete->buffer->stream = malloc(paquete->buffer->size);
@@ -386,8 +386,8 @@ void serializar_contexto(t_paquete *paquete, t_contexto_ejecucion *ctx)
 	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->codigo_ultima_instru), sizeof(nombre_instruccion));
 	desplazamiento += sizeof(nombre_instruccion);
 
-	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->motivo_desalojado), sizeof(motivoDesalojo));
-	desplazamiento += sizeof(motivoDesalojo);
+	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->motivo_desalojado), sizeof(motivo_desalojo));
+	desplazamiento += sizeof(motivo_desalojo);
 }
 
 void enviar_contexto(int socket, t_contexto_ejecucion *contexto_a_enviar)
@@ -445,8 +445,8 @@ t_contexto_ejecucion *recibir_contexto(int socket)
 	memcpy(&(contexto_recibido->codigo_ultima_instru), buffer + offset, sizeof(nombre_instruccion));
 	offset += sizeof(nombre_instruccion);
 
-	memcpy(&(contexto_recibido->motivo_desalojado), buffer + offset, sizeof(motivoDesalojo));
-	offset += sizeof(motivoDesalojo);
+	memcpy(&(contexto_recibido->motivo_desalojado), buffer + offset, sizeof(motivo_desalojo));
+	offset += sizeof(motivo_desalojo);
 
 	return contexto_recibido;
 }

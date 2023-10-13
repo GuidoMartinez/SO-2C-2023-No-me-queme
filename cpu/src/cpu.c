@@ -21,6 +21,8 @@ int main(int argc, char **argv)
     cpu_logger_info = log_create("./cfg/cpu.log", "CPU", true, LOG_LEVEL_INFO);
     cargar_configuracion(argv[1]);
 
+    pthread_mutex_init(&mutex_interrupt, NULL);
+
     iniciar_conexiones();
     // cambiar a uno para recibir la operacion de kernel
     while (1)
@@ -36,12 +38,12 @@ int main(int argc, char **argv)
             while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir)
                 ejecutar_ciclo_instruccion();
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
+
+            pthread_mutex_lock(&mutex_interrupt);
             interrumpir = false;
+            pthread_mutex_unlock(&mutex_interrupt);
+
             break;
-            /*      case -1:
-                      log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
-                      finalizar_cpu();
-                      return EXIT_FAILURE;*/
         default:
             log_error(cpu_logger_info, "El codigo que me llego es %d",codigo_operacion);
             log_warning(cpu_logger_info, "Operacion desconocida \n");
@@ -67,9 +69,23 @@ void *recibir_interrupcion(void *arg)
     codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
     switch (codigo_operacion)
     {
-    case INTERRUPCION:
-        log_info(cpu_logger_info, "Se recibio una interrupcion");
-        if (!descartar_instruccion) interrumpir = true;
+    case FIN_QUANTUM:
+        log_info(cpu_logger_info, "Recibo fin de quantum");
+        if (!descartar_instruccion) {
+            pthread_mutex_lock(&mutex_interrupt);
+            interrumpir = true;
+            contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
+            pthread_mutex_unlock(&mutex_interrupt);
+        }
+        break;
+    case FIN_PROCESO:
+        log_info(cpu_logger_info, "Recibo fin de proceso");
+        if (!descartar_instruccion) {
+            pthread_mutex_lock(&mutex_interrupt);
+            interrumpir = true;
+            contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+            pthread_mutex_unlock(&mutex_interrupt);
+        }
         break;
     default:
         log_warning(cpu_logger_info, "Operacion desconocida \n");

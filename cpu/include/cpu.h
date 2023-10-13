@@ -20,6 +20,7 @@ conexion_kernel_interrupt;
 op_code codigo_operacion;
 
 pthread_t hiloInterrupt;
+pthread_mutex_t mutex_interrupt;
 
 typedef struct  // archivo de configuracion cpu
 {
