@@ -477,11 +477,13 @@ void planificar_largo_plazo()
 void planificar_corto_plazo()
 {
     log_info(kernel_logger_info, "Entre corto plazo");
-    pthread_t hilo_corto_plazo, hilo_quantum;
+    pthread_t hilo_corto_plazo, hilo_quantum, hilo_sleep;
     pthread_create(&hilo_corto_plazo, NULL, (void *)exec_pcb, NULL);
     pthread_detach(hilo_corto_plazo);
     pthread_create(&hilo_quantum, NULL, (void*)quantum_interrupter, NULL);
     pthread_detach(hilo_quantum);
+    pthread_create(&hilo_sleep, NULL, (void*)sleeper, NULL);
+    pthread_detach(hilo_sleep);
 }
 
 void quantum_interrupter(void){
@@ -494,6 +496,13 @@ void quantum_interrupter(void){
         //}
     }
     eliminar_paquete(paquete);
+}
+
+void sleeper(void){
+    while(1){
+        sleep(actual_sleep);
+        //pasar proceso a ready
+    }
 }
 
 void ready_pcb(void)
@@ -538,7 +547,7 @@ void exec_pcb()
         enviar_contexto(conexion_cpu_dispatch, pcb->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcb->pid,pcb->contexto_ejecucion->program_counter);
      
-
+        //recibir paquete
         codigo_operacion = recibir_operacion(conexion_cpu_dispatch);
         log_info(kernel_logger_info, "Recibi el codigo de operacion de CPU %d", codigo_operacion);
 
@@ -560,7 +569,8 @@ void exec_pcb()
         sem_post(&sem_exit);
             break;  
         case SLEEP:
-          
+            bloquear proceso que mando el sleep
+            actual_sleep = deserializar paquete y obtener tiempo
             break;
         case WAIT:
            log_info(kernel_logger_info, "ESTOY EN WAIT %s", proceso->pcb->recursoInstruccion);

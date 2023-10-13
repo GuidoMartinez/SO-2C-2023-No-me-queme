@@ -36,6 +36,7 @@ op_code codigo_operacion;
 recurso_instancia*  recursoProceso;
 recurso_instancia*  recurso_signal;
 
+int actual_sleep = 0;
 
 typedef struct // archivo de configuracion kernel
 {char *ip_memoria;char *puerto_memoria;char *ip_filesystem;char *puerto_filesystem;char *ip_cpu;char *puerto_cpu_dispatch;char *puerto_cpu_interrupt;char *algoritmo_planificacion;int quantum;int grado_multiprogramacion;char **recursos;char **instancias_recursos;
@@ -73,6 +74,7 @@ void block(void);
 void exec_pcb(void);
 void exit_pcb(void);
 void quantum_interrupter(void);
+void sleeper(void);
 void set_pcb_ready(t_pcb *) ;
 void prceso_admitido(t_pcb* );
 void pcb_destroy(t_pcb* );
