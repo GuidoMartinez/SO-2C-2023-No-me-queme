@@ -492,7 +492,6 @@ void quantum_interrupter(void){
         sleep(config_valores_kernel.quantum);
         //if(ALGORITMO_PLANIFICACION == RR){
             enviar_paquete(paquete, conexion_cpu_interrupt);
-            log_info(kernel_logger_info, "Envie fin de quantum.");
         //}
     }
     eliminar_paquete(paquete);
@@ -548,10 +547,12 @@ void exec_pcb()
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcb->pid,pcb->contexto_ejecucion->program_counter);
      
         //recibir paquete
-        codigo_operacion = recibir_operacion(conexion_cpu_dispatch);
-        log_info(kernel_logger_info, "Recibi el codigo de operacion de CPU %d", codigo_operacion);
-
-        /*switch (codigo_operacion)
+        t_contexto_ejecucion* ultimo_contexto = malloc(sizeof(t_contexto_ejecucion));
+        ultimo_contexto = recibir_contexto(conexion_cpu_dispatch);
+        //memcpy(pcb->contexto_ejecucion, ultimo_contexto, sizeof(t_contexto_ejecucion));
+        log_info(kernel_logger_info, "Ultima instruccion ejecutada %d", ultimo_contexto->codigo_ultima_instru);
+        log_info(kernel_logger_info, "Program counter es: %d", ultimo_contexto->program_counter);
+        /*switch (pcb->contexto_ejecucion->codigo_ultima_instru)
         {
         case SET:
            
@@ -707,6 +708,7 @@ void exec_pcb()
         }*/
 
         //     sem_post(&sem_exec);
+        free(pcb);
     }
 }
 

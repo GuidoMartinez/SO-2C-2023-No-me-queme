@@ -35,8 +35,12 @@ int main(int argc, char **argv)
         case CONTEXTO:
             contexto_actual = recibir_contexto(conexion_kernel_dispatch);
 
-            while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir)
+            while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir){
                 ejecutar_ciclo_instruccion();
+            }
+            if(interrumpir) log_info(cpu_logger_info,"interrumpi un proceso");
+            log_info(cpu_logger_info, "Ultima instruccion: %d", contexto_actual->codigo_ultima_instru);
+            log_info(cpu_logger_info, "PC actual: %d", contexto_actual->program_counter);
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
 
             pthread_mutex_lock(&mutex_interrupt);
@@ -176,7 +180,7 @@ void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
-    if(!page_fault) contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
+    if(!page_fault&&contexto_actual->codigo_ultima_instru!=EXIT) contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
 }
 
 // Pide a memoria la siguiente instruccion a ejecutar

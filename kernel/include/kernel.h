@@ -35,6 +35,7 @@ bool frenado=0;
 op_code codigo_operacion;
 recurso_instancia*  recursoProceso;
 recurso_instancia*  recurso_signal;
+t_contexto_ejecucion* ultimo_contexto_ejecucion;
 
 int actual_sleep = 0;
 
