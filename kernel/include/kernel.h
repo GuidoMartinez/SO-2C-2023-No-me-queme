@@ -53,6 +53,7 @@ typedef struct
 
 sem_t1 sem;
 
+bool maximo_RR(t_pcb* pcb1, t_pcb* pcb2);
 typedef enum{FIFO,RR,PRIORIDADES} t_algoritmo;
 t_algoritmo ALGORITMO_PLANIFICACION;
 arch_config config_valores_kernel;

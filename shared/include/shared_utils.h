@@ -122,11 +122,11 @@ typedef enum
 
 typedef enum
 {
-    SYSCALL,
     INTERRUPT_FIN_QUANTUM,
-    INTERRUPT_FIN_PROCESO,
+    SYSCALL,
+    PAGE_FAULT,
     INTERRUPT_NUEVO_PROCESO,
-    PAGE_FAULT
+    INTERRUPT_FIN_PROCESO
 } motivo_desalojo;
 
 typedef struct

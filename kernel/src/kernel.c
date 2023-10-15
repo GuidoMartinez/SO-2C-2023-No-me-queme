@@ -804,11 +804,18 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
 
 
 t_pcb* obtener_pcb_RR(){
-    //aca ver si va un if del contexto de ejecucion  con el motivo de desalojo o cuando
-
 	pthread_mutex_lock(&mutex_cola_ready);
+    list_sort(lista_ready,(void*)maximo_RR);
 	t_pcb* pcb = list_remove(lista_ready, 0);
 	log_info(kernel_logger_info, "Se eligio el proceso %d por RR", pcb->pid);
 	pthread_mutex_unlock(&mutex_cola_ready);
 	return pcb;
+}
+
+/*int comparar(const void *a, const void *b) {
+    return ((MiStruct*)a)->enum_field - ((MiStruct*)b)->enum_field;
+}*/
+
+bool maximo_RR(t_pcb* pcb1, t_pcb* pcb2){
+	return pcb1->contexto_ejecucion->motivo_desalojado >= pcb2->contexto_ejecucion->motivo_desalojado ;
 }
