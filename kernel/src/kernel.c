@@ -546,12 +546,16 @@ void exec_pcb()
         enviar_contexto(conexion_cpu_dispatch, pcb->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcb->pid,pcb->contexto_ejecucion->program_counter);
      
-        //recibir paquete
+        //TODO: Liberar contexto desactualizado (0 prioritario)
+        codigo_operacion = recibir_operacion(conexion_cpu_dispatch);
+        if(codigo_operacion != CONTEXTO){
+            log_info(kernel_logger_info, "Error al recibir contexto");
+            abort();
+        }
         t_contexto_ejecucion* ultimo_contexto = malloc(sizeof(t_contexto_ejecucion));
         ultimo_contexto = recibir_contexto(conexion_cpu_dispatch);
-        //memcpy(pcb->contexto_ejecucion, ultimo_contexto, sizeof(t_contexto_ejecucion));
-        log_info(kernel_logger_info, "Ultima instruccion ejecutada %d", ultimo_contexto->codigo_ultima_instru);
-        log_info(kernel_logger_info, "Program counter es: %d", ultimo_contexto->program_counter);
+        pcb->contexto_ejecucion = ultimo_contexto;
+        //TODO: Guardar pcb en una lista segun el tipo de desalojo (poner dentro de los switches)
         /*switch (pcb->contexto_ejecucion->codigo_ultima_instru)
         {
         case SET:
@@ -708,7 +712,9 @@ void exec_pcb()
         }*/
 
         //     sem_post(&sem_exec);
-        free(pcb);
+        //TODO: Chequear estos free
+        //free(pcb);
+        //free(ultimo_contexto);
     }
 }
 

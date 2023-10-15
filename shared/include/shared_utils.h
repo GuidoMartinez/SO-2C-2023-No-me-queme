@@ -38,9 +38,6 @@ typedef enum
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
     CONTEXTO,
-    PEDIDO_WAIT,
-    PEDIDO_SIGNAL,
-    PEDIDO_SLEEP,
     FIN_QUANTUM,
     FIN_PROCESO,
     MENOR_PRIORIDAD
@@ -128,6 +125,7 @@ typedef enum
     SYSCALL,
     INTERRUPT_FIN_QUANTUM,
     INTERRUPT_FIN_PROCESO,
+    INTERRUPT_NUEVO_PROCESO,
     PAGE_FAULT
 } motivo_desalojo;
 
@@ -193,6 +191,11 @@ typedef struct
     uint32_t id;
     t_list cola_pendientes;
 } t_recurso;
+
+typedef struct{
+    motivo_desalojo motivo_interrupcion;
+    int pid;
+} t_interrupcion;
 
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);

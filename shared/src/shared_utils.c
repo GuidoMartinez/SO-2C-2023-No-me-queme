@@ -436,11 +436,11 @@ t_contexto_ejecucion *recibir_contexto(int socket)
 
 	contexto_recibido->instruccion_ejecutada->parametro1 = malloc(contexto_recibido->instruccion_ejecutada->longitud_parametro1);
 	memcpy(contexto_recibido->instruccion_ejecutada->parametro1, buffer + offset, contexto_recibido->instruccion_ejecutada->longitud_parametro1);
-	offset += sizeof(uint32_t);
+	offset += contexto_recibido->instruccion_ejecutada->longitud_parametro1;
 
 	contexto_recibido->instruccion_ejecutada->parametro2 = malloc(contexto_recibido->instruccion_ejecutada->longitud_parametro2);
 	memcpy(contexto_recibido->instruccion_ejecutada->parametro2, buffer + offset, contexto_recibido->instruccion_ejecutada->longitud_parametro2);
-	offset += sizeof(uint32_t);
+	offset += contexto_recibido->instruccion_ejecutada->longitud_parametro2;
 
 	memcpy(&(contexto_recibido->codigo_ultima_instru), buffer + offset, sizeof(nombre_instruccion));
 	offset += sizeof(nombre_instruccion);

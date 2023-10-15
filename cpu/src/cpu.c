@@ -39,7 +39,7 @@ int main(int argc, char **argv)
                 ejecutar_ciclo_instruccion();
             }
             if(interrumpir) log_info(cpu_logger_info,"interrumpi un proceso");
-            log_info(cpu_logger_info, "Ultima instruccion: %d", contexto_actual->codigo_ultima_instru);
+            log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
             log_info(cpu_logger_info, "PC actual: %d", contexto_actual->program_counter);
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
 
@@ -180,7 +180,7 @@ void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
-    if(!page_fault&&contexto_actual->codigo_ultima_instru!=EXIT) contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
+    if(!page_fault) contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
 }
 
 // Pide a memoria la siguiente instruccion a ejecutar
@@ -196,6 +196,7 @@ t_instruccion *fetch(int pid, int pc)
     if (codigo_op == INSTRUCCION)
     {
         instruccion = deserializar_instruccion(socket_memoria);
+        contexto_actual->instruccion_ejecutada = instruccion;
     }
     else
     {
@@ -224,13 +225,13 @@ void decode(t_instruccion *instruccion)
         _jnz(instruccion->parametro1, instruccion->parametro2, contexto_actual);
         break;
     case SLEEP:
-        _sleep(instruccion->parametro1, contexto_actual, conexion_kernel_dispatch);
+        _sleep(contexto_actual);
         break;
     case WAIT:
-        _wait(instruccion->parametro1, contexto_actual, conexion_kernel_dispatch);
+        _wait(contexto_actual);
         break;
     case SIGNAL:
-        _signal(instruccion->parametro1, contexto_actual, conexion_kernel_dispatch);
+        _signal(contexto_actual);
         break;
     case MOV_IN:
         _mov_in(instruccion->parametro1, instruccion->parametro2, contexto_actual);

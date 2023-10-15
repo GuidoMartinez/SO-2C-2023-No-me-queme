@@ -57,45 +57,21 @@ void _jnz(char *registro, char* instruccion, t_contexto_ejecucion *contexto)
 
 // Syscall bloqueante. Devuelve el Contexto de Ejecución actualizado al Kernel
 // junto a la cantidad de segundos que va a bloquearse el proceso.
-void _sleep(char* tiempo, t_contexto_ejecucion *contexto, int conexion_kernel)
+void _sleep(t_contexto_ejecucion *contexto)
 {
-    uint32_t tiempo_sleep = str_to_uint32(tiempo);
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(PEDIDO_SLEEP);
-    paquete->buffer->size += sizeof(uint32_t);
-	paquete->buffer->stream = malloc(paquete->buffer->size);
-	memcpy(paquete->buffer->stream, &(tiempo_sleep), sizeof(uint32_t));
-	enviar_paquete(paquete, conexion_kernel);
-	eliminar_paquete(paquete);
-
     contexto->codigo_ultima_instru = SLEEP;
 }
 
 // Esta instrucción solicita al Kernel que se asigne una instancia del recurso indicado por parámetro.
-void _wait(char *recurso, t_contexto_ejecucion *contexto, int conexion_kernel)
+void _wait(t_contexto_ejecucion *contexto)
 {
-    uint32_t recurso_as_int = str_to_uint32(recurso);
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(PEDIDO_WAIT);
-    paquete->buffer->size += sizeof(uint32_t);
-	paquete->buffer->stream = malloc(paquete->buffer->size);
-	memcpy(paquete->buffer->stream, &(recurso_as_int), sizeof(uint32_t));
-	enviar_paquete(paquete, conexion_kernel);
-	eliminar_paquete(paquete);
-
     //solicitar al kernel asignar recurso
     contexto->codigo_ultima_instru = WAIT;
 }
 
 //  Esta instrucción solicita al Kernel que se libere una instancia del recurso indicado por parámetro.
-void _signal(char *recurso, t_contexto_ejecucion *contexto,int conexion_kernel)
+void _signal(t_contexto_ejecucion *contexto)
 {
-    uint32_t recurso_as_int = str_to_uint32(recurso);
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(PEDIDO_SIGNAL);
-    paquete->buffer->size += sizeof(uint32_t);
-	paquete->buffer->stream = malloc(paquete->buffer->size);
-	memcpy(paquete->buffer->stream, &(recurso_as_int), sizeof(uint32_t));
-	enviar_paquete(paquete, conexion_kernel);
-	eliminar_paquete(paquete);
-
     //solicitar al kernel liberar recurso
     contexto->codigo_ultima_instru = SIGNAL;
 }
