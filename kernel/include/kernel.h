@@ -54,6 +54,8 @@ typedef struct
 sem_t1 sem;
 
 bool maximo_RR(t_pcb* pcb1, t_pcb* pcb2);
+bool maximo_PRIORIDAD(t_pcb* pcb1, t_pcb* pcb2);
+t_pcb* obtener_pcb_PRIORIDAD();
 typedef enum{FIFO,RR,PRIORIDADES} t_algoritmo;
 t_algoritmo ALGORITMO_PLANIFICACION;
 arch_config config_valores_kernel;

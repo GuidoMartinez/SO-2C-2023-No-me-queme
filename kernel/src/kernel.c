@@ -369,6 +369,7 @@ void pcb_create(int prio, int tamano, int pid_ok)
     t_contexto_ejecucion *contexto = malloc(sizeof(t_contexto_ejecucion));
     pcb->archivos_abiertos = list_create();
     pcb->pid = pid_ok;
+    pcb->prioridad=prio;
     pcb->contexto_ejecucion = contexto;
     pcb->contexto_ejecucion->pid = pid_ok;
     pcb->contexto_ejecucion->program_counter = 0;
@@ -396,7 +397,8 @@ t_pcb *elegir_pcb_segun_algoritmo()
      log_info(kernel_logger_info, "ELEGI RR");
         return obtener_pcb_RR();
     case PRIORIDADES:
-        return 0;
+    log_info(kernel_logger_info, "ELEGI PRIORIDADES");
+        return obtener_pcb_PRIORIDAD();
     default:
         exit(1);
     }
@@ -812,10 +814,23 @@ t_pcb* obtener_pcb_RR(){
 	return pcb;
 }
 
+t_pcb* obtener_pcb_PRIORIDAD(){
+	pthread_mutex_lock(&mutex_cola_ready);
+    list_sort(lista_ready,(void*)maximo_PRIORIDAD);
+	t_pcb* pcb = list_remove(lista_ready, 0);
+	log_info(kernel_logger_info, "Se eligio el proceso %d por Prioridad", pcb->pid);
+	pthread_mutex_unlock(&mutex_cola_ready);
+	return pcb;
+}
+
 /*int comparar(const void *a, const void *b) {
     return ((MiStruct*)a)->enum_field - ((MiStruct*)b)->enum_field;
 }*/
 
 bool maximo_RR(t_pcb* pcb1, t_pcb* pcb2){
 	return pcb1->contexto_ejecucion->motivo_desalojado >= pcb2->contexto_ejecucion->motivo_desalojado ;
+}
+
+bool maximo_PRIORIDAD(t_pcb* pcb1, t_pcb* pcb2){
+	return pcb1->prioridad >= pcb2->prioridad ;
 }
