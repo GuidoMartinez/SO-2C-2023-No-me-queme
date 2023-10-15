@@ -222,6 +222,7 @@ void cargar_configuracion(char *path)
     config_valores_kernel.puerto_filesystem = config_get_string_value(config, "PUERTO_FILESYSTEM");
     config_valores_kernel.quantum = config_get_int_value(config, "QUANTUM");
     config_valores_kernel.algoritmo_planificacion = config_get_string_value(config, "ALGORITMO_PLANIFICACION");
+    asignar_algoritmo( config_valores_kernel.algoritmo_planificacion);
     config_valores_kernel.grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
     sem.g_multiprog_ini = config_valores_kernel.grado_multiprogramacion; // esto es una struct
     config_valores_kernel.recursos = config_get_array_value(config, "RECURSOS");
@@ -551,7 +552,6 @@ void exec_pcb()
         sem_wait(&sem_exec);
         log_info(kernel_logger_info, "Entre a hilo exec");
         t_pcb *pcb = elegir_pcb_segun_algoritmo();
-        log_info(kernel_logger_info, "Sale pcb  %d", pcb->pid);
         prceso_admitido(pcb);
         enviar_contexto(conexion_cpu_dispatch, pcb->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcb->pid,pcb->contexto_ejecucion->program_counter);
@@ -732,7 +732,6 @@ void exec_pcb()
 void prceso_admitido(t_pcb *pcb)
 {
     cambiar_estado(pcb, EXEC);
-    //pcb->tiempo_ingreso_exec = time(NULL);
     safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
     sem_post(&sem_exec);
 }
@@ -805,10 +804,11 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
 
 
 t_pcb* obtener_pcb_RR(){
-    //aca ver si va un if del contexto de ejecucion
+    //aca ver si va un if del contexto de ejecucion  con el motivo de desalojo o cuando
+
 	pthread_mutex_lock(&mutex_cola_ready);
 	t_pcb* pcb = list_remove(lista_ready, 0);
-	//log_info(logger, "Se eligio el proceso %d por RR", pcb->pid);
+	log_info(kernel_logger_info, "Se eligio el proceso %d por RR", pcb->pid);
 	pthread_mutex_unlock(&mutex_cola_ready);
 	return pcb;
 }
