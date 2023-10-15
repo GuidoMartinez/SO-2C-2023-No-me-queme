@@ -26,6 +26,9 @@ t_list* cola_listos_para_ready;
 t_list* cola_exec;
 t_list* cola_exit;
 t_list* lista_global;
+t_list* colaBlockedRecurso;
+
+t_pcb* procesoAux;
 
 int generador_de_id=0;
 int grado_multiprogramacion_ini;
