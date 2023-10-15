@@ -525,8 +525,11 @@ void ready_pcb(void)
         t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
         log_info(kernel_logger_info, "Pase a READY el PCB: %d", pcb->pid);
         pthread_mutex_lock(&leer_grado);
-        int procesos_activos = list_size(lista_ready);
-        //+ list_size(cola_exec) + list_size(cola_block);
+        int procesos_ready = list_size(lista_ready);
+        int procesos_exec=list_size(cola_exec);
+        int procesos_bloqueado =list_size(cola_block);
+
+        int procesos_activos = procesos_ready + procesos_exec + procesos_bloqueado;
 
         if (procesos_activos < sem.g_multiprog_ini)
         {
