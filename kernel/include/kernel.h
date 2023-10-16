@@ -26,9 +26,10 @@ t_list* cola_listos_para_ready;
 t_list* cola_exec;
 t_list* cola_exit;
 t_list* lista_global;
-t_list* colaBlockedRecurso;
+t_list* cola_blocked_recurso;
 
 t_pcb* procesoAux;
+t_pcb* proceso_en_ejecucion;
 
 int generador_de_id=0;
 int grado_multiprogramacion_ini;
@@ -40,7 +41,10 @@ recurso_instancia*  recursoProceso;
 recurso_instancia*  recurso_signal;
 t_contexto_ejecucion* ultimo_contexto_ejecucion;
 
-int actual_sleep = 0;
+typedef struct {
+    t_pcb* pcb;
+    int tiempo;
+} args_sleep;
 
 typedef struct // archivo de configuracion kernel
 {char *ip_memoria;char *puerto_memoria;char *ip_filesystem;char *puerto_filesystem;char *ip_cpu;char *puerto_cpu_dispatch;char *puerto_cpu_interrupt;char *algoritmo_planificacion;int quantum;int grado_multiprogramacion;char **recursos;char **instancias_recursos;
@@ -81,8 +85,9 @@ void block(void);
 void exec_pcb(void);
 void exit_pcb(void);
 void quantum_interrupter(void);
-void sleeper(void);
+void sleeper(void*);
 void set_pcb_ready(t_pcb *) ;
+void set_pcb_block(t_pcb *) ;
 void prceso_admitido(t_pcb* );
 void pcb_destroy(t_pcb* );
 char* motivo_exit_to_string(motivo_exit );
@@ -90,4 +95,6 @@ t_pcb *buscarProceso(int );
 void crear_proceso_memoria(int,int,char*,int);
 void serializar_pedido_proceso_nuevo(t_paquete*, int, int,char*);
 t_pcb* obtener_pcb_RR();
+void asignar_algoritmo(char*);
+
 #endif

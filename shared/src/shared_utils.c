@@ -545,3 +545,41 @@ void pedido_instruccion(uint32_t *pid, uint32_t *pc, int socket)
 
 	free(buffer);
 }
+
+void enviar_interrupcion(int socket, t_interrupcion* interrupcion){
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(INTERRUPCION);
+	
+	paquete->buffer->size = sizeof(motivo_desalojo) +
+							sizeof(int)+
+	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+	int desplazamiento = 0;
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(interrupcion->motivo_interrupcion), sizeof(motivo_desalojo));
+	desplazamiento += sizeof(motivo_desalojo);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(interrupcion->pid), sizeof(int));
+	desplazamiento += sizeof(int);
+
+	enviar_paquete(paquete, socket);
+	eliminar_paquete(paquete);
+}
+
+t_interrupcion* recibir_interrupcion(int socket){
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	printf("size del stream a deserializar \n%d", size);
+	t_interrupcion* interrupcion_recibida = malloc(sizeof(t_interrupcion));
+
+	memcpy(&(interrupcion_recibida->motivo_interrupcion), buffer + offset, sizeof(motivo_desalojo));
+	offset += sizeof(motivo_desalojo);
+
+	memcpy(&(interrupcion_recibida->pid), buffer + offset, sizeof(int));
+	offset += sizeof(int);
+
+	free(buffer);
+	return interrupcion_recibida;
+}

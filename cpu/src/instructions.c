@@ -60,6 +60,7 @@ void _jnz(char *registro, char* instruccion, t_contexto_ejecucion *contexto)
 void _sleep(t_contexto_ejecucion *contexto)
 {
     contexto->codigo_ultima_instru = SLEEP;
+    contexto->motivo_desalojado = SYSCALL;
 }
 
 // Esta instrucción solicita al Kernel que se asigne una instancia del recurso indicado por parámetro.
@@ -67,6 +68,7 @@ void _wait(t_contexto_ejecucion *contexto)
 {
     //solicitar al kernel asignar recurso
     contexto->codigo_ultima_instru = WAIT;
+    contexto->motivo_desalojado = SYSCALL;
 }
 
 //  Esta instrucción solicita al Kernel que se libere una instancia del recurso indicado por parámetro.
@@ -74,6 +76,7 @@ void _signal(t_contexto_ejecucion *contexto)
 {
     //solicitar al kernel liberar recurso
     contexto->codigo_ultima_instru = SIGNAL;
+    contexto->motivo_desalojado = SYSCALL;
 }
 
 // Lee el valor de memoria correspondiente a la Dirección Lógica y lo almacena en el Registro.

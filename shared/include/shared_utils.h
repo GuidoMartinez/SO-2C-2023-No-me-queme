@@ -38,9 +38,7 @@ typedef enum
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
     CONTEXTO,
-    FIN_QUANTUM,
-    FIN_PROCESO,
-    MENOR_PRIORIDAD
+    INTERRUPCION
 } op_code;
 
 typedef enum
@@ -123,10 +121,10 @@ typedef enum
 typedef enum
 {
     INTERRUPT_FIN_QUANTUM,
-    SYSCALL,
-    PAGE_FAULT,
+    INTERRUPT_FIN_PROCESO,
     INTERRUPT_NUEVO_PROCESO,
-    INTERRUPT_FIN_PROCESO
+    SYSCALL,
+    PAGE_FAULT
 } motivo_desalojo;
 
 typedef struct
@@ -163,6 +161,7 @@ typedef struct
     motivo_exit motivo_exit;
     motivo_block motivo_block;
     t_list *archivos_abiertos;
+    //time_t tiempo_ingreso_exec;
 } t_pcb;
 
 typedef struct
@@ -230,6 +229,9 @@ void enviar_instruccion_cpu(int, t_instruccion *);
 void serializar_instruccion(t_paquete *, t_instruccion *);
 t_instruccion *deserializar_instruccion(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
+
+void enviar_interrupcion(int, t_interrupcion *);
+t_interrupcion* recibir_interrupcion(int);
 
 uint32_t str_to_uint32(char *str);
 

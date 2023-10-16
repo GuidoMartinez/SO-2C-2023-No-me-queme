@@ -222,7 +222,7 @@ void cargar_configuracion(char *path)
     config_valores_kernel.puerto_filesystem = config_get_string_value(config, "PUERTO_FILESYSTEM");
     config_valores_kernel.quantum = config_get_int_value(config, "QUANTUM");
     config_valores_kernel.algoritmo_planificacion = config_get_string_value(config, "ALGORITMO_PLANIFICACION");
-    asignar_algoritmo( config_valores_kernel.algoritmo_planificacion);
+    asignar_algoritmo(config_valores_kernel.algoritmo_planificacion);
     config_valores_kernel.grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
     sem.g_multiprog_ini = config_valores_kernel.grado_multiprogramacion; // esto es una struct
     config_valores_kernel.recursos = config_get_array_value(config, "RECURSOS");
@@ -254,6 +254,10 @@ void iniciar_proceso(char *path, int size, int prioridad)
 
 void finalizar_proceso(int pid)
 {
+    t_interrupcion* interrupcion = malloc(sizeof(t_interrupcion));
+    interrupcion->motivo_interrupcion = INTERRUPT_FIN_PROCESO;
+    interrupcion->pid = pid;
+    enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
     t_pcb *proceso_encontrado;
     proceso_encontrado = buscarProceso(pid);
     pthread_mutex_lock(&mutex_cola_exit);
@@ -486,30 +490,31 @@ void planificar_largo_plazo()
 void planificar_corto_plazo()
 {
     log_info(kernel_logger_info, "Entre corto plazo");
-    pthread_t hilo_corto_plazo, hilo_quantum, hilo_sleep;
+    pthread_t hilo_corto_plazo, hilo_quantum;
     pthread_create(&hilo_corto_plazo, NULL, (void *)exec_pcb, NULL);
     pthread_detach(hilo_corto_plazo);
     pthread_create(&hilo_quantum, NULL, (void*)quantum_interrupter, NULL);
     pthread_detach(hilo_quantum);
-    pthread_create(&hilo_sleep, NULL, (void*)sleeper, NULL);
-    pthread_detach(hilo_sleep);
 }
 
 void quantum_interrupter(void){
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(FIN_QUANTUM);
+    t_interrupcion* interrupcion = malloc(sizeof(t_interrupcion));
+    interrupcion->motivo_interrupcion = INTERRUPT_FIN_QUANTUM;
+    interrupcion->pid = -1;
     while(1){
         sleep(config_valores_kernel.quantum);
-        //if(ALGORITMO_PLANIFICACION == RR){
-            enviar_paquete(paquete, conexion_cpu_interrupt);
-        //}
+        if(ALGORITMO_PLANIFICACION == RR){
+            enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
+        }
     }
-    eliminar_paquete(paquete);
+    free(interrupcion);
 }
 
-void sleeper(void){
+void sleeper(void* args){
+    args_sleep* _args = (args_sleep*)args;
     while(1){
-        sleep(actual_sleep);
-        //pasar proceso a ready
+        sleep(_args->tiempo);
+        set_pcb_ready(_args->pcb);
     }
 }
 
@@ -528,6 +533,7 @@ void ready_pcb(void)
         int procesos_ready = list_size(lista_ready);
         int procesos_exec=list_size(cola_exec);
         int procesos_bloqueado =list_size(cola_block);
+        //TODO: Cerrar semaforo acá?
 
         int procesos_activos = procesos_ready + procesos_exec + procesos_bloqueado;
 
@@ -538,6 +544,15 @@ void ready_pcb(void)
             pthread_mutex_unlock(&leer_grado);
             log_info(kernel_logger_info, "Voy a pasar al ready %d", pcb->pid);
             set_pcb_ready(pcb);
+            if(ALGORITMO_PLANIFICACION == PRIORIDADES){
+                if(pcb->prioridad > proceso_en_ejecucion->prioridad) {
+                    t_interrupcion* interrupcion = malloc(sizeof(t_interrupcion));
+                    interrupcion->motivo_interrupcion = INTERRUPT_NUEVO_PROCESO;
+                    interrupcion->pid = pcb->pid;
+                    enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
+                    free(interrupcion);
+                }
+            }
           //  if (frenado!=1){
             sem_post(&sem_ready);
            // } else {
@@ -560,7 +575,8 @@ void exec_pcb()
         prceso_admitido(pcb);
         enviar_contexto(conexion_cpu_dispatch, pcb->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcb->pid,pcb->contexto_ejecucion->program_counter);
-     
+        proceso_en_ejecucion = pcb;
+
         //TODO: Liberar contexto desactualizado (0 prioritario)
         codigo_operacion = recibir_operacion(conexion_cpu_dispatch);
         if(codigo_operacion != CONTEXTO){
@@ -572,12 +588,12 @@ void exec_pcb()
         pcb->contexto_ejecucion = ultimo_contexto;
 
         int codigo_instruccion= pcb->contexto_ejecucion->codigo_ultima_instru;
-        log_info(kernel_logger_info, "Volvio PID %d con codigo inst %d ", pcb->pid,pcb->contexto_ejecucion->codigo_ultima_instru);
+        log_info(kernel_logger_info, "Volvio PID %d con codigo inst %d ", ultimo_contexto->pid,pcb->contexto_ejecucion->codigo_ultima_instru);
 
         //TODO: Guardar pcb en una lista segun el tipo de desalojo (poner dentro de los switches)
         switch (codigo_instruccion) {
      
-        case 16:
+        case EXIT:
         log_info(kernel_logger_info, "Entre al exit");
 
         pthread_mutex_lock(&mutex_cola_exit);
@@ -587,8 +603,14 @@ void exec_pcb()
         sem_post(&sem_exit);
             break;  
         case SLEEP:
+            set_pcb_block(pcb);
+            args_sleep args;
+            args.pcb = pcb;
+            args.tiempo = atoi(pcb->contexto_ejecucion->instruccion_ejecutada->parametro1);
+            pthread_t hilo_sleep;
+            pthread_create(&hilo_sleep, NULL, (void *)sleeper, &args);
+            pthread_detach(hilo_sleep);
            // bloquear proceso que mando el sleep
-           // actual_sleep = deserializar paquete y obtener tiempo
             break;
         case WAIT:
           // log_info(kernel_logger_info, "ESTOY EN WAIT %s", proceso->pcb->recursoInstruccion);
@@ -608,7 +630,7 @@ void exec_pcb()
                     pthread_mutex_lock(&mutex_cola_block);
                    pcb->estado = BLOCK;
                    // queue_push(recursoKernel->colabloqueado, proceso);
-                    list_add(colaBlockedRecurso, procesoAux);
+                    list_add(cola_blocked_recurso, procesoAux);
                     pthread_mutex_unlock(&mutex_cola_block);
                   //  log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", proceso->pcb->id_proceso, recursoKernel->nombre);
                     //sem_post(&ready_disponible); CHEQUEAR ESTE SEMAFORO
@@ -774,6 +796,14 @@ void set_pcb_ready(t_pcb *pcb)
     list_add(lista_ready, pcb);
     pthread_mutex_unlock(&mutex_cola_ready);
     log_info(kernel_logger_info, "SET PCB READY %d", pcb->pid);
+}
+
+void set_pcb_block(t_pcb *pcb){
+    pthread_mutex_lock(&mutex_cola_block);
+    cambiar_estado(pcb, BLOCK);
+    list_add(cola_block, pcb);
+    pthread_mutex_unlock(&mutex_cola_block);
+    log_info(kernel_logger_info, "SET PCB BLOCK %d", pcb->pid);
 }
 
 void crear_proceso_memoria(int pid_nuevo, int size, char *path, int conexion_memoria)

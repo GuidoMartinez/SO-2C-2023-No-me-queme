@@ -33,18 +33,20 @@ int main(int argc, char **argv)
         switch (codigo_operacion)
         {
         case CONTEXTO:
+            log_info(cpu_logger_info, "Esperando contexto: ...");
             contexto_actual = recibir_contexto(conexion_kernel_dispatch);
 
-            while (contexto_actual->codigo_ultima_instru != EXIT && !interrumpir){
+            while (!es_syscall() && !hay_interrupciones()){
                 ejecutar_ciclo_instruccion();
+                sleep(10);
             }
-            if(interrumpir) log_info(cpu_logger_info,"interrumpi un proceso");
             log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
             log_info(cpu_logger_info, "PC actual: %d", contexto_actual->program_counter);
+            obtener_motivo_desalojo();
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
 
             pthread_mutex_lock(&mutex_interrupt);
-            interrumpir = false;
+            limpiar_interrupciones();
             pthread_mutex_unlock(&mutex_interrupt);
 
             break;
@@ -64,43 +66,75 @@ void iniciar_conexiones()
     conectar_memoria();
     cargar_servidor(&servidor_cpu_dispatch, config_valores_cpu.puerto_escucha_dispatch, &conexion_kernel_dispatch, HANDSHAKE_CPU_DISPATCH, "DISPATCH");
     cargar_servidor(&servidor_cpu_interrupt, config_valores_cpu.puerto_escucha_interrupt, &conexion_kernel_interrupt, HANDSHAKE_CPU_INTERRUPT, "INTERRUPT");
-    pthread_create(&hiloInterrupt, NULL, recibir_interrupcion, NULL);
+    pthread_create(&hiloInterrupt, NULL, recibir_interrupt, NULL);
     pthread_detach(hiloInterrupt);
 }
 
-void *recibir_interrupcion(void *arg)
+void *recibir_interrupt(void *arg)
 {
     codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
-    switch (codigo_operacion)
+    if(codigo_operacion!=INTERRUPCION){
+        log_error(cpu_logger_info, "El codigo que me llego es %d",codigo_operacion);
+        log_warning(cpu_logger_info, "Operacion desconocida \n");
+        abort();
+    }
+    t_interrupcion* interrupcion = malloc(sizeof(t_interrupcion));
+    interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
+    switch (interrupcion->motivo_interrupcion)
     {
-    case FIN_QUANTUM:
+    case INTERRUPT_FIN_QUANTUM:
         log_info(cpu_logger_info, "Recibo fin de quantum");
-        if (!descartar_instruccion) {
-            pthread_mutex_lock(&mutex_interrupt);
-            interrumpir = true;
+        interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
+        pthread_mutex_lock(&mutex_interrupt);
             contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
-            pthread_mutex_unlock(&mutex_interrupt);
-        }
+        pthread_mutex_unlock(&mutex_interrupt);
         break;
-    case FIN_PROCESO:
+    case INTERRUPT_FIN_PROCESO:
         log_info(cpu_logger_info, "Recibo fin de proceso");
         if (!descartar_instruccion) {
+            interrupciones[INTERRUPT_FIN_PROCESO] = 1;
             pthread_mutex_lock(&mutex_interrupt);
-            interrumpir = true;
             contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
             pthread_mutex_unlock(&mutex_interrupt);
         }
+        break;
+    case INTERRUPT_NUEVO_PROCESO:
+        log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
+        interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
+        pthread_mutex_lock(&mutex_interrupt);
+            contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
+        pthread_mutex_unlock(&mutex_interrupt);
         break;
     default:
         log_warning(cpu_logger_info, "Operacion desconocida \n");
         break;
     }
 
+    free(interrupcion);
     return NULL;
 }
 
-void descartar_interrupcion(){
-    descartar_instruccion = true; //TODO - Logica de descartar interrupciones
+bool hay_interrupciones(){
+    if(interrupciones[INTERRUPT_FIN_QUANTUM] 
+    || interrupciones[INTERRUPT_FIN_PROCESO] 
+    || interrupciones[INTERRUPT_NUEVO_PROCESO]){
+        return true;
+    } else return false;
+}
+
+void obtener_motivo_desalojo(){
+    if(interrupciones[INTERRUPT_FIN_PROCESO]) contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+}
+
+bool descartar_interrupcion(int pid){
+    if(pid != contexto_actual->pid) return true;
+    else return false;
+}
+
+void limpiar_interrupciones(){
+    interrupciones[INTERRUPT_FIN_QUANTUM] = 0;
+    interrupciones[INTERRUPT_FIN_PROCESO] = 0;
+    interrupciones[INTERRUPT_NUEVO_PROCESO] = 0;
 }
 
 void conectar_memoria()
@@ -265,25 +299,22 @@ void decode(t_instruccion *instruccion)
     }
 }
 
-void dividirCadena(char *cadena, char **palabras)
-{
-    const char delimitador[] = " ";
-    char *token;
-    int i = 0;
-
-    // Usamos una copia de la cadena original para evitar modificar la original
-    char copiaCadena[strlen(cadena) + 1];
-    strcpy(copiaCadena, cadena);
-
-    // Obtener la primera palabra
-    token = strtok(copiaCadena, delimitador);
-
-    while (token != NULL && i < 3)
-    {
-        strcpy(palabras[i], token);
-        i++;
-        // Obtener la siguiente palabra
-        token = strtok(NULL, delimitador);
+bool es_syscall(){
+    nombre_instruccion ultima_instruccion = contexto_actual->codigo_ultima_instru;
+    switch(ultima_instruccion){
+        case WAIT:
+        case SIGNAL:
+        case SLEEP:
+        case F_OPEN:
+        case F_CLOSE:
+        case F_READ:
+        case F_WRITE:
+        case F_SEEK:
+        case F_TRUNCATE:
+        case EXIT:
+            return true;
+        default:
+            return false;
     }
 }
 
