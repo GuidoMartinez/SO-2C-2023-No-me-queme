@@ -162,6 +162,8 @@ typedef struct
     motivo_block motivo_block;
     t_list *archivos_abiertos;
     time_t tiempo_ingreso_ready;
+    char* recurso_instruccion;
+    t_list* recursos_asignados;
 } t_pcb;
 
 typedef struct

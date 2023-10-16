@@ -19,7 +19,7 @@ sem_t sem_exec;
 sem_t sem_detener;
 sem_t sem_blocked_w;
 
-t_list* recursosKernel; 
+t_list* recursos_kernel; 
 t_list* lista_ready;
 t_list* cola_block ;
 t_list* cola_listos_para_ready;
@@ -28,7 +28,7 @@ t_list* cola_exit;
 t_list* lista_global;
 t_list* cola_blocked_recurso;
 
-t_pcb* procesoAux;
+t_pcb* proceso_aux;
 t_pcb* proceso_en_ejecucion;
 
 int generador_de_id=0;
@@ -37,7 +37,7 @@ int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_fi
 int pid_nuevo;
 bool frenado=0;
 op_code codigo_operacion;
-recurso_instancia*  recursoProceso;
+recurso_instancia*  recurso_proceso;
 recurso_instancia*  recurso_signal;
 t_contexto_ejecucion* ultimo_contexto_ejecucion;
 
@@ -63,7 +63,7 @@ t_pcb* obtener_pcb_PRIORIDAD();
 typedef enum{FIFO,RR,PRIORIDADES} t_algoritmo;
 t_algoritmo ALGORITMO_PLANIFICACION;
 arch_config config_valores_kernel;
-recurso_instancia* buscarRecursoW(t_list* , char* );
+recurso_instancia* buscar_recurso_w(t_list* , char* );
 void finalizar_kernel();
 void sighandler(int);
 void cargar_configuracion(char *);
@@ -84,6 +84,7 @@ void ready_pcb(void);
 void block(void);
 void exec_pcb(void);
 void exit_pcb(void);
+void remove_blocked(int);
 void quantum_interrupter(void);
 void sleeper(void*);
 void set_pcb_ready(t_pcb *) ;

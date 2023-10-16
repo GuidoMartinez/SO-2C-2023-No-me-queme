@@ -38,7 +38,6 @@ int main(int argc, char **argv)
 
             while (!es_syscall() && !hay_interrupciones()){
                 ejecutar_ciclo_instruccion();
-                sleep(10);
             }
             log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
             log_info(cpu_logger_info, "PC actual: %d", contexto_actual->program_counter);
