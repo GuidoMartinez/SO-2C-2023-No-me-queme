@@ -161,7 +161,7 @@ typedef struct
     motivo_exit motivo_exit;
     motivo_block motivo_block;
     t_list *archivos_abiertos;
-    //time_t tiempo_ingreso_exec;
+    time_t tiempo_ingreso_ready;
 } t_pcb;
 
 typedef struct

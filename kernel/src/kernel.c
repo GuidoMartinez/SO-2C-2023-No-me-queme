@@ -542,7 +542,7 @@ void ready_pcb(void)
 
             procesos_activos = procesos_activos + 1;
             pthread_mutex_unlock(&leer_grado);
-            log_info(kernel_logger_info, "Voy a pasar al ready %d", pcb->pid);
+           // log_info(kernel_logger_info, "Voy a pasar al ready %d", pcb->pid);
             set_pcb_ready(pcb);
             if(ALGORITMO_PLANIFICACION == PRIORIDADES){
                 if(pcb->prioridad > proceso_en_ejecucion->prioridad) {
@@ -795,6 +795,7 @@ void set_pcb_ready(t_pcb *pcb)
     cambiar_estado(pcb, READY);
     list_add(lista_ready, pcb);
     pthread_mutex_unlock(&mutex_cola_ready);
+    pcb->tiempo_ingreso_ready=time(NULL);
     log_info(kernel_logger_info, "SET PCB READY %d", pcb->pid);
 }
 
@@ -861,7 +862,7 @@ t_pcb* obtener_pcb_PRIORIDAD(){
 }*/
 
 bool maximo_RR(t_pcb* pcb1, t_pcb* pcb2){
-	return pcb1->contexto_ejecucion->motivo_desalojado >= pcb2->contexto_ejecucion->motivo_desalojado ;
+	return pcb1->tiempo_ingreso_ready <= pcb2->tiempo_ingreso_ready;
 }
 
 bool maximo_PRIORIDAD(t_pcb* pcb1, t_pcb* pcb2){
