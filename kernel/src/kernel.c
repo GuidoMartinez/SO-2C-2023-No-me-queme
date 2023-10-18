@@ -166,7 +166,9 @@ int main(int argc, char **argv)
         {
 
             // log_info(kernel_logger_info, "Inicie plani");
+            frenado = 0;
             iniciar_planificacion();
+            
 
             //  free(linea);
             // break;
@@ -330,14 +332,14 @@ void exit_pcb(void)
                    recursoProceso->cantidad -= recursoProceso->cantidad;
                }
            }*/
-        sem_post(&sem_listos_ready);
+        sem_post(&sem_ready);
+        sem_post(&sem_exec);
     }
 }
 void pcb_destroy(t_pcb *pcb)
 {
     log_info(kernel_logger_info, "Entre al destroy ");
     list_destroy(pcb->archivos_abiertos);
-    log_info(kernel_logger_info, "destrui archivos ");
     // contexto_destroyer(pcb->contexto_ejecucion);
     free(pcb);
     log_info(kernel_logger_info, "Hice free ");
@@ -501,7 +503,7 @@ void quantum_interrupter(void)
     interrupcion->pid = -1;
     while (1)
     {
-        sleep(config_valores_kernel.quantum);
+        usleep(config_valores_kernel.quantum);
         if (ALGORITMO_PLANIFICACION == RR)
         {
             enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
@@ -515,7 +517,7 @@ void sleeper(void *args)
     args_sleep *_args = (args_sleep *)args;
     while (1)
     {
-        sleep(_args->tiempo);
+        usleep(_args->tiempo);
         set_pcb_ready(_args->pcb);
     }
 }
@@ -528,7 +530,7 @@ void ready_pcb(void)
         if (list_is_empty(cola_listos_para_ready))
         {
             log_info(kernel_logger_info, "No hay procesos para admitir");
-            break;
+            //break;
         }
         else
         {
@@ -563,9 +565,10 @@ void ready_pcb(void)
                         }
                     }
                 }
-                //  if (frenado!=1){
+                 if (frenado!=1){
                 sem_post(&sem_ready);
-                // } else {
+                 } 
+                 //else {
                 // sem_wait(&sem_detener);
                 // log_info(kernel_logger_info,"Me frene");
                 //   }
@@ -582,15 +585,16 @@ void exec_pcb()
         sem_wait(&sem_ready);
         sem_wait(&sem_exec);
         log_info(kernel_logger_info, "Entre a hilo exec");
+        if(list_size(lista_ready)<1){
+            log_info(kernel_logger_info, "LIsta ready vacia");
+            continue;
+        }
         if (proceso_en_ejecucion== NULL){
             pcbelegido = elegir_pcb_segun_algoritmo();
             prceso_admitido(pcbelegido);
-            log_info(kernel_logger_info, "Pase ek proceso admitido");
         } else {
             pcbelegido=proceso_en_ejecucion;
         }
-         log_info(kernel_logger_info, "Pase ek if");
-        log_info(kernel_logger_info, "ID%d y id cobtexto%d",pcbelegido->pid,pcbelegido->contexto_ejecucion->pid);
         enviar_contexto(conexion_cpu_dispatch, pcbelegido->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcbelegido->pid, pcbelegido->contexto_ejecucion->program_counter);
         //proceso_en_ejecucion = pcbelegido;
@@ -617,7 +621,7 @@ void exec_pcb()
 
         case EXIT:
             log_info(kernel_logger_info, "Entre al exit");
-
+            proceso_en_ejecucion= NULL;
             pthread_mutex_lock(&mutex_cola_exit);
             pcbelegido->estado = FINISH_EXIT;
             list_add(cola_exit, pcbelegido);

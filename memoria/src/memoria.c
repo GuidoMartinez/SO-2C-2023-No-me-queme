@@ -414,6 +414,7 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 {
 	log_error(logger_memoria_info,"Voy a buscar la instruccion de PID %d con PC %d", pid_pedido,pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
+	usleep(config_valores_memoria.retardo_respuesta);
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 
