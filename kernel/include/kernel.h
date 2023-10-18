@@ -56,7 +56,8 @@ typedef struct
 } sem_t1;
 
 sem_t1 sem;
-
+t_pcb* pcbelegido;
+t_list *cargar_recursos_totales();
 bool maximo_RR(t_pcb* pcb1, t_pcb* pcb2);
 bool maximo_PRIORIDAD(t_pcb* pcb1, t_pcb* pcb2);
 t_pcb* obtener_pcb_PRIORIDAD();
