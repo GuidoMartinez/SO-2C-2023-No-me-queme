@@ -13,13 +13,13 @@ void _sum(char *registro_destino, char *registro_origen, t_contexto_ejecucion *c
     uint32_t *destino = malloc(sizeof(uint32_t));
     destino = get_registry(registro_destino, contexto);
     uint32_t *origen = malloc(sizeof(uint32_t));
-    destino = get_registry(registro_origen, contexto);
+    origen = get_registry(registro_origen, contexto);
 
     *(destino) = *(destino) + *(origen);
 
     contexto->codigo_ultima_instru = SUM;
-    free(destino);
-    free(origen);
+    //free(destino);
+    //free(origen);
 }
 
 // Resta al registro el valor pasado como parámetro.
@@ -28,13 +28,13 @@ void _sub(char *registro_destino, char *registro_origen, t_contexto_ejecucion *c
     uint32_t *destino = malloc(sizeof(uint32_t));
     destino = get_registry(registro_destino, contexto);
     uint32_t *origen = malloc(sizeof(uint32_t));
-    destino = get_registry(registro_origen, contexto);
+    origen = get_registry(registro_origen, contexto);
 
     *(destino) = *(destino) - *(origen);
 
     contexto->codigo_ultima_instru = SUB;
-    free(destino);
-    free(origen);
+    //free(destino);
+    //free(origen);
 }
 
 // Si valor del registro != cero, actualiza el IP al número de instrucción pasada por parámetro.
@@ -52,7 +52,7 @@ void _jnz(char *registro, char* instruccion, t_contexto_ejecucion *contexto)
         //log_warning(cpu_logger_info, "El registro %s es igual a cero, no se actualiza el IP", registro);
     }
 
-    free(regis);
+    //free(regis);
 }
 
 // Syscall bloqueante. Devuelve el Contexto de Ejecución actualizado al Kernel
@@ -88,7 +88,7 @@ void _mov_in(char *registro, char* direc_logica, t_contexto_ejecucion *contexto)
     // obtener valor desde memoria
     //*(regis) = valor;
     contexto->codigo_ultima_instru = MOV_IN;
-    free(regis);
+    //free(regis);
 }
 
 // Lee el valor del Registro y lo escribe en la dirección
@@ -100,7 +100,7 @@ void _mov_out(char* direc_logica, char *registro, t_contexto_ejecucion *contexto
 
     // escribir en memoria el contenido del registro
     contexto->codigo_ultima_instru = MOV_OUT;
-    free(regis);
+    //free(regis);
 }
 
 // Solicita al kernel que abra el archivo pasado por parámetro con el modo de apertura indicado.

@@ -39,6 +39,7 @@ int main(int argc, char **argv)
             contexto_actual->codigo_ultima_instru=-1;
 
             while (!es_syscall() && !hay_interrupciones()){
+                log_warning(cpu_logger_info, "Ejecuto proxima instruccion");
                 ejecutar_ciclo_instruccion();
             }
             log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
@@ -73,45 +74,47 @@ void iniciar_conexiones()
 
 void *recibir_interrupt(void *arg)
 {
-    codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
-    if(codigo_operacion!=INTERRUPCION){
-        log_error(cpu_logger_info, "El codigo que me llego es %d",codigo_operacion);
-        log_warning(cpu_logger_info, "Operacion desconocida \n");
-        abort();
-    }
-    t_interrupcion* interrupcion = malloc(sizeof(t_interrupcion));
-    interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
-    switch (interrupcion->motivo_interrupcion)
-    {
-    case INTERRUPT_FIN_QUANTUM:
-        log_info(cpu_logger_info, "Recibo fin de quantum");
-        interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
-        pthread_mutex_lock(&mutex_interrupt);
-            contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
-        pthread_mutex_unlock(&mutex_interrupt);
-        break;
-    case INTERRUPT_FIN_PROCESO:
-        log_info(cpu_logger_info, "Recibo fin de proceso");
-        if (!descartar_instruccion) {
-            interrupciones[INTERRUPT_FIN_PROCESO] = 1;
-            pthread_mutex_lock(&mutex_interrupt);
-            contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
-            pthread_mutex_unlock(&mutex_interrupt);
+    while(1){
+        codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
+        if(codigo_operacion!=INTERRUPCION){
+            log_error(cpu_logger_info, "El codigo que me llego es %d",codigo_operacion);
+            log_warning(cpu_logger_info, "Operacion desconocida \n");
+            abort();
         }
-        break;
-    case INTERRUPT_NUEVO_PROCESO:
-        log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
-        interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
-        pthread_mutex_lock(&mutex_interrupt);
-            contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
-        pthread_mutex_unlock(&mutex_interrupt);
-        break;
-    default:
-        log_warning(cpu_logger_info, "Operacion desconocida \n");
-        break;
+        t_interrupcion* interrupcion = malloc(sizeof(t_interrupcion));
+        interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
+        switch (interrupcion->motivo_interrupcion)
+        {
+        case INTERRUPT_FIN_QUANTUM:
+            log_info(cpu_logger_info, "Recibo fin de quantum");
+            interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
+            pthread_mutex_lock(&mutex_interrupt);
+                contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
+            pthread_mutex_unlock(&mutex_interrupt);
+            break;
+        case INTERRUPT_FIN_PROCESO:
+            log_info(cpu_logger_info, "Recibo fin de proceso");
+            if (!descartar_instruccion) {
+                interrupciones[INTERRUPT_FIN_PROCESO] = 1;
+                pthread_mutex_lock(&mutex_interrupt);
+                contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+                pthread_mutex_unlock(&mutex_interrupt);
+            }
+            break;
+        case INTERRUPT_NUEVO_PROCESO:
+            log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
+            interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
+            pthread_mutex_lock(&mutex_interrupt);
+                contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
+            pthread_mutex_unlock(&mutex_interrupt);
+            break;
+        default:
+            log_warning(cpu_logger_info, "Operacion desconocida \n");
+            break;
+        }
     }
 
-    free(interrupcion);
+    //free(interrupcion);
     return NULL;
 }
 
@@ -248,9 +251,11 @@ void decode(t_instruccion *instruccion)
     switch (instruccion->codigo)
     {
     case SET:
+        log_info(cpu_logger_info, "Ejecutando instruccion SET");
         _set(instruccion->parametro1, instruccion->parametro2, contexto_actual);
         break;
     case SUM:
+        log_info(cpu_logger_info, "Ejecutando instruccion SUM");
         _sum(instruccion->parametro1, instruccion->parametro2, contexto_actual);
         break;
     case SUB:

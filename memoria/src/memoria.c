@@ -267,13 +267,17 @@ t_list *parsear_instrucciones(char *path)
 		{
 			list_add(instrucciones, armar_estructura_instruccion(SET, palabras[1], palabras[2]));
 		}
-		else if (string_equals_ignore_case(palabras[0], "ADD"))
+		else if (string_equals_ignore_case(palabras[0], "SUM"))
 		{
-			list_add(instrucciones, armar_estructura_instruccion(SET, palabras[1], palabras[2]));
+			list_add(instrucciones, armar_estructura_instruccion(SUM, palabras[1], palabras[2]));
 		}
 		else if (string_equals_ignore_case(palabras[0], "SUB"))
 		{
-			list_add(instrucciones, armar_estructura_instruccion(SET, palabras[1], palabras[2]));
+			list_add(instrucciones, armar_estructura_instruccion(SUB, palabras[1], palabras[2]));
+		}
+		else if (string_equals_ignore_case(palabras[0], "JNZ"))
+		{
+			list_add(instrucciones, armar_estructura_instruccion(JNZ, palabras[1], palabras[2]));
 		}
 		else if (string_equals_ignore_case(palabras[0], "MOV_IN"))
 		{
@@ -414,7 +418,7 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 {
 	log_error(logger_memoria_info,"Voy a buscar la instruccion de PID %d con PC %d", pid_pedido,pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
-	usleep(config_valores_memoria.retardo_respuesta);
+	sleep(config_valores_memoria.retardo_respuesta/1000);
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 

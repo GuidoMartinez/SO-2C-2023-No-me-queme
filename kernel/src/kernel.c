@@ -503,10 +503,12 @@ void quantum_interrupter(void)
     interrupcion->pid = -1;
     while (1)
     {
-        usleep(config_valores_kernel.quantum);
+        sleep(config_valores_kernel.quantum/1000);
         if (ALGORITMO_PLANIFICACION == RR)
         {
+            log_warning(kernel_logger_info, "Se acabo el quantum");
             enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
+            log_warning(kernel_logger_info, "se envió interrupción");
         }
     }
     free(interrupcion);
@@ -589,7 +591,8 @@ void exec_pcb()
             log_info(kernel_logger_info, "LIsta ready vacia");
             continue;
         }
-        if (proceso_en_ejecucion== NULL){
+        //TODO: Chequear motivo desalojo PAGEFAULT
+        if (proceso_en_ejecucion==NULL||proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL){
             pcbelegido = elegir_pcb_segun_algoritmo();
             prceso_admitido(pcbelegido);
         } else {
@@ -637,6 +640,7 @@ void exec_pcb()
             pthread_create(&hilo_sleep, NULL, (void *)sleeper, &args);
             pthread_detach(hilo_sleep);
             // bloquear proceso que mando el sleep
+            // Cargar semaforos (replanificar) y cargar en lista de ready proceso en ejecucion
             break;
         case WAIT:
             pcbelegido->recurso_instruccion = ultimo_contexto->instruccion_ejecutada->parametro1;
@@ -781,7 +785,10 @@ void exec_pcb()
 
         default:
             log_info(kernel_logger_info, "Entre al default");
-
+            safe_pcb_remove(cola_exec, &mutex_cola_exec);
+            safe_pcb_add(lista_ready, pcbelegido, &mutex_cola_ready);
+            sem_post(&sem_ready);
+            sem_post(&sem_exec);
             break;
         }
     }
