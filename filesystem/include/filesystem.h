@@ -53,15 +53,38 @@ typedef struct
 	uint32_t tamanio;
 } offset_fcb_t;
 
+typedef struct
+{
+    uint32_t next_block;
+    uint32_t tamanio;
+    uint32_t id;
+    bool utilizado;
+} bloque;
+
+
 
 void finalizar_filesystem();
 void sighandler(int);
 void cargar_configuracion(char *);
-void desasignar_bloques(int id_fcb, int nuevo_tamanio);
+void desasignar_bloques(int, int);
+void inicializar_datos_memoria(int , void *);
+off_t obtener_primer_bloque_libre(t_list *);
+bool bloque_esta_ocupado(t_list *, off_t);
+int crear_fat(int, char *, t_log *);
+bloque leerBloque(FILE *, int);
+void escribirBloque(FILE *, bloque *, int);
+void guardarFAT(const char *);
+t_list* cargarFAT(const char *);
+void liberarMemoriaFAT();
+void inicializarFATDesdeDirectorio(char *, t_log *);
+int crearFCB(char *, t_log *, t_list *);
+int crearFAT(int, char*, t_log*);
+uint32_t buscar_fcb(char *, t_list *);
+uint32_t buscar_fcb_id(int id, t_list *lista_fcb);
+fcb_t *inicializar_fcb();
 
 t_log *filesystem_logger_info;
 t_config *config;
-fcb_list_t* lista_global_fcb;
 uint32_t fcb_id;
 arch_config config_valores_filesystem;
 int formatear;
@@ -69,5 +92,8 @@ t_bitarray* fat_table;
 void* memoria_file_system;
 int tam_memoria_file_system;
 int tamanio_fat;
+t_list *lista_fat;
+int cant_bloques;
+int tamanio_bloque;
 
 #endif
