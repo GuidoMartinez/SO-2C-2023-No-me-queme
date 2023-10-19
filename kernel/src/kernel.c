@@ -519,8 +519,8 @@ void sleeper(void *args)
     args_sleep *_args = (args_sleep *)args;
     while (1)
     {
-        usleep(_args->tiempo);
-        set_pcb_ready(_args->pcb);
+        sleep(_args->tiempo/1000);
+        safe_pcb_add(lista_ready, _args->pcb, &mutex_cola_ready);
     }
 }
 
@@ -632,6 +632,7 @@ void exec_pcb()
             sem_post(&sem_exit);
             break;
         case SLEEP:
+            safe_pcb_remove(cola_exec, &mutex_cola_exec);
             set_pcb_block(pcbelegido);
             args_sleep args;
             args.pcb = pcbelegido;
@@ -639,6 +640,9 @@ void exec_pcb()
             pthread_t hilo_sleep;
             pthread_create(&hilo_sleep, NULL, (void *)sleeper, &args);
             pthread_detach(hilo_sleep);
+
+            sem_post(&sem_ready);
+            sem_post(&sem_exec);
             // bloquear proceso que mando el sleep
             // Cargar semaforos (replanificar) y cargar en lista de ready proceso en ejecucion
             break;
