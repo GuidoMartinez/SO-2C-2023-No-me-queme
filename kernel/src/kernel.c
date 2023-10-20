@@ -333,7 +333,7 @@ void exit_pcb(void)
                }
            }*/
         sem_post(&sem_ready);
-        if(list_size(lista_ready)>0)sem_post(&sem_exec);
+        sem_post(&sem_exec);
     }
 }
 void pcb_destroy(t_pcb *pcb)
@@ -517,14 +517,13 @@ void quantum_interrupter(void)
 void sleeper(void *args)
 {
     args_sleep *_args = (args_sleep *)args;
-    log_warning(kernel_logger_info, "SLEEPER: Comienza sleep pcb: %d por %d segundos", _args->pcb->pid, _args->tiempo);
-    sleep(_args->tiempo);
-    log_warning(kernel_logger_info, "SLEEPER: Entro a guardar pcb: %d en la cola de ready", _args->pcb->pid);
-    safe_pcb_add(lista_ready, _args->pcb, &mutex_cola_ready);
-    log_warning(kernel_logger_info, "SLEEPER: Guardar pcb: %d en la cola de ready", _args->pcb->pid);
-    free(_args);
-    sem_post(&sem_ready);
-    sem_post(&sem_exec);
+    while (1)
+    {
+        log_info(kernel_logger_info, "ENTRE AL WHILE DEL HILO");
+        sleep(_args->tiempo/1000);
+        log_info(kernel_logger_info, "DIVIDI");
+        safe_pcb_add(lista_ready, _args->pcb, &mutex_cola_ready);
+    }
 }
 
 void ready_pcb(void)
@@ -591,7 +590,8 @@ void exec_pcb()
         sem_wait(&sem_exec);
         log_info(kernel_logger_info, "Entre a hilo exec");
         if(list_size(lista_ready)<1){
-            log_info(kernel_logger_info, "Lista ready vacia");
+            log_info(kernel_logger_info, "LIsta ready vacia");
+            continue;
         }
         //TODO: Chequear motivo desalojo PAGEFAULT
         if (proceso_en_ejecucion==NULL||proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL){
@@ -634,27 +634,20 @@ void exec_pcb()
             sem_post(&sem_exit);
             break;
         case SLEEP:
-            log_info(kernel_logger_info, "Entre al sleep");
             safe_pcb_remove(cola_exec, &mutex_cola_exec);
-            //Se hace post para que pueda elegir otro proceso
             set_pcb_block(pcbelegido);
-            proceso_en_ejecucion = NULL;
-            args_sleep* args = malloc(sizeof(args_sleep));
-            args->pcb = pcbelegido;
-            args->tiempo = atoi(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
-            log_info(kernel_logger_info, "Cargue parametros, tiempo de sleep: %d", args->tiempo);
+            args_sleep args;
+            args.pcb = pcbelegido;
+            args.tiempo = atoi(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
+            log_info(kernel_logger_info, "ENTRE AL SLEEP");
             pthread_t hilo_sleep;
-            log_info(kernel_logger_info, "Inicio hilo sleeper");
-            pthread_create(&hilo_sleep, NULL, (void *)sleeper, args);
+            pthread_create(&hilo_sleep, NULL, (void *)sleeper, &args);
             pthread_detach(hilo_sleep);
 
+            sem_post(&sem_ready);
+            sem_post(&sem_exec);
             // bloquear proceso que mando el sleep
             // Cargar semaforos (replanificar) y cargar en lista de ready proceso en ejecucion
-            log_warning(kernel_logger_info, "Procesos en ready: %d", list_size(lista_ready));
-            if(list_size(lista_ready) > 1){
-                sem_post(&sem_ready);
-                sem_post(&sem_exec);
-            }
             break;
         case WAIT:
             pcbelegido->recurso_instruccion = ultimo_contexto->instruccion_ejecutada->parametro1;
@@ -679,7 +672,6 @@ void exec_pcb()
                     list_add(cola_block, proceso_aux);
                     pthread_mutex_unlock(&mutex_cola_block);
                     log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, recurso_kernel->nombre);
-                    proceso_en_ejecucion = NULL;
                     sem_post(&sem_ready);
                 }
                 else
@@ -704,6 +696,7 @@ void exec_pcb()
                 t_pcb *proceso_aux = list_remove(cola_exec, 0);
                 pthread_mutex_unlock(&mutex_cola_exec);
                 log_info(kernel_logger_info, "El recurso [%s] pedido por PID [%d] no existe. Se manda proceso a exit", proceso_aux->recurso_instruccion, proceso_aux->pid);
+                proceso_en_ejecucion=NULL;
                 pthread_mutex_lock(&mutex_cola_exit);
                 proceso_aux->estado = FINISH_EXIT;
                 list_add(cola_exit, proceso_aux);
@@ -731,7 +724,7 @@ void exec_pcb()
                 log_info(kernel_logger_info, "Finaliza el proceso <%d> Motivo <%s> \n", pcbelegido->pid, "INVALID_RESOURCE");
 
                 sem_post(&sem_exit);
-                sem_post(&sem_ready);
+              //  sem_post(&sem_ready);
             }
             break;
         case SIGNAL:
@@ -760,7 +753,7 @@ void exec_pcb()
                     log_info(kernel_logger_info, "NO QUEDAN RECURSOS BLOQUEADOS");
                 }
                 sem_post(&sem_exec);
-                sem_post(&sem_ready);
+               // sem_post(&sem_ready);
             }
             else
             {
@@ -786,9 +779,10 @@ void exec_pcb()
                         recurso_proceso->cantidad -= recurso_proceso->cantidad;
                      }
                  } 
+                proceso_en_ejecucion= NULL;
                 pthread_mutex_lock(&mutex_cola_exit);
                 pcbelegido->estado = FINISH_EXIT;
-                list_add(cola_exit, proceso_aux);
+                list_add(cola_exit, pcbelegido);
                 pthread_mutex_unlock(&mutex_cola_exit);
                 //TODO: Hacer funcion de enum a char* para hacer el log de los estados
                 log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
