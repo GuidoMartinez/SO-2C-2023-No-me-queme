@@ -333,7 +333,7 @@ void exit_pcb(void)
                }
            }*/
         sem_post(&sem_ready);
-        sem_post(&sem_exec);
+        if(list_size(lista_ready)>0)sem_post(&sem_exec);
     }
 }
 void pcb_destroy(t_pcb *pcb)
@@ -517,11 +517,14 @@ void quantum_interrupter(void)
 void sleeper(void *args)
 {
     args_sleep *_args = (args_sleep *)args;
-    while (1)
-    {
-        sleep(_args->tiempo/1000);
-        safe_pcb_add(lista_ready, _args->pcb, &mutex_cola_ready);
-    }
+    log_warning(kernel_logger_info, "SLEEPER: Comienza sleep pcb: %d por %d segundos", _args->pcb->pid, _args->tiempo);
+    sleep(_args->tiempo);
+    log_warning(kernel_logger_info, "SLEEPER: Entro a guardar pcb: %d en la cola de ready", _args->pcb->pid);
+    safe_pcb_add(lista_ready, _args->pcb, &mutex_cola_ready);
+    log_warning(kernel_logger_info, "SLEEPER: Guardar pcb: %d en la cola de ready", _args->pcb->pid);
+    free(_args);
+    sem_post(&sem_ready);
+    sem_post(&sem_exec);
 }
 
 void ready_pcb(void)
@@ -588,8 +591,7 @@ void exec_pcb()
         sem_wait(&sem_exec);
         log_info(kernel_logger_info, "Entre a hilo exec");
         if(list_size(lista_ready)<1){
-            log_info(kernel_logger_info, "LIsta ready vacia");
-            continue;
+            log_info(kernel_logger_info, "Lista ready vacia");
         }
         //TODO: Chequear motivo desalojo PAGEFAULT
         if (proceso_en_ejecucion==NULL||proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL){
@@ -632,19 +634,27 @@ void exec_pcb()
             sem_post(&sem_exit);
             break;
         case SLEEP:
+            log_info(kernel_logger_info, "Entre al sleep");
             safe_pcb_remove(cola_exec, &mutex_cola_exec);
+            //Se hace post para que pueda elegir otro proceso
             set_pcb_block(pcbelegido);
-            args_sleep args;
-            args.pcb = pcbelegido;
-            args.tiempo = atoi(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
+            proceso_en_ejecucion = NULL;
+            args_sleep* args = malloc(sizeof(args_sleep));
+            args->pcb = pcbelegido;
+            args->tiempo = atoi(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
+            log_info(kernel_logger_info, "Cargue parametros, tiempo de sleep: %d", args->tiempo);
             pthread_t hilo_sleep;
-            pthread_create(&hilo_sleep, NULL, (void *)sleeper, &args);
+            log_info(kernel_logger_info, "Inicio hilo sleeper");
+            pthread_create(&hilo_sleep, NULL, (void *)sleeper, args);
             pthread_detach(hilo_sleep);
 
-            sem_post(&sem_ready);
-            sem_post(&sem_exec);
             // bloquear proceso que mando el sleep
             // Cargar semaforos (replanificar) y cargar en lista de ready proceso en ejecucion
+            log_warning(kernel_logger_info, "Procesos en ready: %d", list_size(lista_ready));
+            if(list_size(lista_ready) > 1){
+                sem_post(&sem_ready);
+                sem_post(&sem_exec);
+            }
             break;
         case WAIT:
             pcbelegido->recurso_instruccion = ultimo_contexto->instruccion_ejecutada->parametro1;
@@ -669,6 +679,7 @@ void exec_pcb()
                     list_add(cola_block, proceso_aux);
                     pthread_mutex_unlock(&mutex_cola_block);
                     log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, recurso_kernel->nombre);
+                    proceso_en_ejecucion = NULL;
                     sem_post(&sem_ready);
                 }
                 else
