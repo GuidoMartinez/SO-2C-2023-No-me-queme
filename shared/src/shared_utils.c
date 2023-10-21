@@ -550,8 +550,7 @@ void enviar_interrupcion(int socket, t_interrupcion* interrupcion){
 	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(INTERRUPCION);
 	
 	paquete->buffer->size = sizeof(motivo_desalojo) +
-							sizeof(int)+
-	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+							sizeof(int);
 	paquete->buffer->stream = malloc(paquete->buffer->size);
 
 	int desplazamiento = 0;
