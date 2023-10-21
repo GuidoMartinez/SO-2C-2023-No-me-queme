@@ -118,7 +118,6 @@ int main(int argc, char **argv)
         int indice_split = 0;
 
         linea = readline(">");
-        log_warning(kernel_logger_info, "Recibi el comando %s", linea)
 
         if (!linea)
         {
@@ -153,12 +152,9 @@ int main(int argc, char **argv)
 
         if (!strncmp(linea, "finalizar_proceso", 17))
         {
-            log_info(kernel_logger_info, "ingreso a finalizar proceso");
             char **palabras = string_split(linea, " ");
             int pid = atoi(palabras[1]);
-            log_info(kernel_logger_info, "%d",palabras[1]);
 
-            log_info(kernel_logger_info, "finalizando proceso %s ",palabras[1]);
             finalizar_proceso(pid);
 
             // free(linea);
@@ -256,7 +252,6 @@ void iniciar_proceso(char *path, int size, int prioridad)
 
 void finalizar_proceso(int pid)
 {
-    log_info(kernel_logger_info, "comienzo a finalizar proceso")
     if (proceso_en_ejecucion != NULL && proceso_en_ejecucion->pid == pid)
     {
         t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
@@ -266,19 +261,20 @@ void finalizar_proceso(int pid)
     }
     t_pcb *proceso_encontrado;
     proceso_encontrado = buscarProceso(pid);
-    log_info(kernel_logger_info, "encuentro proceso %d", proceso_encontrado->pid);
     pthread_mutex_lock(&mutex_cola_exit);
     list_add(cola_exit, proceso_encontrado);
     pthread_mutex_unlock(&mutex_cola_exit);
     cambiar_estado(proceso_encontrado, FINISH_EXIT);
-    log_info(kernel_logger_info, "lo puse en exit %d");
+    log_info(kernel_logger_info, "lo puse en exit");
     // list_add(lista_global, proceso encontrado);
     // char *motivo = motivo_exit_to_string(proceso_encontrado->motivo_exit);
-    if (proceso_encontrado->estado == BLOCK){
+    if (proceso_encontrado->estado == BLOCK)
+    {
         log_info(kernel_logger_info, "lo saco de blocked");
         remove_blocked(proceso_encontrado->pid);
-        }
-    if (proceso_encontrado->estado == READY){
+    }
+    if (proceso_encontrado->estado == READY)
+    {
         log_info(kernel_logger_info, "lo saco de ready");
         remove_ready(proceso_encontrado->pid);
     }
@@ -326,9 +322,7 @@ void exit_pcb(void)
     while (1)
     {
         sem_wait(&sem_exit);
-        log_info(kernel_logger_info, "Entre al exit pcb");
         t_pcb *pcb = safe_pcb_remove(cola_exit, &mutex_cola_exit);
-        log_info(kernel_logger_info, "Saque al proceso ");
         // char *motivo = motivo_exit_to_string(pcb->motivo_exit);
         // log_info(kernel_logger_info, "Le cambie el estado");
 
@@ -345,25 +339,30 @@ void exit_pcb(void)
 
                 recurso_kernel = buscar_recurso(recursos_kernel, recurso_proceso->nombre);
                 t_queue *cola_bloqueados = recurso_kernel->colabloqueado;
+                log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
 
-                if (strcmp(recurso_kernel->nombre, recurso_proceso->nombre) == 0)
+                if (strcmp(recurso_kernel->nombre, recurso_proceso->nombre) == 0 && recurso_proceso->cantidad > 0)
                 {
-                    log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_kernel->cantidad);
+                    log_info(kernel_logger_info, "LIBERE RECURSO: %s, de proceso[%d] antes  \n", recurso_kernel->nombre, recurso_kernel->cantidad);
 
                     recurso_kernel->cantidad += recurso_proceso->cantidad;
-                    log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_kernel->cantidad);
+                    log_info(kernel_logger_info, "LIBERE RECURSO: %s de proceso[%d] despues \n", recurso_kernel->nombre, recurso_kernel->cantidad);
 
                     recurso_proceso->cantidad -= recurso_proceso->cantidad;
-                }
 
-                if (queue_size(cola_bloqueados) > 1)
-                {
-                    pcb_bloqueado = queue_pop(cola_bloqueados);
-                    if (pcb_bloqueado->pid != pcb->pid)
+                    while (queue_size(cola_bloqueados) > 0)
                     {
-                        remove_blocked(pcb_bloqueado->pid);
-                        set_pcb_ready(pcb_bloqueado);
-                        sem_post(&sem_ready);
+                        log_info(kernel_logger_info, "Comienzo a liberar bloqueados bloqueado");
+                        pcb_bloqueado = queue_pop(cola_bloqueados);
+                        if (pcb_bloqueado->pid != pcb->pid)
+                        {
+                            log_info(kernel_logger_info, "Libero proceso: %d", pcb_bloqueado->pid);
+                            remove_blocked(pcb_bloqueado->pid);
+                            set_pcb_ready(pcb_bloqueado);
+                            sem_post(&sem_ready);
+                            if (list_size(lista_ready) > 0)
+                                sem_post(&sem_exec);
+                        }
                     }
                 }
             }
@@ -371,7 +370,8 @@ void exit_pcb(void)
 
         pcb_destroy(pcb);
         sem_post(&sem_ready);
-        sem_post(&sem_exec);
+        if (list_size(lista_ready) > 0)
+            sem_post(&sem_exec);
     }
 }
 void pcb_destroy(t_pcb *pcb)
@@ -685,7 +685,7 @@ void exec_pcb()
             pthread_detach(hilo_sleep);
 
             sem_post(&sem_ready);
-            if(list_size(lista_ready) > 0) sem_post(&sem_exec);
+            if (list_size(lista_ready) > 0) sem_post(&sem_exec);
             // bloquear proceso que mando el sleep
             // Cargar semaforos (replanificar) y cargar en lista de ready proceso en ejecucion
             break;
@@ -706,15 +706,17 @@ void exec_pcb()
                     pthread_mutex_unlock(&mutex_cola_exec);
                     log_info(kernel_logger_info, "No tengo instancias disponibles del recurso: [%s] -instancias %d", pcbelegido->recurso_instruccion, recurso_kernel->cantidad);
                     pthread_mutex_lock(&mutex_cola_block);
-                    proceso_aux->estado = BLOCK;
-                    queue_push(recurso_kernel->colabloqueado, proceso_aux);
+                    pcbelegido->estado = BLOCK;
+                    queue_push(recurso_kernel->colabloqueado, pcbelegido);
+                    log_info(kernel_logger_info, "Tamaño de la cola: %d", queue_size(recurso_kernel->colabloqueado));
                     // TODO: Revisar colas de bloqueo por recurso
-                    list_add(cola_block, proceso_aux);
+                    list_add(cola_block, pcbelegido);
                     pthread_mutex_unlock(&mutex_cola_block);
                     log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, recurso_kernel->nombre);
                     proceso_en_ejecucion = NULL;
                     sem_post(&sem_ready);
-                    if(list_size(lista_ready) > 0) sem_post(&sem_exec);
+                    if (list_size(lista_ready) > 0)
+                        sem_post(&sem_exec);
                 }
                 else
                 {
@@ -797,6 +799,7 @@ void exec_pcb()
                     {
                         log_info(kernel_logger_info, "NO QUEDAN RECURSOS BLOQUEADOS");
                     }
+                    sem_post(&sem_exec);
                 }
                 else
                 {
@@ -835,8 +838,9 @@ void exec_pcb()
 
                     sem_post(&sem_exit);
                     sem_post(&sem_ready);
+                    if (list_size(lista_ready))
+                        sem_post(&sem_exec);
                 }
-                sem_post(&sem_exec);
                 // sem_post(&sem_ready);
             }
             else
