@@ -2,11 +2,11 @@ PROCESS_NAME=cpu
 IDIR =./include
 SHARED_IDIR = ../shared/include
 CC=gcc
-CFLAGS=-I$(IDIR) -I$(SHARED_IDIR) -g -Wall
-
+CFLAGS=-I$(IDIR) -I$(SHARED_IDIR) -g -Wall -fcommon
 ODIR=./obj
 SRCDIR =./src
-LIBS=-lcommons -lpthread -lreadline -lcunit -lrt -lm
+LIBS=-lcommons -lpthread -lreadline -lcunit -lrt -lm 
+
 
 SHARED_SRCDIR = ../shared/src
 SHARED_ODIR = ../shared/obj

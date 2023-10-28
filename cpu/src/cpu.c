@@ -3,6 +3,27 @@
 
 t_contexto_ejecucion *contexto_actual;
 
+t_log *cpu_logger_info; 
+t_config* config;
+
+uint32_t tamano_pagina;
+bool page_fault = false;
+
+//interrupciones
+bool interrupciones[3] = {0,0,0};
+bool descartar_instruccion = false;
+
+//conexiones
+int socket_memoria, servidor_cpu_dispatch, 
+servidor_cpu_interrupt, conexion_kernel_dispatch, 
+conexion_kernel_interrupt;
+op_code codigo_operacion;
+
+pthread_t hiloInterrupt;
+pthread_mutex_t mutex_interrupt;
+
+arch_config config_valores_cpu;
+
 void sighandler(int s)
 {
     finalizar_cpu();
@@ -252,52 +273,52 @@ void decode(t_instruccion *instruccion)
     {
     case SET:
         log_info(cpu_logger_info, "Ejecutando instruccion SET");
-        _set(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _set(instruccion->parametro1, instruccion->parametro2);
         break;
     case SUM:
         log_info(cpu_logger_info, "Ejecutando instruccion SUM");
-        _sum(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _sum(instruccion->parametro1, instruccion->parametro2);
         break;
     case SUB:
-        _sub(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _sub(instruccion->parametro1, instruccion->parametro2);
         break;
     case JNZ:
-        _jnz(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _jnz(instruccion->parametro1, instruccion->parametro2);
         break;
     case SLEEP:
-        _sleep(contexto_actual);
+        _sleep();
         break;
     case WAIT:
-        _wait(contexto_actual);
+        _wait();
          log_info(cpu_logger_info, "Estoy usando recurso: %s",contexto_actual->instruccion_ejecutada->parametro1);
         
         break;
     case SIGNAL:
-        _signal(contexto_actual);
+        _signal();
         log_info(cpu_logger_info, "Estoy usando recurso: %s",contexto_actual->instruccion_ejecutada->parametro1);
         break;
     case MOV_IN:
-        _mov_in(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _mov_in(instruccion->parametro1, instruccion->parametro2);
         break;
     case MOV_OUT:
-        _mov_out(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _mov_out(instruccion->parametro1, instruccion->parametro2);
         break;
     case F_OPEN:
-        _f_open(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _f_open(instruccion->parametro1, instruccion->parametro2);
         break;
     case F_CLOSE:
-        _f_close(instruccion->parametro1, contexto_actual);
+        _f_close(instruccion->parametro1);
         break;
     case F_SEEK:
-        _f_seek(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _f_seek(instruccion->parametro1, instruccion->parametro2);
     case F_READ:
-        _f_read(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _f_read(instruccion->parametro1, instruccion->parametro2);
         break;
     case F_WRITE:
-        _f_write(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _f_write(instruccion->parametro1, instruccion->parametro2);
         break;
     case F_TRUNCATE:
-        _f_truncate(instruccion->parametro1, instruccion->parametro2, contexto_actual);
+        _f_truncate(instruccion->parametro1, instruccion->parametro2);
         break;
     case EXIT:
         __exit(contexto_actual);

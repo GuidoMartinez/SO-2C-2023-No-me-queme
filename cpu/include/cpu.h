@@ -5,24 +5,26 @@
 #include <pthread.h>
 
 
-t_log *cpu_logger_info; 
-t_config* config;
+extern t_log *cpu_logger_info; 
+extern t_config* config;
 
-uint32_t tamano_pagina;
-bool page_fault = false;
+extern uint32_t tamano_pagina;
+extern bool page_fault;
 
 //interrupciones
-bool interrupciones[3] = {0,0,0};
-bool descartar_instruccion = false;
+extern bool interrupciones[3];
+extern bool descartar_instruccion;
 
 //conexiones
-int socket_memoria, servidor_cpu_dispatch, 
+extern int socket_memoria, servidor_cpu_dispatch, 
 servidor_cpu_interrupt, conexion_kernel_dispatch, 
 conexion_kernel_interrupt;
-op_code codigo_operacion;
+extern op_code codigo_operacion;
 
-pthread_t hiloInterrupt;
-pthread_mutex_t mutex_interrupt;
+extern pthread_t hiloInterrupt;
+extern pthread_mutex_t mutex_interrupt;
+
+extern t_contexto_ejecucion *contexto_actual;
 
 typedef struct  // archivo de configuracion cpu
 {
@@ -33,7 +35,7 @@ typedef struct  // archivo de configuracion cpu
    char* puerto_escucha_interrupt;
 } arch_config;
 
-arch_config config_valores_cpu;
+extern arch_config config_valores_cpu;
 
 void finalizar_cpu();
 void sighandler(int);
