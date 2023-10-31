@@ -135,10 +135,11 @@ typedef struct
     uint32_t dx;
 } t_registros;
 
-typedef struct {
-    char* nombre;
+typedef struct
+{
+    char *nombre;
     uint32_t cantidad;
-    t_queue* colabloqueado;
+    t_queue *colabloqueado;
 } recurso_instancia;
 typedef struct
 {
@@ -162,8 +163,8 @@ typedef struct
     motivo_block motivo_block;
     t_list *archivos_abiertos;
     time_t tiempo_ingreso_ready;
-    char* recurso_instruccion;
-    t_list* recursos_asignados;
+    char *recurso_instruccion;
+    t_list *recursos_asignados;
 } t_pcb;
 
 typedef struct
@@ -192,10 +193,19 @@ typedef struct
     t_list cola_pendientes;
 } t_recurso;
 
-typedef struct{
+typedef struct
+{
     motivo_desalojo motivo_interrupcion;
     int pid;
 } t_interrupcion;
+
+typedef enum
+{
+    FIFO,
+    RR,
+    PRIORIDADES,
+    LRU
+} t_algoritmo;
 
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);
@@ -233,7 +243,7 @@ t_instruccion *deserializar_instruccion(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
 
 void enviar_interrupcion(int, t_interrupcion *);
-t_interrupcion* recibir_interrupcion(int);
+t_interrupcion *recibir_interrupcion(int);
 
 uint32_t str_to_uint32(char *str);
 

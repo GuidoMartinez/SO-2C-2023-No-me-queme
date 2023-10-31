@@ -28,6 +28,7 @@ int main(int argc, char **argv)
     realizar_handshake(conexion_memoria, HANDSHAKE_KERNEL, kernel_logger_info);
 
     op_code respuesta = recibir_operacion(conexion_memoria);
+    log_info(kernel_logger_info,"el codigo que me llego es %d",respuesta);
     if (respuesta == HANDSHAKE_MEMORIA)
     {
         op_code prueba = recibir_handshake(conexion_memoria, kernel_logger_info);
@@ -70,25 +71,20 @@ int main(int argc, char **argv)
         log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta de CPU INTERRUPT.");
     }
 
-    // Cargo lista de recursosKernel con el archivo config
-    recursos_kernel = list_create();
-
-    int i;
-
-    for (i = 0; config_valores_kernel.recursos[i] != NULL; i++)
-    {
-        recurso_instancia *recurso = (recurso_instancia *)malloc(sizeof(recurso_instancia));
-        recurso->nombre = strdup(config_valores_kernel.recursos[i]);
-        recurso->cantidad = (uint32_t)atoi(config_valores_kernel.instancias_recursos[i]);
-        recurso->colabloqueado = queue_create();
-        list_add(recursos_kernel, recurso);
-    }
-
-    /*// conexion FILESYSTEM
+    // conexion FILESYSTEM
     conexion_filesystem = crear_conexion(config_valores_kernel.ip_filesystem, config_valores_kernel.puerto_filesystem);
     realizar_handshake(conexion_filesystem, HANDSHAKE_KERNEL, kernel_logger_info);
-*/
-    // log_warning(kernel_logger_info, "me conecte OK A TODOS LADOS, NO TENGO NADA QUE HACER");
+    respuesta = recibir_operacion(conexion_filesystem);
+    if (respuesta == HANDSHAKE_FILESYSTEM)
+    {
+        op_code prueba = recibir_handshake(conexion_filesystem, kernel_logger_info);
+        log_info(kernel_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        log_info(kernel_logger_info, "HANDSHAKE EXITOSO CON FILESYSTEM");
+    }
+    else
+    {
+        log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta del FILESYSTEM.");
+    }
 
     cola_block = list_create();
     cola_exit = list_create();
@@ -225,6 +221,20 @@ void cargar_configuracion(char *path)
     sem.g_multiprog_ini = config_valores_kernel.grado_multiprogramacion; // esto es una struct
     config_valores_kernel.recursos = config_get_array_value(config, "RECURSOS");
     config_valores_kernel.instancias_recursos = config_get_array_value(config, "INSTANCIAS_RECURSOS");
+
+        // Cargo lista de recursosKernel con el archivo config
+    recursos_kernel = list_create();
+
+    int i;
+
+    for (i = 0; config_valores_kernel.recursos[i] != NULL; i++)
+    {
+        recurso_instancia *recurso = (recurso_instancia *)malloc(sizeof(recurso_instancia));
+        recurso->nombre = strdup(config_valores_kernel.recursos[i]);
+        recurso->cantidad = (uint32_t)atoi(config_valores_kernel.instancias_recursos[i]);
+        recurso->colabloqueado = queue_create();
+        list_add(recursos_kernel, recurso);
+    }
 }
 
 void finalizar_kernel()

@@ -3,20 +3,20 @@
 
 t_contexto_ejecucion *contexto_actual;
 
-t_log *cpu_logger_info; 
-t_config* config;
+t_log *cpu_logger_info;
+t_config *config;
 
 uint32_t tamano_pagina;
 bool page_fault = false;
 
-//interrupciones
-bool interrupciones[3] = {0,0,0};
+// interrupciones
+bool interrupciones[3] = {0, 0, 0};
 bool descartar_instruccion = false;
 
-//conexiones
-int socket_memoria, servidor_cpu_dispatch, 
-servidor_cpu_interrupt, conexion_kernel_dispatch, 
-conexion_kernel_interrupt;
+// conexiones
+int socket_memoria, servidor_cpu_dispatch,
+    servidor_cpu_interrupt, conexion_kernel_dispatch,
+    conexion_kernel_interrupt;
 op_code codigo_operacion;
 
 pthread_t hiloInterrupt;
@@ -56,10 +56,11 @@ int main(int argc, char **argv)
         case CONTEXTO:
             log_info(cpu_logger_info, "Esperando contexto: ...");
             contexto_actual = recibir_contexto(conexion_kernel_dispatch);
-            log_info(cpu_logger_info, "Recibo pid%d y pc%d",contexto_actual->pid,contexto_actual->program_counter);
-            contexto_actual->codigo_ultima_instru=-1;
+            log_info(cpu_logger_info, "Recibo pid%d y pc%d", contexto_actual->pid, contexto_actual->program_counter);
+            contexto_actual->codigo_ultima_instru = -1;
 
-            while (!es_syscall() && !hay_interrupciones()){
+            while (!es_syscall() && !hay_interrupciones())
+            {
                 log_warning(cpu_logger_info, "Ejecuto proxima instruccion");
                 ejecutar_ciclo_instruccion();
             }
@@ -74,8 +75,9 @@ int main(int argc, char **argv)
 
             break;
         default:
-            log_error(cpu_logger_info, "El codigo que me llego es %d",codigo_operacion);
+            log_error(cpu_logger_info, "El codigo que me llego es %d", codigo_operacion);
             log_warning(cpu_logger_info, "Operacion desconocida \n");
+            finalizar_cpu();
             abort();
             break;
         }
@@ -95,14 +97,17 @@ void iniciar_conexiones()
 
 void *recibir_interrupt(void *arg)
 {
-    while(1){
+    while (1)
+    {
         codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
-        if(codigo_operacion!=INTERRUPCION){
-            log_error(cpu_logger_info, "El codigo que me llego es %d",codigo_operacion);
+        if (codigo_operacion != INTERRUPCION)
+        {
+            log_error(cpu_logger_info, "El codigo que me llego es %d", codigo_operacion);
             log_warning(cpu_logger_info, "Operacion desconocida \n");
+            finalizar_cpu();
             abort();
         }
-        t_interrupcion* interrupcion = malloc(sizeof(t_interrupcion));
+        t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
         interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
         switch (interrupcion->motivo_interrupcion)
         {
@@ -110,12 +115,13 @@ void *recibir_interrupt(void *arg)
             log_info(cpu_logger_info, "Recibo fin de quantum");
             interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
             pthread_mutex_lock(&mutex_interrupt);
-                contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
+            contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
             pthread_mutex_unlock(&mutex_interrupt);
             break;
         case INTERRUPT_FIN_PROCESO:
             log_info(cpu_logger_info, "Recibo fin de proceso");
-            if (!descartar_instruccion) {
+            if (!descartar_instruccion)
+            {
                 interrupciones[INTERRUPT_FIN_PROCESO] = 1;
                 pthread_mutex_lock(&mutex_interrupt);
                 contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
@@ -126,37 +132,47 @@ void *recibir_interrupt(void *arg)
             log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
             interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
             pthread_mutex_lock(&mutex_interrupt);
-                contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
+            contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
             pthread_mutex_unlock(&mutex_interrupt);
             break;
         default:
             log_warning(cpu_logger_info, "Operacion desconocida \n");
+            finalizar_cpu();
+            abort();
             break;
         }
     }
 
-    //free(interrupcion);
+    // free(interrupcion);
     return NULL;
 }
 
-bool hay_interrupciones(){
-    if(interrupciones[INTERRUPT_FIN_QUANTUM] 
-    || interrupciones[INTERRUPT_FIN_PROCESO] 
-    || interrupciones[INTERRUPT_NUEVO_PROCESO]){
+bool hay_interrupciones()
+{
+    if (interrupciones[INTERRUPT_FIN_QUANTUM] || interrupciones[INTERRUPT_FIN_PROCESO] || interrupciones[INTERRUPT_NUEVO_PROCESO])
+    {
         return true;
-    } else return false;
+    }
+    else
+        return false;
 }
 
-void obtener_motivo_desalojo(){
-    if(interrupciones[INTERRUPT_FIN_PROCESO]) contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+void obtener_motivo_desalojo()
+{
+    if (interrupciones[INTERRUPT_FIN_PROCESO])
+        contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
 }
 
-bool descartar_interrupcion(int pid){
-    if(pid != contexto_actual->pid) return true;
-    else return false;
+bool descartar_interrupcion(int pid)
+{
+    if (pid != contexto_actual->pid)
+        return true;
+    else
+        return false;
 }
 
-void limpiar_interrupciones(){
+void limpiar_interrupciones()
+{
     interrupciones[INTERRUPT_FIN_QUANTUM] = 0;
     interrupciones[INTERRUPT_FIN_PROCESO] = 0;
     interrupciones[INTERRUPT_NUEVO_PROCESO] = 0;
@@ -208,7 +224,7 @@ void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code
     if (codigo_operacion == handshake)
     {
         log_info(cpu_logger_info, "Handshake exitoso con KERNEL para la conexion %s", nombre_servidor);
-        recibir_handshake(*(conexion) , cpu_logger_info);
+        recibir_handshake(*(conexion), cpu_logger_info);
         realizar_handshake(*(conexion), handshake, cpu_logger_info);
     }
     else
@@ -239,7 +255,8 @@ void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
-    if(!page_fault) contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
+    if (!page_fault)
+        contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
 }
 
 // Pide a memoria la siguiente instruccion a ejecutar
@@ -290,12 +307,12 @@ void decode(t_instruccion *instruccion)
         break;
     case WAIT:
         _wait();
-         log_info(cpu_logger_info, "Estoy usando recurso: %s",contexto_actual->instruccion_ejecutada->parametro1);
-        
+        log_info(cpu_logger_info, "Estoy usando recurso: %s", contexto_actual->instruccion_ejecutada->parametro1);
+
         break;
     case SIGNAL:
         _signal();
-        log_info(cpu_logger_info, "Estoy usando recurso: %s",contexto_actual->instruccion_ejecutada->parametro1);
+        log_info(cpu_logger_info, "Estoy usando recurso: %s", contexto_actual->instruccion_ejecutada->parametro1);
         break;
     case MOV_IN:
         _mov_in(instruccion->parametro1, instruccion->parametro2);
@@ -329,22 +346,24 @@ void decode(t_instruccion *instruccion)
     }
 }
 
-bool es_syscall(){
+bool es_syscall()
+{
     nombre_instruccion ultima_instruccion = contexto_actual->codigo_ultima_instru;
-    switch(ultima_instruccion){
-        case WAIT:
-        case SIGNAL:
-        case SLEEP:
-        case F_OPEN:
-        case F_CLOSE:
-        case F_READ:
-        case F_WRITE:
-        case F_SEEK:
-        case F_TRUNCATE:
-        case EXIT:
-            return true;
-        default:
-            return false;
+    switch (ultima_instruccion)
+    {
+    case WAIT:
+    case SIGNAL:
+    case SLEEP:
+    case F_OPEN:
+    case F_CLOSE:
+    case F_READ:
+    case F_WRITE:
+    case F_SEEK:
+    case F_TRUNCATE:
+    case EXIT:
+        return true;
+    default:
+        return false;
     }
 }
 

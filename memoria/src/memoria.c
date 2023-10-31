@@ -19,10 +19,9 @@ int main(int argc, char **argv)
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
 
 	atender_clientes_memoria();
-	while (1)
-		sleep(5);
-	finalizar_memoria();
+	while (1);
 	return EXIT_SUCCESS;
+	
 }
 
 void cargar_configuracion(char *path)
@@ -56,22 +55,16 @@ void inicializar_memoria()
 		log_error(logger_memoria_info, "No pudo reservarse el espacio de memoria contiguo, abortando modulo");
 		abort();
 	}
-	tablas_de_paginas_en_memoria = list_create();
+	tablas_de_paginas= list_create();
 	procesos_totales = list_create();
+	algoritmo_pags=obtener_algoritmo();
 }
 
 void atender_clientes_memoria()
 {
-	 atender_cliente_cpu();
-	//socket_cpu = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
-	//manejo_conexion_cpu((void *)&socket_cpu);
-	//socket_fs = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
-	//manejo_conexion_filesystem((void *)&socket_fs);
-
-	 atender_cliente_kernel();
-
-	//socket_kernel = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
-	//manejo_conexion_kernel((void *)&socket_kernel);
+	atender_cliente_cpu();
+	atender_cliente_fs();
+	atender_cliente_kernel();
 }
 
 int atender_cliente_cpu()
@@ -81,7 +74,7 @@ int atender_cliente_cpu()
 
 	if (socket_cpu != -1)
 	{
-		// log_info(logger_memoria_info, "Se conecto un cliente "); // TODO - BORRA LOG
+
 		pthread_t hilo_cliente;
 		pthread_create(&hilo_cliente, NULL, manejo_conexion_cpu, (void *)&socket_cpu);
 		pthread_detach(hilo_cliente);
@@ -103,7 +96,6 @@ int atender_cliente_kernel()
 
 	if (socket_kernel != -1)
 	{
-		// log_info(logger_memoria_info, "Se conecto un cliente "); // TODO - BORRA LOG
 		pthread_t hilo_cliente;
 		pthread_create(&hilo_cliente, NULL, manejo_conexion_kernel, (void *)&socket_kernel);
 		pthread_detach(hilo_cliente);
@@ -125,7 +117,6 @@ int atender_cliente_fs()
 
 	if (socket_fs != -1)
 	{
-		// log_info(logger_memoria_info, "Se conecto un cliente "); // TODO - BORRA LOG
 		pthread_t hilo_cliente;
 		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem, (void *)&socket_fs);
 		pthread_detach(hilo_cliente);
@@ -134,7 +125,7 @@ int atender_cliente_fs()
 	else
 	{
 		log_error(logger_memoria_info, "Error al escuchar clientes... Finalizando servidor \n"); // log para fallo de comunicaciones
-		finalizar_memoria();
+		abort();
 	}
 	return 0;
 }
@@ -142,7 +133,7 @@ int atender_cliente_fs()
 void *manejo_conexion_cpu(void *arg)
 {
 
-	int socket_cpu_int = *(int *)arg;
+	socket_cpu_int = *(int *)arg;
 	while (1)
 	{
 		op_code codigo_operacion = recibir_operacion(socket_cpu_int);
@@ -152,7 +143,7 @@ void *manejo_conexion_cpu(void *arg)
 		{
 		case HANDSHAKE_CPU:
 			log_info(logger_memoria_info, "Handshake exitosa con CPU, se conecto un CPU");
-		
+
 			recibir_handshake(socket_cpu_int, logger_memoria_info);
 			realizar_handshake(socket_cpu_int, HANDSHAKE_MEMORIA, logger_memoria_info);
 
@@ -179,7 +170,7 @@ void *manejo_conexion_cpu(void *arg)
 void *manejo_conexion_kernel(void *arg)
 {
 
-	int socket_kernel_int = *(int *)arg;
+	socket_kernel_int = *(int *)arg;
 	while (1)
 	{
 
@@ -198,17 +189,12 @@ void *manejo_conexion_kernel(void *arg)
 
 			proceso_memoria = recibir_proceso_nuevo(socket_kernel_int);
 			iniciar_proceso_path(proceso_memoria);
-
-			// inicializo t_ini_proceso para probar
-			// cargar_proceso_prueba();
 			// responder a kernel con lo que corresponda
 
 			break;
 		default:
-			log_error(logger_memoria_info, "Fallo la comunicacion la comunicacion con KERNEL. Abortando \n");
-			close(socket_kernel_int);
-			close(server_memoria);
-			abort();
+			log_error(logger_memoria_info, "Fallo la comunicacion la comunicacion con KERNEL. Abortando");
+			finalizar_memoria();
 			break;
 		}
 	}
@@ -218,26 +204,24 @@ void *manejo_conexion_kernel(void *arg)
 void *manejo_conexion_filesystem(void *arg)
 {
 
-	int socket_fs_int = *(int *)arg;
+	socket_fs_int = *(int *)arg;
 	while (1)
 	{
 
 		op_code codigo_operacion = recibir_operacion(socket_fs_int);
 
-		// Se puede descomentar esto para ver lo que pasa con los mensajes
-		// sleep(5);
-		// log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
+		log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
 
 		switch (codigo_operacion)
 		{
 		case HANDSHAKE_FILESYSTEM:
-			log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FS");
-			enviar_mensaje("Handshake exitoso con Memoria", socket_fs_int);
+			log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FILESYSTEM");
+			recibir_handshake(socket_fs_int, logger_memoria_info);
+			realizar_handshake(socket_fs_int, HANDSHAKE_MEMORIA, logger_memoria_info);
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
 			close(socket_fs_int);
-			;
 			break;
 		}
 	}
@@ -416,13 +400,13 @@ t_instruccion *obtener_instrccion_pc(t_proceso_memoria *proceso, uint32_t pc_ped
 
 t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedido)
 {
-	log_error(logger_memoria_info,"Voy a buscar la instruccion de PID %d con PC %d", pid_pedido,pc_pedido);
+	log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
-	sleep(config_valores_memoria.retardo_respuesta/1000);
+	sleep(config_valores_memoria.retardo_respuesta / 1000);
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 
-int paginas__necesarias_proceso(uint32_t tamanio_proc, uint32_t tamanio_pag)
+int paginas_necesarias_proceso(uint32_t tamanio_proc, uint32_t tamanio_pag)
 {
 	double entero = ((double)tamanio_proc) / (double)tamanio_pag;
 	if ((tamanio_proc % tamanio_pag) > 0)
@@ -430,19 +414,6 @@ int paginas__necesarias_proceso(uint32_t tamanio_proc, uint32_t tamanio_pag)
 		entero++;
 	}
 	return (int)ceil(entero);
-}
-
-void cargar_proceso_prueba()
-{
-
-	t_proceso_memoria *proceso_nuevo = malloc(sizeof(t_proceso_memoria));
-	proceso_nuevo->pid = 0;
-	proceso_nuevo->tamano = 16;
-	proceso_nuevo->path = string_new();
-
-	string_append(&(proceso_nuevo->path), "./cfg/pseudocodigo");
-
-	iniciar_proceso_path(proceso_nuevo);
 }
 
 t_proceso_memoria *recibir_proceso_nuevo(int socket)
@@ -477,13 +448,25 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 	return proceso_nuevo;
 }
 
+t_algoritmo obtener_algoritmo(){
+	if(string_equals_ignore_case(config_valores_memoria.algoritmo_reemplazo,"FIFO")){
+		log_info(logger_memoria_info, "Se elegio algotitmo FIFO para reemplazo de paginas");
+		return FIFO;
+	}
+	else {
+		log_info(logger_memoria_info, "Se elegio algotitmo para reemplazo de paginas");
+		return LRU;
+	}
+}
+
 void finalizar_memoria()
 {
+	log_info(logger_memoria_info,"Finalizando Memoria");
 	log_destroy(logger_memoria_info);
 	close(server_memoria);
-	close(socket_cpu);
-	close(socket_kernel);
-	close(socket_fs);
+	close(socket_cpu_int);
+	close(socket_kernel_int);
+	close(socket_fs_int);
 	config_destroy(config);
-	;
+	
 }
