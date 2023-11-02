@@ -2,7 +2,7 @@ PROCESS_NAME=kernel
 IDIR =./include
 SHARED_IDIR = ../shared/include
 CC=gcc
-CFLAGS=-I$(IDIR) -I$(SHARED_IDIR) -g -Wall
+CFLAGS=-I$(IDIR) -I$(SHARED_IDIR) -g -Wall -fcommon
 
 ODIR=./obj
 SRCDIR =./src
