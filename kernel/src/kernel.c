@@ -21,6 +21,7 @@ sem_t sem_ready;
 sem_t sem_exec;
 sem_t sem_detener;
 sem_t sem_blocked_w;
+sem_t sem_detener_sleep;
 
 t_list *recursos_kernel;
 t_list *lista_ready;
@@ -31,6 +32,10 @@ t_list *cola_exit;
 t_list *lista_global;
 t_list *cola_blocked_recurso;
 
+t_list *lista_ready_detenidos;
+t_list *lista_blocked_detenidos;
+t_list *lista_exec_detenidos;
+
 t_pcb *proceso_aux;
 t_pcb *proceso_en_ejecucion;
 
@@ -38,7 +43,7 @@ int generador_de_id = 0;
 int grado_multiprogramacion_ini;
 int conexion_cpu_dispatch, conexion_cpu_interrupt, conexion_memoria, conexion_filesystem;
 int pid_nuevo;
-bool frenado = 0;
+bool frenado;
 op_code codigo_operacion;
 recurso_instancia *recurso_proceso;
 recurso_instancia *recurso_signal;
@@ -138,6 +143,9 @@ int main(int argc, char **argv)
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
     lista_global = list_create();
+    //lista_block_detenidos = list_create();
+    lista_ready_detenidos = list_create();
+    //lista_exec_detenidos = list_create();
 
     pthread_mutex_init(&mutex_cola_ready, NULL);
     pthread_mutex_init(&mutex_cola_listos_para_ready, NULL);
@@ -152,6 +160,7 @@ int main(int argc, char **argv)
     sem_init(&sem_exit, 0, 0);
     sem_init(&sem_detener, 0, 0);
     sem_init(&sem_blocked_w, 0, 0);
+    sem_init(&sem_detener_sleep, 0,0);
     /*sem_init(&sem_block_return, 0, 0);*/
 
     while (1)
@@ -207,7 +216,6 @@ int main(int argc, char **argv)
         {
 
             // log_info(kernel_logger_info, "Inicie plani");
-            frenado = 0;
             iniciar_planificacion();
 
             //  free(linea);
@@ -351,15 +359,35 @@ t_pcb *buscarProceso(int pid_pedido)
 
 void iniciar_planificacion()
 {
-
-    planificar_largo_plazo();
-    planificar_corto_plazo();
+    if(frenado){
+        log_info(kernel_logger_info,"entre a iniciar plani dsp de haber frenado");
+        list_add_all(lista_ready, lista_ready_detenidos);
+        sem_post(&sem_detener);
+        sem_post(&sem_detener_sleep);
+        //lista_add_all(cola_exec, lista_exec_detenidos);
+    }else{
+        planificar_largo_plazo();
+        planificar_corto_plazo();
+    }
+    
+    frenado = false;
 }
 
 void detener_planificacion()
 {
-    frenado = 1;
-    log_info(kernel_logger_info, "Cambie el frenado ");
+    frenado = true;
+
+    pthread_mutex_lock(&mutex_cola_ready);
+    //pthread_mutex_lock(&mutex_cola_exec);
+
+    list_add_all(lista_ready, lista_ready_detenidos);
+    //list_add_all(cola_block, lista_block_detenidos);
+    //list_add_all(cola_exec, lista_exec_detenidos);
+
+    list_clean(lista_ready);
+    //list_clean(cola_exec);
+    pthread_mutex_unlock(&mutex_cola_ready);
+    //pthread_mutex_unlock(&mutex_cola_exec);
 }
 
 void quantum_interrupter(void)

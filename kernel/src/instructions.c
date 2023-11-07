@@ -26,6 +26,9 @@ void ksleep()
     pthread_create(&hilo_sleep, NULL, (void *)sleeper, args);
     pthread_detach(hilo_sleep);
 
+    if(frenado){
+        sem_wait(&sem_detener);
+    }
     sem_post(&sem_ready);
     if (list_size(lista_ready) > 0)
         sem_post(&sem_exec);
@@ -39,6 +42,9 @@ void sleeper(void *args)
     log_warning(kernel_logger_info, "Inicio sleep de %d segundos para proceso: %d,", _args->tiempo, _args->pcb->pid);
     sleep(_args->tiempo);
     log_warning(kernel_logger_info, "Paso proceso: %d a ready", _args->pcb->pid);
+    if(frenado){
+        sem_wait(&sem_detener_sleep);
+    }
     safe_pcb_add(lista_ready, _args->pcb, &mutex_cola_ready);
     sem_post(&sem_ready);
     sem_post(&sem_exec);
@@ -61,15 +67,24 @@ void kwait()
             t_pcb *proceso_aux = list_remove(cola_exec, 0);
             pthread_mutex_unlock(&mutex_cola_exec);
             log_info(kernel_logger_info, "No tengo instancias disponibles del recurso: [%s] -instancias %d", pcbelegido->recurso_instruccion, recurso_kernel->cantidad);
+            
+            if(frenado){
+                sem_wait(&sem_detener);
+            }
+
             pthread_mutex_lock(&mutex_cola_block);
+
             pcbelegido->estado = BLOCK;
             queue_push(recurso_kernel->colabloqueado, pcbelegido);
             log_info(kernel_logger_info, "Tamaño de la cola: %d", queue_size(recurso_kernel->colabloqueado));
             // TODO: Revisar colas de bloqueo por recurso
             list_add(cola_block, pcbelegido);
+
             pthread_mutex_unlock(&mutex_cola_block);
+
             log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, recurso_kernel->nombre);
             proceso_en_ejecucion = NULL;
+
             sem_post(&sem_ready);
             if (list_size(lista_ready) > 0)
                 sem_post(&sem_exec);

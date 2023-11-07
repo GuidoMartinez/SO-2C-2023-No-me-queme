@@ -20,6 +20,7 @@ extern sem_t sem_ready;
 extern sem_t sem_exec;
 extern sem_t sem_detener;
 extern sem_t sem_blocked_w;
+extern sem_t sem_detener_sleep;
 
 extern t_list *recursos_kernel;
 extern t_list *lista_ready;
@@ -29,6 +30,11 @@ extern t_list *cola_exec;
 extern t_list *cola_exit;
 extern t_list *lista_global;
 extern t_list *cola_blocked_recurso;
+
+extern t_list *lista_ready_detenidos;
+extern t_list *lista_block_detenidos;
+extern t_list *lista_exec_detenidos;
+extern t_list *lista_exit_detenidos;
 
 extern t_pcb *proceso_aux;
 extern t_pcb *proceso_en_ejecucion;

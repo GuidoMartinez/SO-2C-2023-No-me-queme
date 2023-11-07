@@ -43,10 +43,14 @@ void exit_pcb(void)
                         {
                             log_info(kernel_logger_info, "Libero proceso: %d", pcb_bloqueado->pid);
                             remove_blocked(pcb_bloqueado->pid);
-                            set_pcb_ready(pcb_bloqueado);
-                            sem_post(&sem_ready);
-                            if (list_size(lista_ready) > 0)
-                                sem_post(&sem_exec);
+                            if(!frenado){
+                                set_pcb_ready(pcb_bloqueado);
+                                sem_post(&sem_ready);
+                                if (list_size(lista_ready) > 0)
+                                    sem_post(&sem_exec);
+                            }else{
+                                list_add(lista_ready_detenidos, pcb_bloqueado);
+                            }
                         }
                     }
                 }
@@ -193,7 +197,7 @@ void planificar_largo_plazo()
     log_info(kernel_logger_info, "Entre al largo plazo");
     pthread_t hilo_ready;
     pthread_t hilo_exit;
-    pthread_t hilo_block;
+    //pthread_t hilo_block;
 
     pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
@@ -208,6 +212,7 @@ void planificar_corto_plazo()
 {    
     log_info(kernel_logger_info, "Entre corto plazo");
     pthread_t hilo_corto_plazo, hilo_quantum;
+    
     pthread_create(&hilo_corto_plazo, NULL, (void *)exec_pcb, NULL);
     pthread_detach(hilo_corto_plazo);
     pthread_create(&hilo_quantum, NULL, (void *)quantum_interrupter, NULL);
