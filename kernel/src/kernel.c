@@ -362,11 +362,10 @@ void iniciar_planificacion()
     if(frenado){
         log_info(kernel_logger_info,"entre a iniciar plani dsp de haber frenado");
         list_add_all(lista_ready, lista_ready_detenidos);
-        //sem_post(&sem_detener);
-        //sem_post(&sem_detener_sleep);
+        sem_post(&sem_detener);
+        sem_post(&sem_detener_sleep);
         sem_post(&sem_ready);
         sem_post(&sem_exec);
-        //lista_add_all(cola_exec, lista_exec_detenidos);
     }else{
         planificar_largo_plazo();
         planificar_corto_plazo();

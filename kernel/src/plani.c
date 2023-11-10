@@ -114,6 +114,10 @@ void pcb_create(int prio, int tamano, int pid_ok)
 
 t_pcb *elegir_pcb_segun_algoritmo()
 {
+
+    if(list_size(lista_ready)==0){
+        exit(1);
+    }
     switch (ALGORITMO_PLANIFICACION)
     {
     case FIFO:
