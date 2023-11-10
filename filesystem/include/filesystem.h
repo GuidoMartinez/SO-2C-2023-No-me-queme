@@ -66,22 +66,27 @@ typedef struct
 void finalizar_filesystem();
 void sighandler(int);
 void cargar_configuracion(char *);
-void desasignar_bloques(int, int);
 void inicializar_datos_memoria(int , void *);
-off_t obtener_primer_bloque_libre(t_list *);
-bool bloque_esta_ocupado(t_list *, off_t);
+off_t obtener_primer_bloque_libre(bloque *);
+bool bloque_esta_ocupado(bloque *, int, int);
 int crear_fat(int, char *, t_log *);
 bloque leerBloque(FILE *, int);
 void escribirBloque(FILE *, bloque *, int);
-void guardarFAT(const char *);
-t_list* cargarFAT(const char *);
+void guardarFAT(const char *, bloque *, int);
+bloque * cargarFAT(const char *);
 void liberarMemoriaFAT();
 void inicializarFATDesdeDirectorio(char *, t_log *);
-int crearFCB(char *, t_log *, t_list *);
-int crearFAT(int, char*, t_log*);
-uint32_t buscar_fcb(char *, t_list *);
-uint32_t buscar_fcb_id(int id, t_list *lista_fcb);
+int crearFCB(char *, t_log *, bloque *);
+int crearFAT(char *, t_log *);
+uint32_t buscar_fcb(char *, bloque*);
+uint32_t buscar_fcb_id(int);
 fcb_t *inicializar_fcb();
+fcb_t *_get_fcb_id(int);
+fcb_t *_get_fcb(char *);
+uint32_t valor_para_fcb(fcb_t *, fcb_prop_t);
+uint32_t valor_fcb(int, fcb_prop_t);
+void asignar_bloques(int, int, bloque *);
+void desasignar_bloques(int, int, bloque *);
 
 t_log *filesystem_logger_info;
 t_config *config;
@@ -92,8 +97,9 @@ t_bitarray* fat_table;
 void* memoria_file_system;
 int tam_memoria_file_system;
 int tamanio_fat;
-t_list *lista_fat;
+t_list *lista_fcb;
 int cant_bloques;
 int tamanio_bloque;
+bloque * fat;
 
 #endif

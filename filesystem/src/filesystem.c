@@ -23,7 +23,7 @@ int main(int argc, char **argv)
     tamanio_bloque = config_valores_filesystem.tam_bloque;
     tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
     tamanio_fat = (config_valores_filesystem.cant_bloques_total - config_valores_filesystem.cant_bloques_swap) * sizeof(bloque);
-    t_list *lista_fat = list_create();
+    bloque *fat = (int *)malloc(tamanio_fat * sizeof(bloque));
 
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     inicializarFATDesdeDirectorio(config_valores_filesystem.path_fcb, filesystem_logger_info);
 
     // int exit_status = crear_fat(tamanio_fat, config_valores_filesystem.path_fat, filesystem_logger_info);
-    int exit_status = crearFAT(tamanio_fat, config_valores_filesystem.path_fat, filesystem_logger_info);
+    int exit_status = crearFAT(config_valores_filesystem.path_fat, filesystem_logger_info);
     if (exit_status == -1)
     {
         return -1;
@@ -135,13 +135,18 @@ void inicializar_datos_memoria(int tam_memoria_file_system, void *memoria_file_s
     }
 }
 
-off_t obtener_primer_bloque_libre(t_list *lista_bloques)
+int obtener_cantidad_de_bloques(int id_fcb)
 {
-    int size = list_size(lista_bloques);
-    for (off_t i = 0; i < size; i++)
+    int tamanio_fcb = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
+    int cant_bloques_fcb = ceil((double)tamanio_fcb / config_valores_filesystem.tam_bloque);
+    return cant_bloques_fcb;
+}
+
+off_t obtener_primer_bloque_libre(bloque *fat)
+{
+    for (off_t i = 0; i < tamanio_fat; i++)
     {
-        bloque *bloque = list_get(lista_bloques, i);
-        if (!bloque->utilizado)
+        if (!fat[i].utilizado)
         {
             return i;
         }
@@ -149,52 +154,52 @@ off_t obtener_primer_bloque_libre(t_list *lista_bloques)
     return -1;
 }
 
-bool bloque_esta_ocupado(t_list *lista_bloques, off_t id_bloque)
+bool bloque_esta_ocupado(bloque *array_bloques, int size, int id_bloque)
 {
-    if (id_bloque < 0 || id_bloque >= list_size(lista_bloques))
+    if (id_bloque < 0 || id_bloque >= size)
     {
         return false;
     }
-    bloque *bloque = list_get(lista_bloques, id_bloque);
+    bloque *bloque = &array_bloques[id_bloque];
     return bloque->utilizado;
 }
 
 int crear_fat(int cantidad_de_bloques, char *path_fat, t_log *logger)
 {
-    int tamanio_fat = cantidad_de_bloques;
-    int file_descriptor = open(path_fat, O_CREAT | O_RDWR, 0644); // 0644 -> permissions for read/write
+    int tamanio_fat = cantidad_de_bloques * sizeof(bloque); // Multiplicar por el tamaño de un bloque
+
+    int file_descriptor = open(path_fat, O_CREAT | O_RDWR, 0644); // 0644 -> permisos para lectura/escritura
     if (file_descriptor < 0)
     {
-        log_error(logger, "Failed to create the FAT file");
+        log_error(logger, "Error al crear el archivo FAT");
         return -1;
     }
 
     if (ftruncate(file_descriptor, tamanio_fat) != 0)
     {
-        log_error(logger, "Failed to allocate disk space for the FAT file");
+        log_error(logger, "Error al asignar espacio en disco para el archivo FAT");
         close(file_descriptor);
         return -1;
     }
 
-    void *fat_data = mmap(NULL, tamanio_fat, PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
-    if (fat_data == MAP_FAILED)
+    bloque *fat = mmap(NULL, tamanio_fat, PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
+    if (fat == MAP_FAILED)
     {
-        log_error(logger, "Failed to map the FAT file into memory");
+        log_error(logger, "Error al mapear el archivo FAT en memoria");
         close(file_descriptor);
         return -1;
     }
 
-    fat_table = bitarray_create_with_mode(fat_data, tamanio_fat * 8, LSB_FIRST); // * 8 para obtener el tamaño en bits
     if (formatear == 1)
     {
-        memset(fat_data, 0, tamanio_fat);
-        log_info(logger, "FAT table formateada exitosamente");
+        memset(fat, 0, tamanio_fat);
+        log_info(logger, "Tabla FAT formateada exitosamente");
     }
 
     // Marcar el bloque lógico 0 como reservado
-    bitarray_set_bit(fat_table, 0);
+    fat[0].utilizado = true; 
 
-    log_info(logger, "FAT table creada");
+    log_info(logger, "Tabla FAT creada");
     return 0;
 }
 
@@ -203,9 +208,7 @@ bloque leerBloque(FILE *file, int block_number)
     bloque block;
 
     long position = (long)block_number * sizeof(bloque);
-
     fseek(file, position, SEEK_SET);
-
     fread(&block, sizeof(bloque), 1, file);
 
     return block;
@@ -220,21 +223,15 @@ void escribirBloque(FILE *file, bloque *block, int block_number)
     fwrite(block, sizeof(bloque), 1, file);
 }
 
-void guardarFAT(const char *nombreArchivo)
+
+void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat)
 {
     FILE *archivo = fopen(nombreArchivo, "wb"); // Abre el archivo en modo binario para escritura
 
     if (archivo)
     {
-        int cantidad = list_size(lista_fat);
-        fwrite(&cantidad, sizeof(int), 1, archivo);
-
-        for (int i = 0; i < cantidad; i++)
-        {
-            bloque *elemento = list_get(lista_fat, i);
-            fwrite(elemento, sizeof(bloque), 1, archivo);
-        }
-
+        fwrite(&tamanio_fat, sizeof(int), 1, archivo);
+        fwrite(fat, sizeof(bloque), tamanio_fat, archivo);
         fclose(archivo);
     }
     else
@@ -243,24 +240,23 @@ void guardarFAT(const char *nombreArchivo)
     }
 }
 
-t_list *cargarFAT(const char *nombreArchivo)
+bloque *cargarFAT(const char *nombreArchivo)
 {
     FILE *archivo = fopen(nombreArchivo, "rb"); // Abre el archivo en modo binario para lectura
 
     if (archivo)
     {
-        int cantidad;
-        fread(&cantidad, sizeof(int), 1, archivo);
+        bloque *fat = (bloque *)malloc(tamanio_fat * sizeof(bloque));
 
-        for (int i = 0; i < cantidad; i++)
+        if (fat == NULL)
         {
-            bloque *elemento = malloc(sizeof(bloque));
-            fread(elemento, sizeof(bloque), 1, archivo);
-            list_add(lista_fat, elemento);
+            fclose(archivo);
+            printf("Error al asignar memoria para cargar la FAT\n");
+            return NULL;
         }
-
+        fread(fat, sizeof(bloque), tamanio_fat, archivo);
         fclose(archivo);
-        return lista_fat;
+        return fat;
     }
     else
     {
@@ -269,15 +265,9 @@ t_list *cargarFAT(const char *nombreArchivo)
     }
 }
 
-void liberarMemoriaFAT()
+void liberarMemoriaFAT(bloque *fat)
 {
-    int cantidad = list_size(lista_fat);
-    for (int i = 0; i < cantidad; i++)
-    {
-        bloque *elemento = list_get(lista_fat, i);
-        free(elemento);
-    }
-    list_destroy(lista_fat);
+    free(fat);
 }
 
 void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
@@ -300,22 +290,21 @@ void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
         string_append(&nombre_completo, directorio);
         string_append(&nombre_completo, dir_entry->d_name);
 
-        fcb_t *fcb_existente = inicializar_fcb();
-        if (fcb_existente != NULL)
+        bloque *bloque_existente = (bloque *)malloc(sizeof(bloque));
+        if (bloque_existente != NULL)
         {
-            list_add(lista_fat, fcb_existente);
-            fcb_id++;
+            list_add(fat, bloque_existente);
         }
 
         free(nombre_completo);
     }
-    log_info(logger, "Lista de FCB creada correctamente");
+    log_info(logger, "FAT inicializada correctamente desde el directorio");
     closedir(dir_fat);
 }
 
-int crearFCB(char *nombre_fcb, t_log *logger, t_list *lista_fat)
+int crearFCB(char *nombre_fcb, t_log *logger, bloque *fat)
 {
-    if (buscar_fcb(nombre_fcb, lista_fat) != -1)
+    if (buscar_fcb(nombre_fcb, fat) != -1)
     {
         log_error(logger, "Ya existe un FCB con ese nombre");
         return -1;
@@ -341,7 +330,7 @@ int crearFCB(char *nombre_fcb, t_log *logger, t_list *lista_fat)
     dictionary_put(fcb_fisico->properties, "BLOQUE_INICIAL", "0");
 
     config_save_in_file(fcb_fisico, nombre_completo);
-    list_add(lista_fat, nuevo_fcb);
+    list_add(lista_fcb, nuevo_fcb);
 
     dictionary_destroy(fcb_fisico->properties);
     free(nombre_duplicado);
@@ -352,19 +341,21 @@ int crearFCB(char *nombre_fcb, t_log *logger, t_list *lista_fat)
     return nuevo_fcb->id;
 }
 
-int crearFAT(int cantidad_de_bloques, char *path_fat, t_log *logger)
+
+int crearFAT(char *path_fat, t_log *logger)
 {
-    tamanio_fat = cantidad_de_bloques;
-    FILE *archivo = fopen(path_fat, "wb"); // Abre el archivo en modo binario para escritura
+    int cantidad_de_bloques = tamanio_fat;
+    FILE *archivo = fopen(path_fat, "wb"); 
 
     if (archivo)
     {
         for (int i = 0; i < cantidad_de_bloques; i++)
         {
             bloque fat_entry;
-            fat_entry.next_block = 0;           // Inicializa como 0 (puede variar según tu lógica)
-            fat_entry.tamanio = tamanio_bloque; // Inicializa como 0 (puede variar según tu lógica)
+            fat_entry.next_block = 0;
+            fat_entry.tamanio = tamanio_bloque;
             fat_entry.id = i;
+            fat[i] = fat_entry;
             fwrite(&fat_entry, sizeof(bloque), 1, archivo);
         }
 
@@ -379,14 +370,13 @@ int crearFAT(int cantidad_de_bloques, char *path_fat, t_log *logger)
     }
 }
 
-uint32_t buscar_fcb(char *nombre_fcb, t_list *lista_fat)
+uint32_t buscar_fcb(char *nombre_fcb, bloque* fat)
 {
     int resultado = -1;
-    int size = list_size(lista_fat);
 
-    for (int i = 0; i < size; i++)
+    for (int i = 0; i < tamanio_fat; i++)
     {
-        fcb_t *fcb = list_get(lista_fat, i);
+        fcb_t *fcb = &(fat[i]);
 
         if (strcmp(fcb->nombre_archivo, nombre_fcb) == 0)
         {
@@ -398,7 +388,7 @@ uint32_t buscar_fcb(char *nombre_fcb, t_list *lista_fat)
     return resultado;
 }
 
-uint32_t buscar_fcb_id(int id, t_list *lista_fcb)
+uint32_t buscar_fcb_id(int id)
 {
     int resultado = -1;
     int size = list_size(lista_fcb);
@@ -432,7 +422,7 @@ fcb_t *inicializar_fcb()
     return new_fcb;
 }
 
-fcb_t *_get_fcb_id(int id, t_list *lista_fcb)
+fcb_t *_get_fcb_id(int id)
 {
     fcb_t *resultado = NULL;
     int size = list_size(lista_fcb);
@@ -449,12 +439,12 @@ fcb_t *_get_fcb_id(int id, t_list *lista_fcb)
     return resultado;
 }
 
-fcb_t *_get_fcb(char *nombre, t_list *lista_fcb)
+fcb_t *_get_fcb(char *nombre)
 {
     int id = buscar_fcb(nombre, lista_fcb);
     if (id != -1)
     {
-        return _get_fcb_id(id, lista_fcb);
+        return _get_fcb_id(id);
     }
     return NULL;
 }
@@ -476,14 +466,14 @@ uint32_t valor_para_fcb(fcb_t *fcb, fcb_prop_t llave)
     return valor;
 }
 
-uint32_t valor_fcb(int id, fcb_prop_t llave, t_list *lista_fcb)
+uint32_t valor_fcb(int id, fcb_prop_t llave)
 {
-    fcb_t *fcb = _get_fcb_id(id, lista_fcb);
+    fcb_t *fcb = _get_fcb_id(id);
     if (fcb != NULL)
     {
         return valor_para_fcb(fcb, llave);
     }
-    return 0; // Valor predeterminado si el FCB no se encuentra
+    return 0; 
 }
 
 int _modificar_fcb(fcb_t *fcb, fcb_prop_t llave, uint32_t valor)
@@ -516,72 +506,59 @@ int _modificar_fcb(fcb_t *fcb, fcb_prop_t llave, uint32_t valor)
     return resultado;
 }
 
-int modificar_fcb(int id, fcb_prop_t llave, uint32_t valor, t_list *lista_fcb)
+int modificar_fcb(int id, fcb_prop_t llave, uint32_t valor)
 {
-    fcb_t *fcb = _get_fcb_id(id, lista_fcb);
+    fcb_t *fcb = _get_fcb_id(id);
     if (fcb != NULL)
     {
         return _modificar_fcb(fcb, llave, valor);
     }
-    return -1; // Devuelve -1 si el FCB no se encuentra
+    return -1; 
 }
 
-void escribir_int(uint32_t dato, int offset)
+void escribir_int(uint32_t dato, bloque *fat, int indice)
 {
-    memcpy(memoria_file_system + offset, &dato, 4);
-    msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
+    int offset = indice * sizeof(bloque);
+    memcpy(fat + indice, &dato, sizeof(uint32_t));
+    msync(fat, tamanio_fat * sizeof(bloque), MS_SYNC);
     sleep(config_valores_filesystem.retardo_acceso_bloque);
 }
 
-void escribir_bloques(t_list *lista_bloques, int indice_inicial)
+void escribir_bloques(bloque *fat, int indice_inicial, int size)
 {
-    int size = list_size(lista_bloques);
-
     for (int i = indice_inicial; i < size; i++)
     {
-        offset_fcb_t *bloque = list_get(lista_bloques, i);
-
-        int offset = (i * sizeof(uint32_t));
-
-        escribir_int(bloque->id_bloque, offset);
+        bloque *bloque = &fat[i];
+        escribir_int(bloque->id, fat, i);
     }
-
     sleep(config_valores_filesystem.retardo_acceso_bloque);
 }
 
-uint32_t leer_int(int offset, int size)
+uint32_t leer_int(bloque *fat, int indice)
 {
     uint32_t dato = 0;
-
-    memcpy(&dato, memoria_file_system + offset, size);
-    msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
+    int offset = indice * sizeof(bloque);
+    memcpy(&dato, fat + indice, sizeof(uint32_t));
+    msync(fat, tamanio_fat * sizeof(bloque), MS_SYNC);
     sleep(config_valores_filesystem.retardo_acceso_bloque);
-
     return dato;
-}
-
-int obtener_cantidad_de_bloques(int id_fcb, FILE *file)
-{
-    int tamanio_fcb = valor_fcb(id_fcb, TAMANIO_ARCHIVO, file);
-    int cant_bloques_fcb = ceil((double)tamanio_fcb / config_valores_filesystem.tam_bloque);
-    return cant_bloques_fcb;
 }
 
 t_list *obtener_lista_total_de_bloques(int id_fcb, FILE *file)
 {
     t_list *lista_de_bloques = list_create();
-    int tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO, file);
+    int tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
 
     if (tamanio_archivo == 0)
         return lista_de_bloques;
 
-    int cant_bloques_fcb = obtener_cantidad_de_bloques(id_fcb, tamanio_archivo);
-    int offset_fcb = 0;
+    int cant_bloques_fcb = obtener_cantidad_de_bloques(id_fcb);
+    int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
 
     for (int i = 0; i < cant_bloques_fcb; i++)
     {
         offset_fcb_t *bloque = malloc(sizeof(offset_fcb_t));
-        bloque->id_bloque = valor_fcb(id_fcb, BLOQUE_INICIAL, file) + i;
+        bloque->id_bloque = bloque_inicial + i;
         bloque->offset = (long)bloque->id_bloque * sizeof(bloque);
         list_add(lista_de_bloques, bloque);
     }
@@ -589,55 +566,78 @@ t_list *obtener_lista_total_de_bloques(int id_fcb, FILE *file)
     return lista_de_bloques;
 }
 
-void asignar_bloques(int id_fcb, int nuevo_tamanio, FILE *file)
+void asignar_bloques(int id_fcb, int nuevo_tamanio, bloque *fat)
 {
-    t_list *lista_total_de_bloques = obtener_lista_total_de_bloques(id_fcb, file);
-    int size_inicial = list_size(lista_total_de_bloques);
     int tam_bloque = config_valores_filesystem.tam_bloque;
     int cant_bloques_a_asignar = ceil((double)nuevo_tamanio / tam_bloque);
-    int cant_bloques_actual = obtener_cantidad_de_bloques(id_fcb, file);
+    int cant_bloques_actual = obtener_cantidad_de_bloques(id_fcb);
 
     for (int i = cant_bloques_actual; i < cant_bloques_a_asignar; i++)
     {
         offset_fcb_t *bloque = malloc(sizeof(offset_fcb_t));
-        bloque->id_bloque = obtener_primer_bloque_libre(lista_total_de_bloques);
+        bloque->id_bloque = obtener_primer_bloque_libre(fat);
+
+        if (bloque->id_bloque == -1)
+        {
+            free(bloque);
+            break;
+        }
+
         bloque->offset = (uint32_t)bloque->id_bloque * tam_bloque;
         bloque->tamanio = tam_bloque;
+        fat[bloque->id_bloque].utilizado = true;
+        modificar_fcb(id_fcb, BLOQUE_INICIAL, fat[bloque->id_bloque].id);
 
-        size_inicial++;
-        modificar_fcb(id_fcb, BLOQUE_INICIAL, bloque->id_bloque, file);
-        list_add(lista_total_de_bloques, bloque);
+        free(bloque);
     }
-
-    int size_final = list_size(lista_total_de_bloques);
-
-    // No necesitas destruir elementos ni modificar la tabla FAT
-
-    modificar_fcb(id_fcb, TAMANIO_ARCHIVO, nuevo_tamanio, file);
 }
 
-/*
+void* list_pop(t_list* list){
+	int last_element_index = (list->elements_count - 1);
+	return list_remove(list, last_element_index);
+}
 
-void desasignar_bloques(int id_fcb, int nuevo_tamanio)
+void desasignar_bloques(int id_fcb, int nuevo_tamanio, bloque *fat)
 {
-    t_list *lista_de_bloques = obtener_lista_total_de_bloques(id_fcb);
-    int tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO, lista_global_fcb);
-    int cant_bloques_a_desasignar = ceil(((double)(tamanio_archivo - nuevo_tamanio) / config_valores_filesystem.tam_bloque)); // Usar ceil()
+    t_list *lista_de_bloques = obtener_lista_total_de_bloques(id_fcb, fat);
+    int tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
+    int cant_bloques_a_desasignar = ceil(((double)(tamanio_archivo - nuevo_tamanio) / config_valores_filesystem.tam_bloque));
 
     int i = 0;
-    if (nuevo_tamanio <= config_valores_filesystem.tam_bloque && tamanio_archivo > config_valores_filesystem.tam_bloque)
-    {
-        cant_bloques_a_desasignar++;
-    }
 
     while (i < cant_bloques_a_desasignar)
     {
         offset_fcb_t *bloque = list_pop(lista_de_bloques);
-        limpiar_bit_en_bitmap(fat_table, bloque->id_bloque);
+        fat[bloque->id_bloque].utilizado = false;
         i++;
     }
 
     list_destroy_and_destroy_elements(lista_de_bloques, free);
 
     modificar_fcb(id_fcb, TAMANIO_ARCHIVO, nuevo_tamanio);
-}*/
+}
+
+int truncar_fcb(char *nombre_fcb, uint32_t nuevo_tamanio)
+{
+    int resultado = -1;
+    int id_fcb = buscar_fcb(nombre_fcb, fat);
+
+    if (id_fcb != -1)
+    {
+        uint32_t tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
+
+        if (nuevo_tamanio > tamanio_archivo)
+        {
+            asignar_bloques(id_fcb, nuevo_tamanio, fat);
+        }
+        else if (nuevo_tamanio < tamanio_archivo)
+        {
+            desasignar_bloques(id_fcb, nuevo_tamanio, fat);
+        }
+
+        resultado = 0;
+    }
+
+    return resultado;
+}
+
