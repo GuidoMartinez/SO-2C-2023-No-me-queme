@@ -68,7 +68,7 @@ int main(int argc, char **argv)
     int fd;
     fd = open(config_valores_filesystem.path_bloques, O_RDWR);
     ftruncate(fd, tam_memoria_file_system);
-    void *memoria_file_system = mmap(NULL, tam_memoria_file_system, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    memoria_file_system = mmap(NULL, tam_memoria_file_system, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (formatear == 1)
         inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
     // inicializar_fcb_list(config_valores_filesystem.path_fcb, fcb_id, filesystem_logger_info);
@@ -639,5 +639,209 @@ int truncar_fcb(char *nombre_fcb, uint32_t nuevo_tamanio)
     }
 
     return resultado;
+}
+
+void escribir_dato(void *dato, int offset, int size)
+{
+	memcpy(memoria_file_system + offset, dato, size);
+	msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
+	// sleep(retardo_acceso_bloque);
+}
+
+void escribir_datos(void *datos, t_list *lista_offsets, int id_fcb, bloque *fat) {
+    int cant_bloques = list_size(lista_offsets);
+
+    for (int i = 0; i < cant_bloques; i++) {
+        offset_fcb_t *bloque_info = list_get(lista_offsets, i);
+        int bloque_id = bloque_info->id_bloque;
+        log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
+
+        if (!fat[bloque_id].utilizado) {
+            asignar_bloques(id_fcb, bloque_info->tamanio, fat);
+        }
+        escribir_dato(datos + bloque_info->offset, bloque_info->offset, bloque_info->tamanio);
+    }
+}
+
+t_list *obtener_lista_de_bloques(int id_fcb, int p_seek, int tam_a_leer, t_list *lista_fcb, t_log *logger) {
+    t_list *lista_bloques = list_create();
+    int tamanio_bloque = config_valores_filesystem.tam_bloque;
+    int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
+    int bloque_apuntado = ceil((double)(p_seek + 1) / tamanio_bloque);
+
+    if (bloque_inicial == -1) {
+        log_error(logger, "El FCB no tiene bloque inicial asignado");
+        return NULL;
+    }
+
+    if (tam_a_leer <= 0) {
+        log_error(logger, "El tamaño a leer es inválido");
+        return NULL;
+    }
+
+    int bloque_actual = bloque_inicial;
+    int tam_leido = 0;
+
+    while (tam_leido < tam_a_leer) {
+        int offset_bloque = bloque_actual * tamanio_bloque;
+        int tam_restante = tam_a_leer - tam_leido;
+        int bytes_leer = (tam_restante < tamanio_bloque) ? tam_restante : tamanio_bloque;
+
+        offset_fcb_t *bloque_info = malloc(sizeof(offset_fcb_t));
+        if (bloque_info == NULL) {
+            log_error(logger, "Error de asignación de memoria para bloque_info");
+            break;
+        }
+
+        bloque_info->id_bloque = bloque_actual;
+        bloque_info->offset = offset_bloque;
+        bloque_info->tamanio = bytes_leer;
+
+        list_add(lista_bloques, bloque_info);
+
+        tam_leido += bytes_leer;
+        bloque_actual = leer_int(fat, bloque_actual);
+
+        if (bloque_actual < 0 || bloque_actual >= tamanio_fat) {
+            log_error(logger, "Error: El bloque apuntado está fuera de rango");
+            break;
+        }
+
+        int bloque_siguiente = ceil((double)(p_seek + 1 + tam_leido) / tamanio_bloque);
+        if (bloque_actual != bloque_siguiente) {
+            log_error(logger, "Error en la secuencia de bloques");
+            break;
+        }
+    }
+
+    if (tam_leido != tam_a_leer) {
+        list_destroy_and_destroy_elements(lista_bloques, free);
+        return NULL;
+    }
+
+    return lista_bloques;
+}
+
+
+t_list *armar_lista_offsets(int id_fcb, int tam_a_leer, int p_seek) {
+    t_list *lista_offsets = list_create();
+
+    int bloque_apuntado = ceil((double)(p_seek + 1) / tamanio_bloque);
+    int nro_bloque = 0;
+    t_list *lista_bloques = obtener_lista_de_bloques(id_fcb, p_seek, tam_a_leer, lista_fcb, filesystem_logger_info);
+
+    if (lista_bloques != NULL) {
+        int cant_bloques = list_size(lista_bloques);
+
+        while (nro_bloque < cant_bloques) {
+            offset_fcb_t *nuevo_offset = malloc(sizeof(offset_fcb_t));
+
+            if (nuevo_offset != NULL) {
+                offset_fcb_t *bloque = list_get(lista_bloques, nro_bloque);
+
+                nuevo_offset->offset = bloque->id_bloque * tamanio_bloque;
+                nuevo_offset->id_bloque = bloque->id_bloque;
+                nuevo_offset->tamanio = tamanio_bloque;
+
+                if (tam_a_leer < tamanio_bloque) {
+                    nuevo_offset->offset = nuevo_offset->offset + (p_seek - ((bloque_apuntado - 1) * tamanio_bloque));
+                    nuevo_offset->tamanio = tam_a_leer;
+                } else if (nro_bloque + 1 == cant_bloques) {
+                    nuevo_offset->tamanio = (p_seek + tam_a_leer) - ((bloque_apuntado - 1) * tamanio_bloque);
+                } else if (nro_bloque == 0) {
+                    nuevo_offset->offset = nuevo_offset->offset + (p_seek - ((bloque_apuntado - 1) * tamanio_bloque));
+                    nuevo_offset->tamanio = (bloque_apuntado * tamanio_bloque) - p_seek;
+                }
+
+                nro_bloque++;
+                bloque_apuntado = ceil(((double)(p_seek + 1) + (tamanio_bloque * nro_bloque)) / tamanio_bloque);
+
+                list_add(lista_offsets, nuevo_offset);
+            } else {
+                log_error(filesystem_logger_info, "Error: No se pudo asignar memoria para nuevo_offset.");
+                break;
+            }
+        }
+
+        list_destroy_and_destroy_elements(lista_bloques, free);
+    } else {
+        log_error(filesystem_logger_info, "Error: No se pudieron obtener los bloques necesarios.");
+    }
+
+    return lista_offsets;
+}
+
+void realizar_f_write(t_instruccion_fs *instruccion_file, int conexion, fcb_list_t *lista_global_fcb, t_log *logger) {
+    int direccion_fisica = instruccion_file->direc_fisica;
+    int tamanio = instruccion_file->long_parametro1;
+    int puntero_archivo = instruccion_file->puntero;
+
+    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_WRITE);
+    agregar_a_paquete(paquete, &(instruccion_file->pid), sizeof(uint32_t));
+    agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
+    agregar_a_paquete(paquete, &tamanio, sizeof(uint32_t));
+    enviar_paquete(paquete, conexion);
+    eliminar_paquete(paquete);
+
+    op_code codigo = recibir_operacion(conexion);
+    if (codigo == F_WRITE) {
+        t_list *paquete_recibido = recibir_paquete(conexion);
+        if (paquete_recibido != NULL && list_size(paquete_recibido) > 0) {
+            int id_fcb = buscar_fcb(instruccion_file->parametro1, fat);
+            t_list *lista_offsets = armar_lista_offsets(id_fcb, tamanio, direccion_fisica);
+            char *valor_recibido = list_get(paquete_recibido, 0);
+
+			if (id_fcb != -1) {
+            t_list *lista_offsets = armar_lista_offsets(id_fcb, tamanio, direccion_fisica);
+			
+
+            if (lista_offsets != NULL) {
+                int cant_bloques = list_size(lista_offsets);
+
+                for (int i = 0; i < cant_bloques; i++) {
+                    offset_fcb_t *bloque_info = list_get(lista_offsets, i);
+                    int bloque_id = bloque_info->id_bloque;
+                    log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
+
+                     if (!fat[bloque_id].utilizado) {
+                        asignar_bloques(id_fcb, bloque_info->tamanio, fat);
+                    }
+
+                    escribir_dato(valor_recibido + bloque_info->offset, bloque_info->offset, bloque_info->tamanio);
+                }
+
+                list_destroy_and_destroy_elements(lista_offsets, free);
+            }
+            list_destroy_and_destroy_elements(paquete_recibido, free);
+        }
+		} 
+    } 
+}
+
+void *leer_dato(int offset, int size) {
+    void *dato = malloc(size);
+    memcpy(dato, memoria_file_system + offset, size);
+    msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
+    // sleep(retardo_acceso_bloque);
+
+    return dato;
+}
+
+void *leer_datos(t_list *lista_offsets) {
+    int cant_bloques = list_size(lista_offsets);
+    int offset = 0;
+    void *datos = malloc(0); 
+
+    for (int i = 0; i < cant_bloques; i++) {
+        offset_fcb_t *bloque = list_get(lista_offsets, i);
+        log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque->id_bloque);
+        void *dato = leer_dato(bloque->offset, bloque->tamanio);
+        datos = realloc(datos, offset + bloque->tamanio);
+        memcpy(datos + offset, dato, bloque->tamanio);
+        offset += bloque->tamanio;
+        free(dato);
+    }
+
+    return datos;
 }
 

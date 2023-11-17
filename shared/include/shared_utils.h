@@ -65,6 +65,7 @@ typedef enum
 typedef struct
 {
     nombre_instruccion codigo;
+    uint32_t pid;
     char *parametro1;
     uint32_t longitud_parametro1;
     char *parametro2;
@@ -74,6 +75,7 @@ typedef struct
 typedef struct
 {
     nombre_instruccion codigo;
+    uint32_t pid;
     char *parametro1;
     uint32_t long_parametro1;
     uint32_t direc_fisica;

@@ -101,5 +101,6 @@ t_list *lista_fcb;
 int cant_bloques;
 int tamanio_bloque;
 bloque * fat;
+void *memoria_file_system;
 
 #endif
