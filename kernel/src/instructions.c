@@ -64,8 +64,9 @@ void kwait()
         if (recurso_kernel->cantidad <= 0)
         {
             pthread_mutex_lock(&mutex_cola_exec);
-            t_pcb *proceso_aux = list_remove(cola_exec, 0);
+            list_remove(cola_exec, 0);
             pthread_mutex_unlock(&mutex_cola_exec);
+
             log_info(kernel_logger_info, "No tengo instancias disponibles del recurso: [%s] -instancias %d", pcbelegido->recurso_instruccion, recurso_kernel->cantidad);
             
             if(frenado){
@@ -116,22 +117,6 @@ void kwait()
         // TODO: Hacer funcion que pase de enum a char* para hacer el log de los estados
         log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual  <%s>\n", proceso_aux->pid, "EXEC", "EXIT");
 
-        for (int i = 0; i < list_size(proceso_aux->recursos_asignados); i++)
-        {
-
-            recurso_signal = list_get(recursos_kernel, i);
-            recurso_proceso = list_get(proceso_aux->recursos_asignados, i);
-
-            if (strcmp(recurso_signal->nombre, recurso_proceso->nombre) == 0)
-            {
-                log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_signal->cantidad);
-
-                recurso_signal->cantidad += recurso_proceso->cantidad;
-                log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_signal->cantidad);
-
-                recurso_proceso->cantidad -= recurso_proceso->cantidad;
-            }
-        }
         log_info(kernel_logger_info, "Finaliza el proceso <%d> Motivo <%s> \n", pcbelegido->pid, "INVALID_RESOURCE");
 
         proceso_en_ejecucion = NULL;
@@ -177,35 +162,9 @@ void ksignal()
         else
         {
             log_info(kernel_logger_info, "El pcb: %d liberó el recurso: %s y no lo tenia asignado", pcbelegido->pid, pcbelegido->recurso_instruccion);
-            pthread_mutex_lock(&mutex_cola_exec);
-            // No es necesario guardar el proceso aux porq esta en una global el ultimo en ejecucion
-            proceso_aux = list_remove(cola_exec, 0);
-            pthread_mutex_unlock(&mutex_cola_exec);
+            
+            finalizar_proceso_en_ejecucion();
 
-            if (ocupa_recursos(proceso_aux->recursos_asignados))
-            {
-                for (int i = 0; i < list_size(proceso_aux->recursos_asignados); i++)
-                {
-
-                    recurso_signal = list_get(recursos_kernel, i);
-                    recurso_proceso = list_get(proceso_aux->recursos_asignados, i);
-
-                    if (strcmp(recurso_signal->nombre, recurso_proceso->nombre) == 0)
-                    {
-                        log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_signal->cantidad);
-
-                        recurso_signal->cantidad += recurso_proceso->cantidad;
-                        log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_signal->cantidad);
-
-                        recurso_proceso->cantidad -= recurso_proceso->cantidad;
-                    }
-                }
-            }
-            proceso_en_ejecucion = NULL;
-            pthread_mutex_lock(&mutex_cola_exit);
-            pcbelegido->estado = FINISH_EXIT;
-            list_add(cola_exit, pcbelegido);
-            pthread_mutex_unlock(&mutex_cola_exit);
             // TODO: Hacer funcion de enum a char* para hacer el log de los estados
             log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
 
@@ -218,33 +177,10 @@ void ksignal()
     }
     else
     {
-        pthread_mutex_lock(&mutex_cola_exec);
-        // No es necesario guardar el proceso aux porq esta en una global el ultimo en ejecucion
-        proceso_aux = list_remove(cola_exec, 0);
-        pthread_mutex_unlock(&mutex_cola_exec);
         log_info(kernel_logger_info, "El recurso [%s] pedido por PID [%d] no existe. Se manda proceso a exit", pcbelegido->recurso_instruccion, pcbelegido->pid);
 
-        for (int i = 0; i < list_size(proceso_aux->recursos_asignados); i++)
-        {
+        finalizar_proceso_en_ejecucion();
 
-            recurso_signal = list_get(recursos_kernel, i);
-            recurso_proceso = list_get(proceso_aux->recursos_asignados, i);
-
-            if (strcmp(recurso_signal->nombre, recurso_proceso->nombre) == 0)
-            {
-                log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_signal->cantidad);
-
-                recurso_signal->cantidad += recurso_proceso->cantidad;
-                log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_signal->cantidad);
-
-                recurso_proceso->cantidad -= recurso_proceso->cantidad;
-            }
-        }
-        proceso_en_ejecucion = NULL;
-        pthread_mutex_lock(&mutex_cola_exit);
-        pcbelegido->estado = FINISH_EXIT;
-        list_add(cola_exit, pcbelegido);
-        pthread_mutex_unlock(&mutex_cola_exit);
         // TODO: Hacer funcion de enum a char* para hacer el log de los estados
         log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
 
@@ -252,3 +188,19 @@ void ksignal()
         sem_post(&sem_ready);
     }
 }
+
+void kmov_in(){};
+
+void kmov_out(){};
+
+void kf_open(){};
+
+void kf_close(){};
+
+void kf_seek(){};
+
+void kf_read(){};
+
+void kf_write(){};
+
+void kf_truncate(){};

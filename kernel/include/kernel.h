@@ -99,4 +99,7 @@ t_pcb *buscarProceso(int);
 void crear_proceso_memoria(int, int, char *, int);
 void serializar_pedido_proceso_nuevo(t_paquete *, int, int, char *);
 
+void liberar_recursos(t_pcb*);
+void finalizar_proceso_en_ejecucion();
+
 #endif

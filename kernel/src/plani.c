@@ -11,51 +11,7 @@ void exit_pcb(void)
         // char *motivo = motivo_exit_to_string(pcb->motivo_exit);
         // log_info(kernel_logger_info, "Le cambie el estado");
 
-        recurso_instancia *recurso_kernel;
-        recurso_instancia *recurso_proceso;
-        t_pcb *pcb_bloqueado;
-
-        if (ocupa_recursos(pcb->recursos_asignados))
-        {
-            for (int i = 0; i < list_size(pcb->recursos_asignados); i++)
-            {
-
-                recurso_proceso = list_get(pcb->recursos_asignados, i);
-
-                recurso_kernel = buscar_recurso(recursos_kernel, recurso_proceso->nombre);
-                t_queue *cola_bloqueados = recurso_kernel->colabloqueado;
-                log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
-
-                if (strcmp(recurso_kernel->nombre, recurso_proceso->nombre) == 0 && recurso_proceso->cantidad > 0)
-                {
-                    log_info(kernel_logger_info, "LIBERE RECURSO: %s, de proceso[%d] antes  \n", recurso_kernel->nombre, recurso_kernel->cantidad);
-
-                    recurso_kernel->cantidad += recurso_proceso->cantidad;
-                    log_info(kernel_logger_info, "LIBERE RECURSO: %s de proceso[%d] despues \n", recurso_kernel->nombre, recurso_kernel->cantidad);
-
-                    recurso_proceso->cantidad -= recurso_proceso->cantidad;
-
-                    while (queue_size(cola_bloqueados) > 0)
-                    {
-                        log_info(kernel_logger_info, "Comienzo a liberar bloqueados bloqueado");
-                        pcb_bloqueado = queue_pop(cola_bloqueados);
-                        if (pcb_bloqueado->pid != pcb->pid)
-                        {
-                            log_info(kernel_logger_info, "Libero proceso: %d", pcb_bloqueado->pid);
-                            remove_blocked(pcb_bloqueado->pid);
-                            if(!frenado){
-                                set_pcb_ready(pcb_bloqueado);
-                                sem_post(&sem_ready);
-                                if (list_size(lista_ready) > 0)
-                                    sem_post(&sem_exec);
-                            }else{
-                                list_add(lista_ready_detenidos, pcb_bloqueado);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        liberar_recursos(pcb);
 
         pcb_destroy(pcb);
         sem_post(&sem_ready);
@@ -279,7 +235,6 @@ void ready_pcb(void)
     }
 }
 
-
 void exec_pcb()
 {
     while (1)
@@ -338,6 +293,29 @@ void exec_pcb()
         case SIGNAL:
             ksignal();
             break;
+        case MOV_IN:
+            kmov_in();
+        break;
+        case MOV_OUT:
+            kmov_out();
+        break;
+        case F_OPEN:
+            kf_open();
+        break;
+        case F_CLOSE:
+            kf_close();
+        break;
+        case F_SEEK:
+            kf_seek();
+        case F_READ:
+            kf_read();
+        break;
+        case F_WRITE:
+            kf_write();
+        break;
+        case F_TRUNCATE:
+            kf_truncate();
+        break;
         default:
             log_info(kernel_logger_info, "Entre al default");
             safe_pcb_remove(cola_exec, &mutex_cola_exec);
@@ -386,7 +364,6 @@ void asignar_algoritmo(char *algoritmo)
         ALGORITMO_PLANIFICACION = PRIORIDADES;
     }
 }
-
 
 void set_pcb_ready(t_pcb *pcb)
 {
@@ -437,7 +414,6 @@ void remove_ready(int pid){
         pthread_mutex_unlock(&mutex_cola_block);
     }
 }
-
 
 bool maximo_RR(t_pcb *pcb1, t_pcb *pcb2)
 {
