@@ -934,6 +934,129 @@ int borrar_fcb(int id)
 		return resultado;
 }
 
+void generar_instruccion_mov(t_instruccion_fs *instruccion_nueva, nombre_instruccion instruccion, uint32_t dir_fisica, uint32_t tamanio, char *valor)
+{
+	char *s_dir_fisica = string_itoa(dir_fisica);
+	char *s_tamanio = string_itoa(tamanio);
+	int size_dir = strlen(s_dir_fisica) + 1;
+	int size_tamanio = strlen(s_tamanio) + 1;
+
+	instruccion_nueva->param1_length = size_dir;
+	instruccion_nueva->param1 = realloc(instruccion_nueva->param1, size_dir);
+	memcpy(instruccion_nueva->param1, s_dir_fisica, size_dir);
+
+	instruccion_nueva->param2_length = size_tamanio;
+	instruccion_nueva->param2 = realloc(instruccion_nueva->param2, size_tamanio);
+	memcpy(instruccion_nueva->param2, s_tamanio, size_tamanio);
+
+	instruccion_nueva->param3_length = tamanio;
+	instruccion_nueva->param3 = realloc(instruccion_nueva->param3, tamanio);
+	memcpy(instruccion_nueva->param3, valor, tamanio);
+
+	instruccion_nueva->estado = instruccion;
+	free(s_dir_fisica);
+	free(s_tamanio);
+}
+
+void copiar_instruccion_mov(void *stream, t_instruccion_fs *instruccion)
+{
+	int offset = 0;
+	memcpy(stream + offset, &instruccion->estado, sizeof(nombre_instruccion));
+	offset += sizeof(nombre_instruccion);
+	memcpy(stream + offset, &instruccion->pid, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(stream + offset, &instruccion->param1_length, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(stream + offset, instruccion->param1, instruccion->param1_length);
+	offset += instruccion->param1_length;
+	memcpy(stream + offset, &instruccion->param2_length, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(stream + offset, instruccion->param2, instruccion->param2_length);
+	offset += instruccion->param2_length;
+	memcpy(stream + offset, &instruccion->param3_length, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(stream + offset, instruccion->param3, instruccion->param3_length);
+}
+
+uint32_t calcular_tam_instruc_mov(t_instruccion_fs *instruccion)
+{
+	uint32_t size = 0;
+	size = sizeof(nombre_instruccion) + sizeof(uint32_t) + sizeof(uint32_t) + instruccion->param1_length + sizeof(uint32_t) + instruccion->param2_length + sizeof(uint32_t) + instruccion->param3_length;
+	return size;
+}
+
+t_instruccion_fs *inicializar_instruc_mov()
+{
+	t_instruccion_fs *instruccion = malloc(sizeof(t_instruccion_fs));
+	instruccion->pid = 0;
+	instruccion->param1 = malloc(sizeof(char) * 2);
+	memcpy(instruccion->param1, "0", (sizeof(char) * 2));
+	instruccion->param1_length = sizeof(char) * 2;
+	instruccion->param2 = malloc(sizeof(char) * 2);
+	memcpy(instruccion->param2, "0", (sizeof(char) * 2));
+	instruccion->param2_length = sizeof(char) * 2;
+	instruccion->param3 = malloc(sizeof(char) * 2);
+	memcpy(instruccion->param3, "0", (sizeof(char)));
+	instruccion->param3_length = sizeof(char);
+	instruccion->estado = CREATE_SEGMENT;
+	log_info(filesystem_logger_info, "Instruccion mov inicializada exitosamente");
+
+	return instruccion;
+}
+
+void serializar_instruccion_mov(int socket, t_instruccion_fs *instruccion)
+{
+	t_buffer *buffer = malloc(sizeof(t_buffer));
+	buffer->size = calcular_tam_instruc_mov(instruccion);
+	void *stream = malloc(buffer->size);
+	copiar_instruccion_mov(stream, instruccion);
+	buffer->stream = stream;
+	t_paquete *paquete = malloc(buffer->size + sizeof(uint32_t) * 3);
+	crear_buffer(paquete);
+	send(socket, paquete, buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t), 0);
+
+	free(buffer->stream);
+	free(buffer);
+	free(paquete);
+}
+
+void destroy_instruc_mov(t_instruccion_fs *instruccion)
+{
+	free(instruccion->param1);
+	free(instruccion->param2);
+	free(instruccion->param3);
+	free(instruccion);
+	log_info(filesystem_logger_info, "Instruccion mov destruida exitosamente");
+}
+
+void *esperar_valor(int memoria_connection, t_log *logger)
+{
+	t_instruccion_fs *nueva_instruccion = inicializar_instruc_mov();
+	t_paquete *paquete = malloc(sizeof(t_paquete));
+	paquete->buffer = malloc(sizeof(t_buffer));
+	deserializar_header(paquete, memoria_connection);
+
+	switch (paquete->codigo_operacion)
+	{
+	case 1:
+		deserializar_instruccion_fs(nueva_instruccion, paquete->buffer, paquete->lineas);
+		break;
+	default:
+		log_error(logger, "Fallo respuesta memoria a File-System");
+		break;
+	}
+
+	free(paquete->buffer->stream);
+	free(paquete->buffer);
+	free(paquete);
+
+	void *valor = malloc(nueva_instruccion->param3_length);
+	memcpy(valor, nueva_instruccion->param3, nueva_instruccion->param3_length);
+	destroy_instruc_mov(nueva_instruccion);
+
+	return valor;
+}
+
 void destroy_instruccion_file(t_instruccion_fs *instruccion)
 {
 	free(instruccion->param1);
@@ -960,7 +1083,7 @@ void comunicacion_kernel() {
 
         switch (codigo_op) {
             case 1: {
-                t_instruccion_fs *nueva_instruccion = deserializar_instruccion(socket_kernel);
+                t_instruccion_fs *nueva_instruccion = deserializar_instruccion_fs(socket_kernel);
                 uint32_t pid = nueva_instruccion->pid;
                 t_resp_file estado_file = F_ERROR;
                 int largo = strlen(nueva_instruccion->param1);

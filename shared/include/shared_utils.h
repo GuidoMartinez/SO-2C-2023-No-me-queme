@@ -63,7 +63,8 @@ typedef enum
     F_TRUNCATE,
     F_DELETE,
     EXIT,
-    PRINT_FILE_DATA
+    PRINT_FILE_DATA,
+    CREATE_SEGMENT
 } nombre_instruccion;
 
 typedef struct
