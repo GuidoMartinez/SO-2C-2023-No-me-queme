@@ -24,12 +24,13 @@ int main(int argc, char **argv)
     tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
     tamanio_fat = (config_valores_filesystem.cant_bloques_total - config_valores_filesystem.cant_bloques_swap) * sizeof(bloque);
     bloque *fat = (int *)malloc(tamanio_fat * sizeof(bloque));
+    path_fcb = config_valores_filesystem.path_fcb;
 
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
 
-    op_code respuesta = recibir_operacion(socket_memoria);
-    if (respuesta == HANDSHAKE_MEMORIA)
+    op_code handshake_memoria = recibir_operacion(socket_memoria);
+    if (handshake_memoria == HANDSHAKE_MEMORIA)
     {
         op_code prueba = recibir_handshake(socket_memoria, filesystem_logger_info);
         log_info(filesystem_logger_info, "Deserialice el codigo de operacion %d", prueba);
@@ -39,6 +40,7 @@ int main(int argc, char **argv)
     {
         log_warning(filesystem_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
     }
+    t_paquete *respuesta = recibir_paquete(socket_memoria);
 
     // CONEXION CON KERNEL
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
@@ -82,10 +84,10 @@ int main(int argc, char **argv)
     }
 
     pthread_t thread_kernel;
-    // pthread_create(&thread_kernel, NULL, (void *)comunicacion_kernel, (void *)cliente);
-    // pthread_join(thread_kernel, NULL);
+    pthread_create(&thread_kernel, NULL, (void *)comunicacion_kernel, (void *)socket_kernel);
+    pthread_join(thread_kernel, NULL);
 
-    // eliminar_paquete(respuesta);
+    eliminar_paquete(respuesta);
 
     while(1);
     abort();
@@ -304,7 +306,7 @@ void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
 
 int crearFCB(char *nombre_fcb, t_log *logger, bloque *fat)
 {
-    if (buscar_fcb(nombre_fcb, fat) != -1)
+    if (buscar_fcb(nombre_fcb) != -1)
     {
         log_error(logger, "Ya existe un FCB con ese nombre");
         return -1;
@@ -370,9 +372,53 @@ int crearFAT(char *path_fat, t_log *logger)
     }
 }
 
-uint32_t buscar_fcb(char *nombre_fcb, bloque* fat)
+int crear_fcb(char *nombre_fcb)
 {
-    int resultado = -1;
+	int resultado = -1;
+
+	if (buscar_fcb(nombre_fcb) != -1)
+	{
+		log_error(filesystem_logger_info, "Ya existe un FCB con ese nombre");
+		return resultado;
+	}
+
+	char *nombre_completo = string_new(); // esto creo que hay que vincularlo con el archivo actual
+	string_append(&nombre_completo, path_fcb);
+	string_append(&nombre_completo, nombre_fcb);
+	string_append(&nombre_completo, ".dat");
+
+	fcb_t *nuevo_fcb = inicializar_fcb();
+	nuevo_fcb->id = fcb_id++;
+	nuevo_fcb->nombre_archivo = string_new();
+	string_append(&nuevo_fcb->nombre_archivo, nombre_fcb);
+	nuevo_fcb->ruta_archivo = string_new();
+	string_append(&nuevo_fcb->ruta_archivo, nombre_completo);
+
+	t_config *fcb_fisico = malloc(sizeof(t_config));
+	fcb_fisico->path = string_new();
+	fcb_fisico->properties = dictionary_create();
+	string_append(&fcb_fisico->path, nombre_completo);
+	char *nombre_duplicado = string_duplicate(nombre_fcb);
+
+	dictionary_put(fcb_fisico->properties, "NOMBRE_ARCHIVO", nombre_duplicado);
+	dictionary_put(fcb_fisico->properties, "TAMANIO_ARCHIVO", "0");
+	dictionary_put(fcb_fisico->properties, "PUNTERO_DIRECTO", "0");
+	dictionary_put(fcb_fisico->properties, "PUNTERO_INDIRECTO", "0");
+
+	config_save_in_file(fcb_fisico, nombre_completo);
+	list_add(lista_fcb, nuevo_fcb);
+	dictionary_destroy(fcb_fisico->properties);
+	free(nombre_duplicado);
+	free(fcb_fisico->path);
+	free(fcb_fisico);
+	free(nombre_completo);
+
+	return nuevo_fcb->id;
+}
+
+uint32_t buscar_fcb(char *nombre_fcb)
+{
+    uint32_t resultado = -1;
 
     for (int i = 0; i < tamanio_fat; i++)
     {
@@ -441,7 +487,7 @@ fcb_t *_get_fcb_id(int id)
 
 fcb_t *_get_fcb(char *nombre)
 {
-    int id = buscar_fcb(nombre, lista_fcb);
+    int id = buscar_fcb(nombre);
     if (id != -1)
     {
         return _get_fcb_id(id);
@@ -620,7 +666,7 @@ void desasignar_bloques(int id_fcb, int nuevo_tamanio, bloque *fat)
 int truncar_fcb(char *nombre_fcb, uint32_t nuevo_tamanio)
 {
     int resultado = -1;
-    int id_fcb = buscar_fcb(nombre_fcb, fat);
+    int id_fcb = buscar_fcb(nombre_fcb);
 
     if (id_fcb != -1)
     {
@@ -771,29 +817,26 @@ t_list *armar_lista_offsets(int id_fcb, int tam_a_leer, int p_seek) {
     return lista_offsets;
 }
 
-void realizar_f_write(t_instruccion_fs *instruccion_file, int conexion, fcb_list_t *lista_global_fcb, t_log *logger) {
-    int direccion_fisica = instruccion_file->direc_fisica;
-    int tamanio = instruccion_file->long_parametro1;
-    int puntero_archivo = instruccion_file->puntero;
+void realizar_f_write(t_instruccion_fs *instruccion_file) {
+    uint32_t pid = instruccion_file->pid;
+    uint32_t direccion_fisica = instruccion_file->param1_length; 
+    int tamanio = instruccion_file->param2_length; 
+    int puntero_archivo = instruccion_file->param4; 
 
     t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_WRITE);
-    agregar_a_paquete(paquete, &(instruccion_file->pid), sizeof(uint32_t));
+    agregar_a_paquete(paquete, &pid, sizeof(uint32_t));
     agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
     agregar_a_paquete(paquete, &tamanio, sizeof(uint32_t));
-    enviar_paquete(paquete, conexion);
+    enviar_paquete(paquete, socket_memoria);
     eliminar_paquete(paquete);
 
-    op_code codigo = recibir_operacion(conexion);
+    op_code codigo = recibir_operacion(socket_memoria);
     if (codigo == F_WRITE) {
-        t_list *paquete_recibido = recibir_paquete(conexion);
+        t_list *paquete_recibido = recibir_paquete(socket_memoria);
         if (paquete_recibido != NULL && list_size(paquete_recibido) > 0) {
-            int id_fcb = buscar_fcb(instruccion_file->parametro1, fat);
+            char *valor_recibido = instruccion_file->param1; 
+            uint32_t id_fcb = buscar_fcb(instruccion_file->param1); 
             t_list *lista_offsets = armar_lista_offsets(id_fcb, tamanio, direccion_fisica);
-            char *valor_recibido = list_get(paquete_recibido, 0);
-
-			if (id_fcb != -1) {
-            t_list *lista_offsets = armar_lista_offsets(id_fcb, tamanio, direccion_fisica);
-			
 
             if (lista_offsets != NULL) {
                 int cant_bloques = list_size(lista_offsets);
@@ -803,7 +846,7 @@ void realizar_f_write(t_instruccion_fs *instruccion_file, int conexion, fcb_list
                     int bloque_id = bloque_info->id_bloque;
                     log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
 
-                     if (!fat[bloque_id].utilizado) {
+                    if (!fat[bloque_id].utilizado) {
                         asignar_bloques(id_fcb, bloque_info->tamanio, fat);
                     }
 
@@ -814,9 +857,9 @@ void realizar_f_write(t_instruccion_fs *instruccion_file, int conexion, fcb_list
             }
             list_destroy_and_destroy_elements(paquete_recibido, free);
         }
-		} 
-    } 
+    }
 }
+
 
 void *leer_dato(int offset, int size) {
     void *dato = malloc(size);
@@ -845,3 +888,163 @@ void *leer_datos(t_list *lista_offsets) {
     return datos;
 }
 
+void realizar_f_read(t_instruccion_fs *instruccion_file)
+{
+		int direccion_fisica = atoi(instruccion_file->param2);
+		int tamanio = atoi(instruccion_file->param3);
+		int puntero_archivo = instruccion_file->param4;
+
+		int id_fcb = buscar_fcb(instruccion_file->param1);
+
+		t_list *lista_de_bloques = armar_lista_offsets(id_fcb, tamanio, direccion_fisica);
+		log_info(filesystem_logger_info, "Entro a realizar f read");
+		
+		void *datos = leer_datos(lista_de_bloques);
+		t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_READ_FS);
+		agregar_a_paquete(paquete, &(instruccion_file->pid), sizeof(uint32_t));
+		agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
+		agregar_a_paquete(paquete, &tamanio, sizeof(uint32_t));
+		agregar_a_paquete(paquete, datos, tamanio);
+		enviar_paquete(paquete, socket_memoria);
+		eliminar_paquete(paquete);
+		op_code respuesta = recibir_operacion(socket_memoria);
+		if (respuesta == MENSAJE)
+		{
+			char *mensaje = recibir_mensaje_sin_log(socket_memoria);
+			free(mensaje);
+		}
+}
+
+int borrar_fcb(int id)
+{
+		int resultado = -1;
+		if (buscar_fcb_id(id) == -1)
+		{
+			log_error(filesystem_logger_info, "No existe un FCB con ese nombre");
+			return resultado;
+		}
+		fcb_t *fcb = _get_fcb_id(id);
+		list_remove_element(lista_fcb, fcb);
+		remove(fcb->ruta_archivo);
+
+		free(fcb->nombre_archivo);
+		free(fcb->ruta_archivo);
+		free(fcb);
+
+		return resultado;
+}
+
+void destroy_instruccion_file(t_instruccion_fs *instruccion)
+{
+	free(instruccion->param1);
+	free(instruccion->param2);
+	free(instruccion->param3);
+	free(instruccion);
+	log_info(filesystem_logger_info, "Instruccion fs destruida exitosamente");
+}
+
+t_paquete *crear_paquete_con_respuesta(t_resp_file *estado_file)
+{
+		t_paquete *paq_respuesta = crear_paquete_con_codigo_de_estado(estado_file);
+		enviar_paquete(paq_respuesta, socket_kernel);
+		eliminar_paquete(paq_respuesta);
+}
+
+void comunicacion_kernel() {
+    int exit_status = 0;
+    while (exit_status == 0) {
+        t_paquete *paquete = crear_paquete_con_codigo_de_operacion(HANDSHAKE_FILESYSTEM);
+        paquete->buffer = malloc(sizeof(t_buffer));
+
+        nombre_instruccion codigo_op = recibir_operacion(socket_kernel); 
+
+        switch (codigo_op) {
+            case 1: {
+                t_instruccion_fs *nueva_instruccion = deserializar_instruccion(socket_kernel);
+                uint32_t pid = nueva_instruccion->pid;
+                t_resp_file estado_file = F_ERROR;
+                int largo = strlen(nueva_instruccion->param1);
+                nombre_archivo = realloc(nombre_archivo, largo + 1);
+                memcpy(nombre_archivo, nueva_instruccion->param1, largo);
+                memcpy(nombre_archivo + largo, "", 1);
+
+                switch (nueva_instruccion->estado) {
+                    case F_OPEN:
+                        if (buscar_fcb(nueva_instruccion->param1) != -1) {
+                            log_info(filesystem_logger_info, "PID: %d - F_OPEN: %s", nueva_instruccion->pid, nueva_instruccion->param1);
+                            log_info(filesystem_logger_info, "Abrir Archivo: %s", nueva_instruccion->param1);
+                            estado_file = F_OPEN_SUCCESS;
+                        } else {
+                            log_info(filesystem_logger_info, "PID: %d - F_OPEN: %s - NO EXISTE", nueva_instruccion->pid, nueva_instruccion->param1);
+                            estado_file = FILE_DOESNT_EXISTS;
+                        }
+                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
+                        break;
+
+                    case F_CREATE:
+                        if (crear_fcb(nueva_instruccion->param1) != -1) {
+                            log_info(filesystem_logger_info, "PID: %d - F_CREATE: %s", nueva_instruccion->pid, nueva_instruccion->param1);
+                            log_info(filesystem_logger_info, "Crear Archivo: %s", nueva_instruccion->param1);
+                            estado_file = F_CREATE_SUCCESS;
+                        }
+                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
+                        break;
+
+                    case F_CLOSE:
+                        if (buscar_fcb(nueva_instruccion->param1) != -1) {
+                            estado_file = F_CLOSE_SUCCESS;
+                            log_info(filesystem_logger_info, "PID: %d - F_CLOSE: %s", nueva_instruccion->pid, nueva_instruccion->param1);
+                        }
+                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
+                        break;
+
+                    case F_TRUNCATE:
+                        log_info(filesystem_logger_info, "PID: %d - F_TRUNCATE: %s - Tamanio: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->param2);
+                        log_info(filesystem_logger_info, "Truncar Archivo: %s - Tamaño: %s", nueva_instruccion->param1, nueva_instruccion->param2);
+                        if (truncar_fcb(nueva_instruccion->param1, atoi(nueva_instruccion->param2)) != -1) {
+                            estado_file = F_TRUNCATE_SUCCESS;
+                        }
+                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
+                        break;
+
+                    case F_WRITE:
+                        log_info(filesystem_logger_info, "PID: %d - F_WRITE: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
+                        log_info(filesystem_logger_info, "Escribir Archivo: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
+                        realizar_f_write(nueva_instruccion);
+                        estado_file = F_WRITE_SUCCESS;
+                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
+                        break;
+
+                    case F_READ:
+                        log_info(filesystem_logger_info, "PID: %d - F_READ: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
+                        log_info(filesystem_logger_info, "Leer Archivo: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
+                        realizar_f_read(nueva_instruccion);
+                        estado_file = F_READ_SUCCESS;
+                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
+                        break;
+
+                    case F_DELETE:
+                        borrar_fcb(buscar_fcb(nueva_instruccion->param1));
+                        estado_file = F_DELETE_SUCCESS;
+                        log_info(filesystem_logger_info, "PID: %d - F_DELETE: %s", nueva_instruccion->pid, nueva_instruccion->param1);
+                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
+                        break;
+
+                    case PRINT_FILE_DATA:
+                        log_info(filesystem_logger_info, "PID: %d Solicito impresion de datos", pid);
+                        break;
+
+                    default:
+                        break;
+                }
+                destroy_instruccion_file(nueva_instruccion);
+                break;
+            }
+
+            default:
+                exit_status = 1;
+                break;
+        }
+        eliminar_paquete(paquete);
+    }
+}

@@ -38,7 +38,9 @@ typedef enum
     FINALIZAR_PROCESO,
     PEDIDO_INSTRUCCION,
     CONTEXTO,
-    INTERRUPCION
+    INTERRUPCION,
+    F_READ_FS,
+    F_WRITE_FS  
 } op_code;
 
 typedef enum
@@ -59,7 +61,9 @@ typedef enum
     F_READ,
     F_WRITE,
     F_TRUNCATE,
-    EXIT
+    F_DELETE,
+    EXIT,
+    PRINT_FILE_DATA
 } nombre_instruccion;
 
 typedef struct
@@ -72,14 +76,16 @@ typedef struct
     uint32_t longitud_parametro2;
 } t_instruccion;
 
-typedef struct
-{
-    nombre_instruccion codigo;
+typedef struct {
+    nombre_instruccion estado;
     uint32_t pid;
-    char *parametro1;
-    uint32_t long_parametro1;
-    uint32_t direc_fisica;
-    uint32_t puntero;
+    uint32_t param1_length;
+    char *param1;
+    uint32_t param2_length;
+    char *param2;
+    uint32_t param3_length;
+    char *param3;
+    uint32_t param4;
 } t_instruccion_fs;
 
 typedef struct
@@ -208,6 +214,20 @@ typedef enum
     PRIORIDADES,
     LRU
 } t_algoritmo;
+
+typedef enum{
+	F_ERROR,
+	F_OPEN_SUCCESS,
+	F_CLOSE_SUCCESS,
+	F_TRUNCATE_SUCCESS,
+	F_WRITE_SUCCESS,
+	F_SEEK_SUCCESS,
+	F_READ_SUCCESS,
+	F_CREATE_SUCCESS,
+	F_DELETE_SUCCESS,
+	FILE_DOESNT_EXISTS,
+}t_resp_file;
+
 
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);

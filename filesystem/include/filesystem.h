@@ -78,7 +78,7 @@ void liberarMemoriaFAT();
 void inicializarFATDesdeDirectorio(char *, t_log *);
 int crearFCB(char *, t_log *, bloque *);
 int crearFAT(char *, t_log *);
-uint32_t buscar_fcb(char *, bloque*);
+uint32_t buscar_fcb(char *);
 uint32_t buscar_fcb_id(int);
 fcb_t *inicializar_fcb();
 fcb_t *_get_fcb_id(int);
@@ -87,13 +87,16 @@ uint32_t valor_para_fcb(fcb_t *, fcb_prop_t);
 uint32_t valor_fcb(int, fcb_prop_t);
 void asignar_bloques(int, int, bloque *);
 void desasignar_bloques(int, int, bloque *);
+void realizar_f_read(t_instruccion_fs *);
+int borrar_fcb(int);
+t_paquete *crear_paquete_con_respuesta(t_resp_file*);
+void comunicacion_kernel();
 
 t_log *filesystem_logger_info;
 t_config *config;
 uint32_t fcb_id;
 arch_config config_valores_filesystem;
 int formatear;
-t_bitarray* fat_table;
 void* memoria_file_system;
 int tam_memoria_file_system;
 int tamanio_fat;
@@ -102,5 +105,10 @@ int cant_bloques;
 int tamanio_bloque;
 bloque * fat;
 void *memoria_file_system;
+int server_filesystem;
+int socket_kernel;
+int socket_memoria;
+char *nombre_archivo;
+char * path_fcb;
 
 #endif

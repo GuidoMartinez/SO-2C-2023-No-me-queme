@@ -62,6 +62,14 @@ t_paquete *crear_paquete_con_codigo_de_operacion(uint32_t codigo)
 	return paquete;
 }
 
+t_paquete *crear_paquete_con_codigo_de_estado(t_resp_file codigo){
+    t_paquete* paquete = malloc(sizeof(t_paquete));
+
+    paquete->codigo_operacion = codigo;
+    crear_buffer(paquete);
+    return paquete;
+}
+
 void agregar_a_paquete(t_paquete *paquete, void *valor, int tamanio)
 {
 	paquete->buffer->stream = realloc(paquete->buffer->stream, paquete->buffer->size + tamanio + sizeof(int));
@@ -224,6 +232,12 @@ void *recibir_mensaje(int socket_cliente, t_log *logger)
 	char *buffer = recibir_buffer(&size, socket_cliente);
 	log_info(logger, "Me llego el mensaje %s", buffer);
 	return buffer;
+}
+
+void* recibir_mensaje_sin_log(int socket_cliente){
+    int size;
+    char* buffer = recibir_buffer(&size, socket_cliente);
+    return buffer;
 }
 
 t_list *recibir_paquete(int socket_cliente)
@@ -581,4 +595,11 @@ t_interrupcion* recibir_interrupcion(int socket){
 
 	free(buffer);
 	return interrupcion_recibida;
+}
+
+void serializar_respuesta_file_kernel(int socket_cliente, t_resp_file respuesta)
+{
+	t_paquete *paquete = crear_paquete_con_codigo_de_estado(respuesta);
+	enviar_paquete(paquete, socket_cliente);
+	eliminar_paquete(paquete);
 }
