@@ -62,12 +62,13 @@ t_paquete *crear_paquete_con_codigo_de_operacion(uint32_t codigo)
 	return paquete;
 }
 
-t_paquete *crear_paquete_con_codigo_de_estado(t_resp_file codigo){
-    t_paquete* paquete = malloc(sizeof(t_paquete));
+t_paquete *crear_paquete_con_codigo_de_estado(t_resp_file codigo)
+{
+	t_paquete *paquete = malloc(sizeof(t_paquete));
 
-    paquete->codigo_operacion = codigo;
-    crear_buffer(paquete);
-    return paquete;
+	paquete->codigo_operacion = codigo;
+	crear_buffer(paquete);
+	return paquete;
 }
 
 void agregar_a_paquete(t_paquete *paquete, void *valor, int tamanio)
@@ -234,10 +235,11 @@ void *recibir_mensaje(int socket_cliente, t_log *logger)
 	return buffer;
 }
 
-void* recibir_mensaje_sin_log(int socket_cliente){
-    int size;
-    char* buffer = recibir_buffer(&size, socket_cliente);
-    return buffer;
+void *recibir_mensaje_sin_log(int socket_cliente)
+{
+	int size;
+	char *buffer = recibir_buffer(&size, socket_cliente);
+	return buffer;
 }
 
 t_list *recibir_paquete(int socket_cliente)
@@ -540,7 +542,7 @@ void ask_instruccion_pid_pc(int pid, int pc, int socket)
 	paquete_instruccion->buffer->size += sizeof(int) * 2;
 	paquete_instruccion->buffer->stream = malloc(paquete_instruccion->buffer->size);
 	memcpy(paquete_instruccion->buffer->stream, &(pid), sizeof(int));
-	memcpy(paquete_instruccion->buffer->stream +sizeof(int), &(pc), sizeof(int));
+	memcpy(paquete_instruccion->buffer->stream + sizeof(int), &(pc), sizeof(int));
 	enviar_paquete(paquete_instruccion, socket);
 	eliminar_paquete(paquete_instruccion);
 }
@@ -560,9 +562,10 @@ void pedido_instruccion(uint32_t *pid, uint32_t *pc, int socket)
 	free(buffer);
 }
 
-void enviar_interrupcion(int socket, t_interrupcion* interrupcion){
+void enviar_interrupcion(int socket, t_interrupcion *interrupcion)
+{
 	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(INTERRUPCION);
-	
+
 	paquete->buffer->size = sizeof(motivo_desalojo) +
 							sizeof(int);
 	paquete->buffer->stream = malloc(paquete->buffer->size);
@@ -579,13 +582,14 @@ void enviar_interrupcion(int socket, t_interrupcion* interrupcion){
 	eliminar_paquete(paquete);
 }
 
-t_interrupcion* recibir_interrupcion(int socket){
+t_interrupcion *recibir_interrupcion(int socket)
+{
 	int size;
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
 	printf("size del stream a deserializar \n%d", size);
-	t_interrupcion* interrupcion_recibida = malloc(sizeof(t_interrupcion));
+	t_interrupcion *interrupcion_recibida = malloc(sizeof(t_interrupcion));
 
 	memcpy(&(interrupcion_recibida->motivo_interrupcion), buffer + offset, sizeof(motivo_desalojo));
 	offset += sizeof(motivo_desalojo);
@@ -604,7 +608,8 @@ void serializar_respuesta_file_kernel(int socket_cliente, t_resp_file respuesta)
 	eliminar_paquete(paquete);
 }
 
-void deserializar_header(t_paquete* paquete, int socket_cliente){
+void deserializar_header(t_paquete *paquete, int socket_cliente)
+{
 	recv(socket_cliente, &(paquete->codigo_operacion), sizeof(uint32_t), MSG_WAITALL);
 	recv(socket_cliente, &(paquete->lineas), sizeof(uint32_t), MSG_WAITALL);
 	recv(socket_cliente, &(paquete->buffer->size), sizeof(uint32_t), MSG_WAITALL);
@@ -612,26 +617,46 @@ void deserializar_header(t_paquete* paquete, int socket_cliente){
 	recv(socket_cliente, paquete->buffer->stream, paquete->buffer->size, MSG_WAITALL);
 }
 
-void deserializar_instruccion_fs(t_instruccion_fs* instruccion, t_buffer* buffer, int lineas){
-	void* stream = buffer->stream;
+void deserializar_instruccion_fs(t_instruccion_fs *instruccion, t_buffer *buffer, int lineas)
+{
+	void *stream = buffer->stream;
 	memcpy(&(instruccion->estado), stream, sizeof(nombre_instruccion));
 	stream += sizeof(nombre_instruccion);
 	memcpy(&(instruccion->pid), stream, sizeof(uint32_t));
 	stream += sizeof(uint32_t);
 	memcpy(&(instruccion->param1_length), stream, sizeof(uint32_t));
 	stream += sizeof(uint32_t);
-	instruccion->param1 = realloc(instruccion->param1,instruccion->param1_length);
+	instruccion->param1 = realloc(instruccion->param1, instruccion->param1_length);
 	memcpy(instruccion->param1, stream, instruccion->param1_length);
 	stream += instruccion->param1_length;
 	memcpy(&(instruccion->param2_length), stream, sizeof(uint32_t));
 	stream += sizeof(uint32_t);
-	instruccion->param2 = realloc(instruccion->param2,instruccion->param2_length);
+	instruccion->param2 = realloc(instruccion->param2, instruccion->param2_length);
 	memcpy(instruccion->param2, stream, instruccion->param2_length);
 	stream += instruccion->param2_length;
 
 	memcpy(&(instruccion->param3_length), stream, sizeof(uint32_t));
 	stream += sizeof(uint32_t);
-	instruccion->param3 = realloc(instruccion->param3,instruccion->param3_length);
+	instruccion->param3 = realloc(instruccion->param3, instruccion->param3_length);
 	memcpy(instruccion->param3, stream, instruccion->param3_length);
 	stream += instruccion->param3_length;
+}
+
+
+// en la lista debo guardar los punteros de int ya que las listas manejan punteros a estructuras. @ TOMAS
+void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
+{
+	int offset = paquete->buffer->size;
+
+	for (int i = 0; i < list_size(bloques_swap); i++)
+	{
+		uint32_t* ptr_bloque = list_get(bloques_swap, i);
+		uint32_t id_bloque = *ptr_bloque;
+
+		paquete->buffer->size += sizeof(uint32_t);
+		paquete->buffer->stream = realloc(paquete->buffer->stream, paquete->buffer->size);
+		memcpy(paquete->buffer->stream + offset, &(id_bloque), sizeof(uint32_t));
+		offset += sizeof(uint32_t);
+	}
+	list_destroy(bloques_swap);
 }

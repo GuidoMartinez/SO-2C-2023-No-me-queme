@@ -19,9 +19,9 @@ int main(int argc, char **argv)
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
 
 	atender_clientes_memoria();
-	while (1);
+	while (1)
+		;
 	return EXIT_SUCCESS;
-	
 }
 
 void cargar_configuracion(char *path)
@@ -55,9 +55,14 @@ void inicializar_memoria()
 		log_error(logger_memoria_info, "No pudo reservarse el espacio de memoria contiguo, abortando modulo");
 		abort();
 	}
-	tablas_de_paginas= list_create();
+	indice_tabla = 0;
+	inicializar_marcos();
+	tablas_de_paginas = list_create();
 	procesos_totales = list_create();
-	algoritmo_pags=obtener_algoritmo();
+	algoritmo_pags = obtener_algoritmo();
+
+	pthread_mutex_init(&mutex_procesos, NULL);
+	pthread_mutex_init(&mutex_memoria_usuario, NULL);
 }
 
 void atender_clientes_memoria()
@@ -158,9 +163,9 @@ void *manejo_conexion_cpu(void *arg)
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
-			close(socket_cpu_int);
-			close(server_memoria);
-			abort();
+			//close(socket_cpu_int);
+			//close(server_memoria);
+			//abort();
 			// finalizar_memoria();
 			break;
 		}
@@ -185,15 +190,15 @@ void *manejo_conexion_kernel(void *arg)
 			realizar_handshake(socket_kernel_int, HANDSHAKE_MEMORIA, logger_memoria_info);
 			break;
 		case INICIALIZAR_PROCESO:
-			// recibir y deserializar para instanciar el t_ini_proceso;
 
 			proceso_memoria = recibir_proceso_nuevo(socket_kernel_int);
-			iniciar_proceso_path(proceso_memoria);
-			// responder a kernel con lo que corresponda
+			proceso_memoria = iniciar_proceso_path(proceso_memoria); // inicio en memoria y en swap
+			log_info(logger_memoria_info, "Se creo correctamente el proceso PID [%d]", proceso_memoria->pid);
 
+			// TODO -- RESPONDERLE AL KERNEL QUE SE CREO OK.
 			break;
 		default:
-			log_error(logger_memoria_info, "Fallo la comunicacion la comunicacion con KERNEL. Abortando");
+			log_error(logger_memoria_info, "Fallo la comunicacion con KERNEL. Abortando");
 			finalizar_memoria();
 			break;
 		}
@@ -221,7 +226,8 @@ void *manejo_conexion_filesystem(void *arg)
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
-			close(socket_fs_int);
+			abort();
+			//finalizar_memoria();
 			break;
 		}
 	}
@@ -373,12 +379,11 @@ t_instruccion *armar_estructura_instruccion(nombre_instruccion id, char *paramet
 
 t_proceso_memoria *iniciar_proceso_path(t_proceso_memoria *proceso_nuevo)
 {
-	// TODO - CHEQUEAR SI CORRESPONDE INICIALIZAR LAS LISTAS ACA TAMBIEN
-	proceso_nuevo->bloques_swap = list_create();
-	proceso_nuevo->tabla_paginas = list_create();
 	proceso_nuevo->instrucciones = parsear_instrucciones(proceso_nuevo->path);
-	log_warning(logger_memoria_info, "Instrucciones parseadas OK para el proceso %d", proceso_nuevo->pid);
+	log_info(logger_memoria_info, "Instrucciones parseadas OK para el proceso %d", proceso_nuevo->pid);
 	list_add(procesos_totales, proceso_nuevo);
+	inicializar_nuevo_proceso(proceso_nuevo);
+
 	return proceso_nuevo;
 }
 
@@ -448,25 +453,142 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 	return proceso_nuevo;
 }
 
-t_algoritmo obtener_algoritmo(){
-	if(string_equals_ignore_case(config_valores_memoria.algoritmo_reemplazo,"FIFO")){
+t_list *recibir_bloques_swap_iniciales(int socket)
+{
+
+	int size;
+	void *buffer;
+
+	buffer = recibir_buffer(&size, socket);
+	printf("Size del stream a deserializar: %d \n", size);
+
+	t_list *lista_bloques_swap = list_create();
+
+	int offset = 0;
+
+	while (offset < size)
+	{
+		int *bloque_swap = malloc(sizeof(int));
+		memcpy(bloque_swap, buffer + offset, sizeof(int));
+		offset += sizeof(int);
+		list_add(lista_bloques_swap, bloque_swap);
+	}
+
+	free(buffer);
+
+	return lista_bloques_swap;
+}
+
+t_algoritmo obtener_algoritmo()
+{
+	if (string_equals_ignore_case(config_valores_memoria.algoritmo_reemplazo, "FIFO"))
+	{
 		log_info(logger_memoria_info, "Se elegio algotitmo FIFO para reemplazo de paginas");
 		return FIFO;
 	}
-	else {
+	else
+	{
 		log_info(logger_memoria_info, "Se elegio algotitmo para reemplazo de paginas");
 		return LRU;
 	}
 }
 
+double marcosTotales()
+{
+	return (double)(config_valores_memoria.tamanio_memoria) / (double)(config_valores_memoria.tamanio_memoria);
+}
+
+void inicializar_marcos()
+{
+	marcos = list_create();
+	for (int i = 0; i < marcosTotales(); i++)
+	{
+		t_marco *entradaMarco = malloc(sizeof(t_marco));
+		entradaMarco->pid = -1;
+		entradaMarco->num_de_marco = i;
+		list_add(marcos, entradaMarco);
+	}
+}
+
+void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
+{
+	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
+	pedido_inicio_swap(q_pags, socket_fs_int);
+
+	// cargo los bloques swap en las paginas
+
+	resp_code_fs = recibir_operacion(socket_fs_int);
+	if (resp_code_fs == LISTA_BLOQUES_SWAP)
+	{
+		t_list *lista_id_bloques = recibir_bloques_swap_iniciales(socket_fs_int);
+		asignar_id_bloque_swap(proceso_nuevo, lista_id_bloques);
+		list_destroy_and_destroy_elements(lista_id_bloques,free);
+	}
+	else
+	{
+		log_error(logger_memoria_info, "Se recibio un codigo de operacion de FS distinto a LISTA_BLOQUES_SWAP al pedido de inicio de SWAP para el proceso PID [%d]", proceso_nuevo->pid);
+	}
+}
+
+// Inicializo la tabla de paginas y devuelvo la cantidad de paginas para inicializar el swap en fs.
+int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
+{
+
+	proceso_nuevo->bloques_swap = list_create();
+	proceso_nuevo->tabla_paginas = malloc(sizeof(tablas_de_paginas));
+	proceso_nuevo->tabla_paginas->entradas_tabla = list_create();
+
+	cantidad_pags = paginas_necesarias_proceso(proceso_nuevo->tamano, config_valores_memoria.tamanio_pagina);
+
+	proceso_nuevo->tabla_paginas->cantidad_paginas = cantidad_pags;
+
+	for (int i = 0; i < cantidad_pags; i++)
+	{
+		t_entrada_tabla_pag *entrada = malloc(sizeof(t_entrada_tabla_pag));
+		entrada->indice = i;
+		entrada->marco = -1;
+		entrada->bit_presencia = 0;
+		entrada->bit_modificado = 0;
+		entrada->id_bloque_swap = 0;
+		entrada->tiempo_lru = -1;
+	}
+
+	log_info(logger_memoria_info, "CREACION DE TABLA DE PAGINAS - PID [%d] - Tamano: [%d]", proceso_nuevo->pid, proceso_nuevo->tabla_paginas->cantidad_paginas);
+
+	return cantidad_pags;
+}
+
+void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_bloques)
+{
+	int cant_bloques = list_size(proceso_nuevo->tabla_paginas->entradas_tabla);
+
+	for (int i = 0; i < cant_bloques; i++)
+	{
+		t_entrada_tabla_pag *entrada = list_get(proceso_nuevo->tabla_paginas->entradas_tabla, i);
+		int *id_bloque = list_get(lista_id_bloques, i);
+		entrada->id_bloque_swap = *id_bloque;
+	}
+	log_warning(logger_memoria_info, "Se asignaron OK los id de los bloques SWAP para el PID [%d]", proceso_nuevo->pid);
+}
+
+void pedido_inicio_swap(int cant_pags, int socket)
+{
+
+	t_paquete *paquete_pedido_swap = crear_paquete_con_codigo_de_operacion(TAMANO_PAGINA);
+	paquete_pedido_swap->buffer->size += sizeof(uint32_t);
+	paquete_pedido_swap->buffer->stream = realloc(paquete_pedido_swap->buffer->stream, paquete_pedido_swap->buffer->size);
+	memcpy(paquete_pedido_swap->buffer->stream, &(cant_pags), sizeof(uint32_t));
+	enviar_paquete(paquete_pedido_swap, socket);
+	eliminar_paquete(paquete_pedido_swap);
+}
+
 void finalizar_memoria()
 {
-	log_info(logger_memoria_info,"Finalizando Memoria");
+	log_info(logger_memoria_info, "Finalizando Memoria");
 	log_destroy(logger_memoria_info);
 	close(server_memoria);
 	close(socket_cpu_int);
 	close(socket_kernel_int);
 	close(socket_fs_int);
 	config_destroy(config);
-	
 }

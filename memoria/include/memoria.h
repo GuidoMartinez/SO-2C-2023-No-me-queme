@@ -5,13 +5,20 @@
 
 t_log *logger_memoria_info;
 t_config *config;
-t_list *procesos_totales, *tablas_de_paginas;
+t_list *procesos_totales, *tablas_de_paginas, *marcos;
 t_proceso_memoria *proceso_memoria;
 
+op_code resp_code_fs;
+
 int server_memoria, socket_fs, socket_cpu, socket_kernel, socket_fs_int, socket_cpu_int, socket_kernel_int;
-int tamanio_memoria;
+int tamanio_memoria, indice_tabla;
+int cantidad_pags;
+int contador_lru = 0;
 void *memoria_usuario;
 t_algoritmo algoritmo_pags;
+
+pthread_mutex_t mutex_procesos;
+pthread_mutex_t mutex_memoria_usuario;
 
 typedef struct
 { // Configuracion de la memoria
@@ -54,6 +61,14 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t, uint32_t);
 
 t_proceso_memoria *recibir_proceso_nuevo(int);
 t_algoritmo obtener_algoritmo();
+
+double marcosTotales();
+void inicializar_marcos();
+void inicializar_nuevo_proceso(t_proceso_memoria *);
+int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
+void pedido_inicio_swap(int, int);
+t_list *recibir_bloques_swap_iniciales(int);
+void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
 void finalizar_memoria();
 

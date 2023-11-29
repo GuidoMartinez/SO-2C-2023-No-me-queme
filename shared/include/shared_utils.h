@@ -40,7 +40,9 @@ typedef enum
     CONTEXTO,
     INTERRUPCION,
     F_READ_FS,
-    F_WRITE_FS  
+    F_WRITE_FS,
+    INICIO_SWAP,
+    LISTA_BLOQUES_SWAP
 } op_code;
 
 typedef enum
@@ -286,6 +288,9 @@ t_instruccion *deserializar_instruccion_viejo(t_buffer *);
 
 void enviar_interrupcion(int, t_interrupcion *);
 t_interrupcion *recibir_interrupcion(int);
+
+void serializar_lista_swap(t_list*, t_paquete*); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
+
 
 uint32_t str_to_uint32(char *str);
 
