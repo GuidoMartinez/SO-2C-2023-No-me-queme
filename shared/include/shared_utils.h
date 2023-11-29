@@ -126,7 +126,8 @@ typedef enum
 {
     RECURSO_BLOCK,
     ARCHIVO_BLOCK,
-    SLEEP_BN
+    SLEEP_BN,
+    OP_FILESYSTEM
 } motivo_block;
 
 typedef enum

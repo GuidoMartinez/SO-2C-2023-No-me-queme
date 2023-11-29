@@ -194,10 +194,40 @@ void kmov_in(){};
 void kmov_out(){};
 
 void kf_open(){
-     log_info(kernel_logger_info, "ESTOY EN F_OPEN");
+
+    log_info(kernel_logger_info, "ESTOY EN F_OPEN");
+
+
     t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido); 
-    list_add(pcbelegido->archivos_abiertos, archivo_proceso);
+ 
     int existeArchivo = verif_crear_recurso_file(archivo_proceso); 
+
+     if (existeArchivo == 0)
+            { // SI YA EXISTE EL ARCHIVO EN LA TABLA GLOBAL DE KERNEL
+            //cheuqear lock
+             // if (pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2 == "w")
+                t_archivo_abierto_global *archivoGlobalPedido = buscarArchivoGlobal(archivosAbiertosGlobales, archivo_proceso->nombreArchivo);
+                archivoGlobalPedido->contador++;
+                queue_push(archivoGlobalPedido->colabloqueado, pcbelegido);
+                exec_block_fs();
+                pthread_mutex_lock(&mutex_cola_block);
+                pcbelegido->motivo_block= ARCHIVO_BLOCK;
+                pthread_mutex_unlock(&mutex_cola_block);
+                log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_proceso->nombreArchivo);
+                 sem_post(&sem_ready);
+            // if (list_size(lista_ready) > 0) PARA DETENER PLANI
+                sem_post(&sem_exec);
+            }
+            else
+            {
+               
+                t_archivo_abierto_global *archivoGlobalNuevo = crear_archivo_global(archivo_proceso->nombreArchivo);
+                queue_push(archivoGlobalNuevo->colabloqueado, pcbelegido);
+                exec_block_fs();
+                sem_post(&sem_ready);
+            // if (list_size(lista_ready) > 0) PARA DETENER PLANI
+                sem_post(&sem_exec);
+            }
 };
 
 void kf_close(){};

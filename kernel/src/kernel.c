@@ -635,3 +635,26 @@ t_archivo_abierto_global *crear_archivo_global(char *nombre)
     list_add(archivosAbiertosGlobales, archivo);
     return archivo;
 }
+
+t_archivo_abierto_global *buscarArchivoGlobal(t_list *lista_archivos, char *nombre_archivo)
+{
+    for (int i = 0; i < list_size(lista_archivos); i++)
+    {
+        t_archivo_abierto_global *archivo = (t_archivo_abierto_global *)list_get(lista_archivos, i);
+        if (strcmp(archivo->nombreArchivo, nombre_archivo) == 0)
+        {
+            return archivo;
+        }
+    }
+    return NULL;
+}
+
+void exec_block_fs () {
+    
+    safe_pcb_remove(cola_exec,&mutex_cola_exec);
+    proceso_en_ejecucion=NULL;
+    set_pcb_block(pcbelegido);
+    pthread_mutex_lock(&mutex_cola_block);
+    pcbelegido->motivo_block= OP_FILESYSTEM;
+    pthread_mutex_unlock(&mutex_cola_block);
+}

@@ -108,5 +108,7 @@ t_archivo_abierto_global *buscarArchivo(t_list *, char *);
 bool archivo_existe_en_tabla(t_list *, const char *);
 t_archivo_abierto_global *crear_archivo_global(char *);
 int verif_crear_recurso_file(t_archivo_abierto_proceso *);
+t_archivo_abierto_global *buscarArchivoGlobal(t_list *, char *);
+void exec_block_fs () ;
 
 #endif
