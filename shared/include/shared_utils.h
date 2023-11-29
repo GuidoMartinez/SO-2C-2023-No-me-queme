@@ -251,6 +251,22 @@ typedef struct {
     int num_de_marco;
 } t_marco;
 
+typedef struct {
+    char* nombreArchivo;
+    uint32_t puntero;
+} t_archivo_abierto_proceso;
+
+typedef struct {
+    t_list* archivos_abiertos;
+    pthread_mutex_t mutex_archivo;
+} tabla_t_archivo_abierto_global;
+
+typedef struct {
+    char* nombreArchivo;
+    uint32_t contador;
+    t_queue* colabloqueado;
+} t_archivo_abierto_global;
+
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);
 void crear_buffer(t_paquete *);

@@ -193,7 +193,12 @@ void kmov_in(){};
 
 void kmov_out(){};
 
-void kf_open(){};
+void kf_open(){
+     log_info(kernel_logger_info, "ESTOY EN F_OPEN");
+    t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido); 
+    list_add(pcbelegido->archivos_abiertos, archivo_proceso);
+    int existeArchivo = verif_crear_recurso_file(archivo_proceso); 
+};
 
 void kf_close(){};
 

@@ -13,6 +13,8 @@ extern pthread_mutex_t mutex_cola_exec;
 extern pthread_mutex_t mutex_cola_exit;
 extern pthread_mutex_t leer_grado;
 extern pthread_mutex_t mutex_generador_pid;
+extern pthread_mutex_t mutex_tabla_archivos;
+
 extern sem_t sem_multiprog;
 extern sem_t sem_exit;
 extern sem_t sem_listos_ready;
@@ -35,6 +37,7 @@ extern t_list *lista_ready_detenidos;
 extern t_list *lista_block_detenidos;
 extern t_list *lista_exec_detenidos;
 extern t_list *lista_exit_detenidos;
+extern t_list *archivosAbiertosGlobales;
 
 extern t_pcb *proceso_aux;
 extern t_pcb *proceso_en_ejecucion;
@@ -82,7 +85,7 @@ extern t_algoritmo ALGORITMO_PLANIFICACION;
 extern arch_config config_valores_kernel;
 
 t_list *cargar_recursos_totales();
-
+t_archivo_abierto_proceso *crear_archivo_proceso(char *, t_pcb *);
 recurso_instancia *buscar_recurso(t_list *, char *);
 void finalizar_kernel();
 void sighandler(int);
@@ -101,5 +104,9 @@ void serializar_pedido_proceso_nuevo(t_paquete *, int, int, char *);
 
 void liberar_recursos(t_pcb*);
 void finalizar_proceso_en_ejecucion();
+t_archivo_abierto_global *buscarArchivo(t_list *, char *);
+bool archivo_existe_en_tabla(t_list *, const char *);
+t_archivo_abierto_global *crear_archivo_global(char *);
+int verif_crear_recurso_file(t_archivo_abierto_proceso *);
 
 #endif

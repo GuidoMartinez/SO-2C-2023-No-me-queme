@@ -14,6 +14,8 @@ pthread_mutex_t mutex_cola_exec;
 pthread_mutex_t mutex_cola_exit;
 pthread_mutex_t leer_grado;
 pthread_mutex_t mutex_generador_pid;
+pthread_mutex_t mutex_tabla_archivos;
+
 sem_t sem_multiprog;
 sem_t sem_exit;
 sem_t sem_listos_ready;
@@ -35,6 +37,7 @@ t_list *cola_blocked_recurso;
 t_list *lista_ready_detenidos;
 t_list *lista_blocked_detenidos;
 t_list *lista_exec_detenidos;
+t_list *archivosAbiertosGlobales;
 
 t_pcb *proceso_aux;
 t_pcb *proceso_en_ejecucion;
@@ -571,4 +574,64 @@ void finalizar_proceso_en_ejecucion(){
             list_add(cola_exit, pcbelegido);
             
     pthread_mutex_unlock(&mutex_cola_exit);
+}
+
+t_archivo_abierto_proceso *crear_archivo_proceso(char *nombre, t_pcb *proceso)
+{
+    t_archivo_abierto_proceso *archivo = malloc(sizeof(t_archivo_abierto_proceso));
+    archivo->puntero = 0;
+    archivo->nombreArchivo = string_new();
+    string_append(&(archivo->nombreArchivo), nombre);
+    return archivo;
+}
+
+int verif_crear_recurso_file(t_archivo_abierto_proceso *archivo)
+{
+    pthread_mutex_lock(&mutex_tabla_archivos);
+    int result = 0;
+    pthread_mutex_unlock(&mutex_tabla_archivos);
+    if (!archivo_existe_en_tabla(archivosAbiertosGlobales, archivo->nombreArchivo))
+    {
+        crear_archivo_global(archivo->nombreArchivo);
+        result = 1;
+    }
+
+    return result;
+}
+
+bool archivo_existe_en_tabla(t_list *tabla_archivos_abiertos, const char *nombre_archivo)
+{
+    t_archivo_abierto_global *archivoGeneral = buscarArchivo(tabla_archivos_abiertos, nombre_archivo);
+
+    // Verificar si el archivo existe antes de acceder a su campo nombreArchivo
+    if (archivoGeneral != NULL && archivoGeneral->nombreArchivo != NULL)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+
+t_archivo_abierto_global *buscarArchivo(t_list *lista, char *recursoPedido2)
+{
+    bool _archivoPorNombre(void *elemento)
+    {
+        return strcmp(((t_archivo_abierto_global *)elemento)->nombreArchivo, recursoPedido2) == 0;
+    }
+
+    t_archivo_abierto_global *archivoExistente;
+    archivoExistente = list_find(lista, _archivoPorNombre);
+    return archivoExistente;
+}
+t_archivo_abierto_global *crear_archivo_global(char *nombre)
+{
+
+    t_archivo_abierto_global *archivo = malloc(sizeof(t_archivo_abierto_global));
+    archivo->nombreArchivo = string_new();
+    string_append(&(archivo->nombreArchivo), nombre);
+    archivo->contador = 1;
+    archivo->colabloqueado = queue_create();
+    list_add(archivosAbiertosGlobales, archivo);
+    return archivo;
 }
