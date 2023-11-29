@@ -189,41 +189,58 @@ int crear_fat(int cantidad_de_bloques, char *path_fat, t_log *logger)
     return 0;
 }
 
-bloque leerBloque(FILE *file, int block_number)
+void leerBloque(bloque *fat, int block_number, t_log *logger, bloque *block)
 {
-    bloque block;
-    long position = (long)block_number * sizeof(bloque);
-    fseek(file, position, SEEK_SET);
-    fread(&block, sizeof(bloque), 1, file);
-    return block;
-}
-
-void escribirBloque(FILE *file, bloque *block, int block_number)
-{
-    long position = (long)block_number * sizeof(bloque);
-    fseek(file, position, SEEK_SET);
-    fwrite(block, sizeof(bloque), 1, file);
-}
-
-
-void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat)
-{
-    FILE *archivo = fopen(nombreArchivo, "wb"); // Abre el archivo en modo binario para escritura
-    if (archivo)
+    if (block_number < 0 || block_number >= tamanio_fat)
     {
-        fwrite(&tamanio_fat, sizeof(int), 1, archivo);
-        fwrite(fat, sizeof(bloque), tamanio_fat, archivo);
-        fclose(archivo);
+        log_error(logger, "Error al leer el bloque %d desde la tabla FAT. Bloque fuera de los límites.", block_number);
+        return;
     }
-    else
-    {
-        printf("No se pudo abrir el archivo para escritura\n");
-    }
+    *block = fat[block_number];
 }
 
-bloque *cargarFAT(const char *nombreArchivo)
+void escribirBloque(bloque *fat, bloque *block, int block_number, t_log *logger)
+{
+    if (block_number < 0 || block_number >= tamanio_fat)
+    {
+        log_error(logger, "Error al escribir en el bloque %d en la tabla FAT. Bloque fuera de los límites.", block_number);
+        return;
+    }
+    fat[block_number] = *block;
+}
+
+
+void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat, t_log *logger)
+{
+    int file_descriptor = open(nombreArchivo, O_CREAT | O_RDWR, 0644);
+    if (file_descriptor < 0)
+    {
+        log_error(logger, "Error al abrir el archivo FAT para escritura");
+        return;
+    }
+
+    if (ftruncate(file_descriptor, tamanio_fat * sizeof(bloque)) != 0)
+    {
+        log_error(logger, "Error al asignar espacio en disco para el archivo FAT");
+        close(file_descriptor);
+        return;
+    }
+    bloque *archivo_mapeado = mmap(NULL, tamanio_fat * sizeof(bloque), PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
+    if (archivo_mapeado == MAP_FAILED)
+    {
+        log_error(logger, "Error al mapear el archivo FAT en memoria");
+        close(file_descriptor);
+        return;
+    }
+    memcpy(archivo_mapeado, fat, tamanio_fat * sizeof(bloque));
+    munmap(archivo_mapeado, tamanio_fat * sizeof(bloque));
+    close(file_descriptor);
+}
+
+bloque *cargarFAT(const char *nombreArchivo, int tamanio_fat, t_log *logger)
 {
     FILE *archivo = fopen(nombreArchivo, "rb"); // Abre el archivo en modo binario para lectura
+
     if (archivo)
     {
         bloque *fat = (bloque *)malloc(tamanio_fat * sizeof(bloque));
@@ -231,16 +248,24 @@ bloque *cargarFAT(const char *nombreArchivo)
         if (fat == NULL)
         {
             fclose(archivo);
-            printf("Error al asignar memoria para cargar la FAT\n");
+            log_error(logger, "Error al asignar memoria para cargar la FAT");
             return NULL;
         }
-        fread(fat, sizeof(bloque), tamanio_fat, archivo);
+
+        if (fread(fat, sizeof(bloque), tamanio_fat, archivo) != tamanio_fat)
+        {
+            fclose(archivo);
+            free(fat);
+            log_error(logger, "Error al leer la FAT desde el archivo");
+            return NULL;
+        }
+
         fclose(archivo);
         return fat;
     }
     else
     {
-        printf("No se pudo abrir el archivo para lectura\n");
+        log_error(logger, "No se pudo abrir el archivo '%s' para lectura", nombreArchivo);
         return NULL;
     }
 }
@@ -281,34 +306,78 @@ int crearFCB(char *nombre_fcb, t_log *logger, bloque *fat)
 {
     if (buscar_fcb(nombre_fcb) != -1)
     {
-        log_error(logger, "Ya existe un FCB con ese nombre");
+        log_error(logger, "Ya existe un FCB con ese nombre: %s", nombre_fcb);
         return -1;
     }
-    char *nombre_completo = string_new();
-    string_append(&nombre_completo, nombre_fcb);
-    string_append(&nombre_completo, ".dat");
+
+    char *nombre_completo = string_from_format("%s.dat", nombre_fcb);
+    if (nombre_completo == NULL)
+    {
+        log_error(logger, "Error al construir el nombre completo del FCB");
+        return -1;
+    }
+
     fcb_t *nuevo_fcb = inicializar_fcb();
+    if (nuevo_fcb == NULL)
+    {
+        log_error(logger, "Error al inicializar el FCB");
+        free(nombre_completo);
+        return -1;
+    }
+
     nuevo_fcb->id = fcb_id++;
-    nuevo_fcb->nombre_archivo = string_new();
-    string_append(&nuevo_fcb->nombre_archivo, nombre_fcb);
+    nuevo_fcb->nombre_archivo = string_duplicate(nombre_fcb);
+
     t_config *fcb_fisico = malloc(sizeof(t_config));
-    fcb_fisico->path = string_new();
+    if (fcb_fisico == NULL)
+    {
+        log_error(logger, "Error al asignar memoria para el FCB físico");
+        borrar_fcb(nuevo_fcb->id, logger); // Utiliza borrar_fcb para liberar el FCB
+        free(nombre_completo);
+        return -1;
+    }
+
+    fcb_fisico->path = string_duplicate(nombre_completo);
     fcb_fisico->properties = dictionary_create();
-    string_append(&fcb_fisico->path, nombre_completo);
+    if (fcb_fisico->path == NULL || fcb_fisico->properties == NULL)
+    {
+        log_error(logger, "Error al asignar memoria para el FCB físico");
+        borrar_fcb(nuevo_fcb->id, logger);
+        free(nombre_completo);
+        free(fcb_fisico->path);
+        free(fcb_fisico->properties);
+        free(fcb_fisico);
+        return -1;
+    }
+
     char *nombre_duplicado = string_duplicate(nombre_fcb);
     dictionary_put(fcb_fisico->properties, "NOMBRE_ARCHIVO", nombre_duplicado);
     dictionary_put(fcb_fisico->properties, "TAMANIO_ARCHIVO", "0");
     dictionary_put(fcb_fisico->properties, "BLOQUE_INICIAL", "0");
-    config_save_in_file(fcb_fisico, nombre_completo);
+
+    if (!config_save_in_file(fcb_fisico, nombre_completo))
+    {
+        log_error(logger, "Error al guardar el FCB físico en el archivo");
+        borrar_fcb(nuevo_fcb->id, logger); 
+        free(nombre_completo);
+        free(fcb_fisico->path);
+        free(fcb_fisico->properties);
+        free(fcb_fisico);
+        return -1;
+    }
+
     list_add(lista_fcb, nuevo_fcb);
-    dictionary_destroy(fcb_fisico->properties);
+
+    // Liberar recursos
     free(nombre_duplicado);
+    free(nombre_completo);
+    dictionary_destroy(fcb_fisico->properties);
     free(fcb_fisico->path);
     free(fcb_fisico);
-    free(nombre_completo);
+
+    log_info(logger, "FCB creado correctamente: %s", nombre_fcb);
     return nuevo_fcb->id;
 }
-
 
 int crearFAT(char *path_fat, t_log *logger)
 {
@@ -818,21 +887,31 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
 		}
 }
 
-int borrar_fcb(int id)
+int borrar_fcb(int id, t_log *logger)
 {
-		int resultado = -1;
-		if (buscar_fcb_id(id) == -1)
-		{
-			log_error(filesystem_logger_info, "No existe un FCB con ese nombre");
-			return resultado;
-		}
-		fcb_t *fcb = _get_fcb_id(id);
-		list_remove_element(lista_fcb, fcb);
-		remove(fcb->ruta_archivo);
-		free(fcb->nombre_archivo);
-		free(fcb->ruta_archivo);
-		free(fcb);
-		return resultado;
+    int resultado = -1;
+
+    if (buscar_fcb_id(id) == -1)
+    {
+        log_error(logger, "No existe un FCB con ese ID: %d", id);
+        return resultado;
+    }
+
+    fcb_t *fcb = _get_fcb_id(id);
+
+    if (remove(fcb->ruta_archivo) != 0)
+    {
+        log_error(logger, "Error al eliminar el archivo asociado al FCB (ID: %d)", id);
+        return resultado;
+    }
+
+    list_remove_element(lista_fcb, fcb);
+    free(fcb->nombre_archivo);
+    free(fcb->ruta_archivo);
+    free(fcb);
+
+    resultado = 0;
+    return resultado;
 }
 
 void generar_instruccion_mov(t_instruccion_fs *instruccion_nueva, nombre_instruccion instruccion, uint32_t dir_fisica, uint32_t tamanio, char *valor)
