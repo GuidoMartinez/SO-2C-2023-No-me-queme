@@ -110,5 +110,7 @@ int socket_kernel;
 int socket_memoria;
 char *nombre_archivo;
 char * path_fcb;
+int retardo_acceso_bloque;
+int bloques_swap;
 
 #endif
