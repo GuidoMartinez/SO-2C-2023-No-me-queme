@@ -239,7 +239,7 @@ typedef struct {
     int marco;
     int bit_presencia;
     int bit_modificado;
-    int pos_swap;
+    int id_bloque_swap;
     double tiempo_lru;
 
 } t_entrada_tabla_pag;
