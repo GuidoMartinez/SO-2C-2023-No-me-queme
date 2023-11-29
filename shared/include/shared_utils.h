@@ -184,6 +184,11 @@ typedef struct
     int longitud_path;
 } t_ini_proceso;
 
+typedef struct {
+    t_list* entradas_tabla;
+    int cantidad_paginas;
+} t_tabla_paginas;
+
 typedef struct
 {
     uint32_t pid;
@@ -192,7 +197,7 @@ typedef struct
     uint32_t longitud_path;
     t_list *instrucciones;
     t_list *bloques_swap;
-    t_list *tabla_paginas;
+    t_tabla_paginas* tabla_paginas;
 
 } t_proceso_memoria;
 
@@ -229,6 +234,20 @@ typedef enum{
 	FILE_DOESNT_EXISTS,
 }t_resp_file;
 
+typedef struct {
+    int indice;
+    int marco;
+    int bit_presencia;
+    int bit_modificado;
+    int pos_swap;
+    double tiempo_lru;
+
+} t_entrada_tabla_pag;
+
+typedef struct {
+    int pid;
+    int num_de_marco;
+} t_marco;
 
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);
