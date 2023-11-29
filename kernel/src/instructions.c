@@ -205,24 +205,48 @@ void kf_open(){
      if (existeArchivo == 0)
             { // SI YA EXISTE EL ARCHIVO EN LA TABLA GLOBAL DE KERNEL
             //cheuqear lock
-             // if (pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2 == "w")
-                t_archivo_abierto_global *archivoGlobalPedido = buscarArchivoGlobal(archivosAbiertosGlobales, archivo_proceso->nombreArchivo);
-                archivoGlobalPedido->contador++;
+
+             t_archivo_abierto_global *archivoGlobalPedido = buscarArchivoGlobal(archivosAbiertosGlobales, archivo_proceso->nombreArchivo);
+               
+              if (strcmp(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2,"R")==0){
+                    if(archivoGlobalPedido->lock=='W'){
+
                 queue_push(archivoGlobalPedido->colabloqueado, pcbelegido);
                 exec_block_fs();
                 pthread_mutex_lock(&mutex_cola_block);
                 pcbelegido->motivo_block= ARCHIVO_BLOCK;
                 pthread_mutex_unlock(&mutex_cola_block);
                 log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_proceso->nombreArchivo);
+                sem_post(&sem_ready);
+            // if (list_size(lista_ready) > 0) PARA DETENER PLANI
+                sem_post(&sem_exec);
+
+                    } else {
+                archivoGlobalPedido->contador++;
+                sem_post(&sem_ready);
+                sem_post(&sem_exec);
+                }
+              } else {
+
+
+                
+              }
+             
+                queue_push(archivoGlobalPedido->colabloqueado, pcbelegido);
+                exec_block_fs();
+                log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_proceso->nombreArchivo);
                  sem_post(&sem_ready);
             // if (list_size(lista_ready) > 0) PARA DETENER PLANI
                 sem_post(&sem_exec);
-            }
+
+
+
+            } 
             else
             {
                
                 t_archivo_abierto_global *archivoGlobalNuevo = crear_archivo_global(archivo_proceso->nombreArchivo);
-                queue_push(archivoGlobalNuevo->colabloqueado, pcbelegido);
+                //queue_push(archivoGlobalNuevo->colabloqueado, pcbelegido);
                 exec_block_fs();
                 sem_post(&sem_ready);
             // if (list_size(lista_ready) > 0) PARA DETENER PLANI

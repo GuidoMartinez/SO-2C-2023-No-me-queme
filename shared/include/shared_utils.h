@@ -264,6 +264,7 @@ typedef struct {
 
 typedef struct {
     char* nombreArchivo;
+    char* lock;
     uint32_t contador;
     t_queue* colabloqueado;
 } t_archivo_abierto_global;
