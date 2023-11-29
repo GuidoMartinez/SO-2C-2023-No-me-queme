@@ -286,6 +286,11 @@ void serializar_instruccion(t_paquete *, t_instruccion *);
 t_instruccion *deserializar_instruccion(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
 
+void enviar_pid(int, int,op_code);
+void recibir_pid(int,int*);
+
+
+
 void enviar_interrupcion(int, t_interrupcion *);
 t_interrupcion *recibir_interrupcion(int);
 

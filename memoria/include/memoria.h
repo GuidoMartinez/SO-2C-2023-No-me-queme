@@ -19,6 +19,7 @@ t_algoritmo algoritmo_pags;
 
 pthread_mutex_t mutex_procesos;
 pthread_mutex_t mutex_memoria_usuario;
+pthread_mutex_t mutex_marcos;
 
 typedef struct
 { // Configuracion de la memoria
@@ -64,6 +65,13 @@ t_algoritmo obtener_algoritmo();
 
 double marcosTotales();
 void inicializar_marcos();
+t_list *obtener_marcos_pid(uint32_t);
+bool mismo_pid_marco(t_marco *, int);
+int asignar_marco_libre(uint32_t );
+void liberar_marco_indidce(int);
+void liberar_marcos_proceso(unt32_t);
+
+
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
 void pedido_inicio_swap(int, int);

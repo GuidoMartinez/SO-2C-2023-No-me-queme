@@ -63,6 +63,7 @@ void inicializar_memoria()
 
 	pthread_mutex_init(&mutex_procesos, NULL);
 	pthread_mutex_init(&mutex_memoria_usuario, NULL);
+	pthread_mutex_init(&mutex_marcos, NULL);
 }
 
 void atender_clientes_memoria()
@@ -163,10 +164,10 @@ void *manejo_conexion_cpu(void *arg)
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
-			//close(socket_cpu_int);
-			//close(server_memoria);
-			//abort();
-			// finalizar_memoria();
+			// close(socket_cpu_int);
+			// close(server_memoria);
+			// abort();
+			//  finalizar_memoria();
 			break;
 		}
 	}
@@ -196,6 +197,17 @@ void *manejo_conexion_kernel(void *arg)
 			log_info(logger_memoria_info, "Se creo correctamente el proceso PID [%d]", proceso_memoria->pid);
 
 			// TODO -- RESPONDERLE AL KERNEL QUE SE CREO OK.
+			break;
+		case FINALIZAR_PROCESO:
+
+			int pid_a_finalizar;
+			recibir_pid(socket_kernel_int, &pid_a_finalizar);
+
+			// liberar marcos ocupados
+			// eliminar tabla de paginas // TODO LOGUEARLO.
+			// decilrle al fs que libere los bloques swaps.
+
+			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso.
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion con KERNEL. Abortando");
@@ -227,7 +239,7 @@ void *manejo_conexion_filesystem(void *arg)
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
 			abort();
-			//finalizar_memoria();
+			// finalizar_memoria();
 			break;
 		}
 	}
@@ -411,6 +423,59 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 
+// MARCOS
+
+t_list *obtener_marcos_pid(uint32_t pid_pedido)
+{
+
+	pthread_mutex_lock(&mutex_marcos);
+	t_list *marcos_proceso = (t_list *)list_filter(marcos, mismo_pid_marco);
+	pthread_mutex_unlock(&mutex_marcos);
+	return marcos_proceso;
+}
+
+bool mismo_pid_marco(t_marco *marco, int pid)
+{
+	return marco->pid == pid;
+}
+
+int asignar_marco_libre(uint32_t pid_pedido)
+{
+	bool _marco_libre(void *elemento)
+	{
+		return ((t_marco *)elemento)->pid == -1;
+	}
+	t_marco *marco_libre;
+	pthread_mutex_lock(&mutex_marcos);
+	marco_libre = list_find(marcos, _marco_libre);
+	marco_libre->pid = pid_pedido;
+	pthread_mutex_unlock(&mutex_marcos);
+
+	return marco_libre->num_de_marco;
+}
+
+void liberar_marco_indidce(int marco_a_liberar)
+{
+
+	pthread_mutex_lock(&mutex_marcos);
+	t_marco *marco_ocupado = list_get(marcos, marco_a_liberar);
+	marco_ocupado->pid = -1;
+	pthread_mutex_unlock(&mutex_marcos);
+}
+
+void liberar_marcos_proceso(uint32_t pid_a_liberar){
+	log_info(logger_memoria_info,"Liberando los marcos ocupados por el PID [%d]",pid_a_liberar);
+
+	t_list* marcos_proceso = obtener_marcos_pid(pid_a_liberar);
+	for(int i = 0; i < list_size(marcos_proceso);i++) {
+		t_marco* marco_proximamente_libre = list_get(marcos,i);
+		liberar_marco_indidce(marco_proximamente_libre->num_de_marco);
+	}
+
+}
+
+// CREAR PROCESO
+
 int paginas_necesarias_proceso(uint32_t tamanio_proc, uint32_t tamanio_pag)
 {
 	double entero = ((double)tamanio_proc) / (double)tamanio_pag;
@@ -479,37 +544,6 @@ t_list *recibir_bloques_swap_iniciales(int socket)
 	return lista_bloques_swap;
 }
 
-t_algoritmo obtener_algoritmo()
-{
-	if (string_equals_ignore_case(config_valores_memoria.algoritmo_reemplazo, "FIFO"))
-	{
-		log_info(logger_memoria_info, "Se elegio algotitmo FIFO para reemplazo de paginas");
-		return FIFO;
-	}
-	else
-	{
-		log_info(logger_memoria_info, "Se elegio algotitmo para reemplazo de paginas");
-		return LRU;
-	}
-}
-
-double marcosTotales()
-{
-	return (double)(config_valores_memoria.tamanio_memoria) / (double)(config_valores_memoria.tamanio_memoria);
-}
-
-void inicializar_marcos()
-{
-	marcos = list_create();
-	for (int i = 0; i < marcosTotales(); i++)
-	{
-		t_marco *entradaMarco = malloc(sizeof(t_marco));
-		entradaMarco->pid = -1;
-		entradaMarco->num_de_marco = i;
-		list_add(marcos, entradaMarco);
-	}
-}
-
 void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
@@ -522,7 +556,7 @@ void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 	{
 		t_list *lista_id_bloques = recibir_bloques_swap_iniciales(socket_fs_int);
 		asignar_id_bloque_swap(proceso_nuevo, lista_id_bloques);
-		list_destroy_and_destroy_elements(lista_id_bloques,free);
+		list_destroy_and_destroy_elements(lista_id_bloques, free);
 	}
 	else
 	{
@@ -582,6 +616,36 @@ void pedido_inicio_swap(int cant_pags, int socket)
 	eliminar_paquete(paquete_pedido_swap);
 }
 
+t_algoritmo obtener_algoritmo()
+{
+	if (string_equals_ignore_case(config_valores_memoria.algoritmo_reemplazo, "FIFO"))
+	{
+		log_info(logger_memoria_info, "Se elegio algotitmo FIFO para reemplazo de paginas");
+		return FIFO;
+	}
+	else
+	{
+		log_info(logger_memoria_info, "Se elegio algotitmo para reemplazo de paginas");
+		return LRU;
+	}
+}
+
+double marcosTotales()
+{
+	return (double)(config_valores_memoria.tamanio_memoria) / (double)(config_valores_memoria.tamanio_memoria);
+}
+
+void inicializar_marcos()
+{
+	marcos = list_create();
+	for (int i = 0; i < marcosTotales(); i++)
+	{
+		t_marco *entradaMarco = malloc(sizeof(t_marco));
+		entradaMarco->pid = -1;
+		entradaMarco->num_de_marco = i;
+		list_add(marcos, entradaMarco);
+	}
+}
 void finalizar_memoria()
 {
 	log_info(logger_memoria_info, "Finalizando Memoria");

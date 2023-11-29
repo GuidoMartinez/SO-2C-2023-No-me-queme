@@ -642,7 +642,6 @@ void deserializar_instruccion_fs(t_instruccion_fs *instruccion, t_buffer *buffer
 	stream += instruccion->param3_length;
 }
 
-
 // en la lista debo guardar los punteros de int ya que las listas manejan punteros a estructuras. @ TOMAS
 void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
 {
@@ -650,7 +649,7 @@ void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
 
 	for (int i = 0; i < list_size(bloques_swap); i++)
 	{
-		uint32_t* ptr_bloque = list_get(bloques_swap, i);
+		uint32_t *ptr_bloque = list_get(bloques_swap, i);
 		uint32_t id_bloque = *ptr_bloque;
 
 		paquete->buffer->size += sizeof(uint32_t);
@@ -659,4 +658,22 @@ void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
 		offset += sizeof(uint32_t);
 	}
 	list_destroy(bloques_swap);
+}
+
+void enviar_pid(int pid, int socket, op_code codigo)
+{
+	t_paquete *paquete_pid = crear_paquete_con_codigo_de_operacion(codigo);
+	paquete_pid->buffer->size += sizeof(int);
+	paquete_pid->buffer->stream = realloc(paquete_pid->buffer->stream, paquete_pid->buffer->size);
+	memcpy(paquete_pid->buffer->stream, &(pid), sizeof(int));
+	enviar_paquete(paquete_pid, socket);
+	eliminar_paquete(paquete_pid);
+}
+
+void recibir_pid(int socket,int* pid)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	memcpy(pid, buffer, sizeof(int));
+	free(buffer);
 }
