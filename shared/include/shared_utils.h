@@ -48,7 +48,8 @@ typedef enum
     MOV_OUT_CPU,
     INSTRUCCION_MEMORIA_OK,
     MARCO,
-    MARCO_PAGE_FAULT
+    MARCO_PAGE_FAULT,
+    PAGINA_CARGADA
 } op_code;
 
 typedef enum

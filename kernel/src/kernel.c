@@ -375,6 +375,17 @@ t_pcb *buscarProceso(int pid_pedido)
     return proceso_elegido;
 }
 
+t_pcb *buscar_proceso_por_nro_pf(int nro_pf)
+{
+    bool _proceso_id(void *elemento)
+    {
+        return ((t_pcb *)elemento)->contexto_ejecucion->nro_pf == nro_pf;
+    }
+    t_pcb *proceso_elegido;
+    proceso_elegido = list_find(lista_global, _proceso_id);
+    return proceso_elegido;
+}
+
 void iniciar_planificacion()
 {
     if (frenado)
@@ -711,7 +722,7 @@ void *recibir_op_FS()
 
         // HAy que cambiar por una estructura que tenga el PID
         t_resp_file op = recibir_operacion(conexion_filesystem);
-        int pid;
+        int pid  = -1;
 
         switch (op)
         {
@@ -742,4 +753,36 @@ void *recibir_op_FS()
         sem_post(&sem_ready);
         sem_post(&sem_exec);
     }
+}
+
+void* manejar_pf(){
+    /*1.- Mover al proceso al estado Bloqueado. Este estado bloqueado será independiente de todos los
+    demás ya que solo afecta al proceso y no compromete recursos compartidos.*/
+
+    set_pcb_block(proceso_en_ejecucion);
+    safe_pcb_remove(cola_exec, &mutex_cola_exec);
+
+    int nro_pf = proceso_en_ejecucion->contexto_ejecucion->nro_pf;
+
+    /*2.- Solicitar al módulo memoria que se cargue en memoria principal la página correspondiente, la
+    misma será obtenida desde el mensaje recibido de la CPU.*/
+
+    enviar_op_con_int(conexion_memoria,MARCO_PAGE_FAULT, nro_pf);
+
+    /*3.- Esperar la respuesta del módulo memoria.*/
+
+    op_code op = recibir_operacion(conexion_memoria);
+    if(op != PAGINA_CARGADA) {log_error(kernel_logger_info,"No se puedo cargar la pagina.");}
+
+    /*4.- Al recibir la respuesta del módulo memoria, desbloquear el proceso y colocarlo en la cola de
+    ready.*/
+
+    t_pcb* pcb_bloqueado = buscar_proceso_por_nro_pf(nro_pf);
+    remove_blocked(pcb_bloqueado->pid);
+    set_pcb_ready(pcb_bloqueado);
+
+    sem_post(&sem_ready);
+    sem_post(&sem_exec);
+
+    return NULL;
 }

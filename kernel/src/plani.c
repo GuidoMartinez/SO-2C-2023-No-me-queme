@@ -247,7 +247,7 @@ void exec_pcb()
         {
             log_info(kernel_logger_info, "Lista ready vacia");
         }
-        // TODO: Chequear motivo desalojo PAGEFAULT
+
         if (proceso_en_ejecucion == NULL || proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL)
         {
             pcbelegido = elegir_pcb_segun_algoritmo();
@@ -272,6 +272,18 @@ void exec_pcb()
         t_contexto_ejecucion *ultimo_contexto = malloc(sizeof(t_contexto_ejecucion));
         ultimo_contexto = recibir_contexto(conexion_cpu_dispatch);
         pcbelegido->contexto_ejecucion = ultimo_contexto;
+
+        if(pcbelegido->contexto_ejecucion->motivo_desalojado == PAGE_FAULT){
+            log_info(kernel_logger_info, "El proceso %d fue desalojado por PAGE FAULT", proceso_en_ejecucion->pid);
+            pthread_t hilo_page_fault;
+            pthread_create(&hilo_page_fault, NULL, (void *)manejar_pf, NULL);
+
+            sem_post(&sem_ready);
+            if(lista_ready > 0){
+                sem_post(&sem_exec);
+            }
+            continue;
+        }
 
         int codigo_instruccion = pcbelegido->contexto_ejecucion->codigo_ultima_instru;
         log_info(kernel_logger_info, "Volvio PID %d con codigo inst %d ", ultimo_contexto->pid, pcbelegido->contexto_ejecucion->codigo_ultima_instru);

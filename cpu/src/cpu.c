@@ -425,6 +425,7 @@ int traducir_dl(uint32_t dl){
 
     if(resultado->codigo_operacion == MARCO_PAGE_FAULT) {
         page_fault = true;
+        contexto_actual->nro_pf = num_pag;
         int marco_return = resultado->valor;
         free(resultado);
         return marco_return;

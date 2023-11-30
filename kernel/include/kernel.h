@@ -119,5 +119,6 @@ void open_file(char*, char);
 void fs_interaction();
 
 void* recibir_op_FS();
+void* manejar_pf();
 
 #endif
