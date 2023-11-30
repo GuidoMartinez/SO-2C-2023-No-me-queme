@@ -1,5 +1,7 @@
 #include "memoria.h"
 
+#define MAX_LRU 999999
+
 void sighandler(int s)
 {
 	finalizar_memoria();
@@ -57,7 +59,7 @@ void inicializar_memoria()
 	}
 	indice_tabla = 0;
 	inicializar_marcos();
-	tablas_de_paginas = list_create();
+	// tablas_de_paginas = list_create(); // para acceder a las tablas de paginas ingreso al proceso
 	procesos_totales = list_create();
 	algoritmo_pags = obtener_algoritmo();
 
@@ -160,7 +162,31 @@ void *manejo_conexion_cpu(void *arg)
 			pedido_instruccion(&pid, &pc, socket_cpu_int);
 			t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
 			printf("La instruccion de PC %d para el PID %d es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
-			enviar_instruccion_cpu(socket_cpu_int, instruccion_pedida);
+			enviar_instruccion(socket_cpu_int, instruccion_pedida);
+			break;
+		case MARCO:
+			int pid_tr, index, marco;
+			recibir_pedido_marco(&pid_tr, &index, socket_cpu_int);
+			marco = obtener_marco_pid(pid_tr, index);
+
+			if (marco > -1)
+			{
+				enviar_marco_cpu(marco, socket_cpu_int, MARCO);
+			}
+			else
+			{
+				enviar_marco_cpu(marco, socket_cpu_int, PAGE_FAULT);
+			}
+			break;
+		case MOV_OUT_CPU: // me pasa por parametro un uint32_t y tengo que guardarlo en el marco que me dice
+			uint32_t valor, dir_fisica;
+			recibir_mov_out_cpu(&valor,&dir_fisica,socket_cpu_int);
+			escribir_memoria(dir_fisica,valor);
+			
+
+			break;
+		case MOV_IN_CPU: // Lee el valor del marco y lo devuelve para guardarlo en el registro (se pide la direccion) - recibo direccion fisica
+
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
@@ -191,7 +217,7 @@ void *manejo_conexion_kernel(void *arg)
 			realizar_handshake(socket_kernel_int, HANDSHAKE_MEMORIA, logger_memoria_info);
 			break;
 		case INICIALIZAR_PROCESO:
-
+			log_info(logger_memoria_info, " Inicializando estructuras para nuevo proceso");
 			proceso_memoria = recibir_proceso_nuevo(socket_kernel_int);
 			proceso_memoria = iniciar_proceso_path(proceso_memoria); // inicio en memoria y en swap
 			log_info(logger_memoria_info, "Se creo correctamente el proceso PID [%d]", proceso_memoria->pid);
@@ -202,10 +228,11 @@ void *manejo_conexion_kernel(void *arg)
 
 			int pid_a_finalizar;
 			recibir_pid(socket_kernel_int, &pid_a_finalizar);
+			t_proceso_memoria *proceso_a_eliminar = obtener_proceso_pid(pid_a_finalizar);
+			liberar_marcos_proceso(pid_a_finalizar); // libero marcos ocupados por el proceso
 
-			// liberar marcos ocupados
-			// eliminar tabla de paginas // TODO LOGUEARLO.
-			// decilrle al fs que libere los bloques swaps.
+			limpiar_swap(proceso_a_eliminar);			  // listo los bloques swap y se los envio a FS para que los marque como libre
+			eliminar_proceso_memoria(proceso_a_eliminar); // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos --
 
 			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso.
 			break;
@@ -410,6 +437,8 @@ t_proceso_memoria *obtener_proceso_pid(uint32_t pid_pedido)
 	return proceso_elegido;
 }
 
+// INSTRUCCIONES PROCESO
+
 t_instruccion *obtener_instrccion_pc(t_proceso_memoria *proceso, uint32_t pc_pedido)
 {
 	return list_get(proceso->instrucciones, pc_pedido);
@@ -439,6 +468,17 @@ bool mismo_pid_marco(t_marco *marco, int pid)
 	return marco->pid == pid;
 }
 
+bool es_marco_libre(void *elemento)
+{
+	t_marco *marco = (t_marco *)elemento;
+	return marco->pid == -1;
+}
+
+bool hay_marcos_libres()
+{
+	return list_count_satisfying(marcos, es_marco_libre) > 0;
+}
+
 int asignar_marco_libre(uint32_t pid_pedido)
 {
 	bool _marco_libre(void *elemento)
@@ -454,7 +494,7 @@ int asignar_marco_libre(uint32_t pid_pedido)
 	return marco_libre->num_de_marco;
 }
 
-void liberar_marco_indidce(int marco_a_liberar)
+void liberar_marco_indice(int marco_a_liberar)
 {
 
 	pthread_mutex_lock(&mutex_marcos);
@@ -463,15 +503,62 @@ void liberar_marco_indidce(int marco_a_liberar)
 	pthread_mutex_unlock(&mutex_marcos);
 }
 
-void liberar_marcos_proceso(uint32_t pid_a_liberar){
-	log_info(logger_memoria_info,"Liberando los marcos ocupados por el PID [%d]",pid_a_liberar);
+void liberar_marcos_proceso(uint32_t pid_a_liberar)
+{
+	log_info(logger_memoria_info, "Liberando los marcos ocupados por el PID [%d]", pid_a_liberar);
 
-	t_list* marcos_proceso = obtener_marcos_pid(pid_a_liberar);
-	for(int i = 0; i < list_size(marcos_proceso);i++) {
-		t_marco* marco_proximamente_libre = list_get(marcos,i);
-		liberar_marco_indidce(marco_proximamente_libre->num_de_marco);
+	t_list *marcos_proceso = obtener_marcos_pid(pid_a_liberar);
+	for (int i = 0; i < list_size(marcos_proceso); i++)
+	{
+		t_marco *marco_proximamente_libre = list_get(marcos, i);
+		liberar_marco_indice(marco_proximamente_libre->num_de_marco);
 	}
+}
 
+void recibir_pedido_marco(int *pid_tr, int *index, int socket)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	printf("size del stream a deserializar \n%d", size);
+	memcpy(pid_tr, buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(index, buffer + offset, sizeof(int));
+
+	free(buffer);
+}
+
+int obtener_marco_pid(int pid_pedido, int entrada)
+{
+	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)pid_pedido);
+	t_entrada_tabla_pag *entrada_tabla = (t_entrada_tabla_pag *)list_get(proceso->tabla_paginas->entradas_tabla, entrada);
+
+	log_info(logger_memoria_info, "Se obtiene la pagina [%d] del PID [%d]", entrada_tabla->indice, proceso->pid);
+
+	log_info(logger_memoria_info, "PID: [%d] - Pagina: [%d] - MARCO: [%d]", proceso->pid, entrada_tabla->indice, entrada_tabla->marco); // LOG OBLIGATORIO
+
+	if (entrada_tabla->bit_presencia)
+	{
+		log_info(logger_memoria_info, "Pagina presente en memoria, no hay PF");
+		return entrada_tabla->marco;
+	}
+	else // HAY PAGE FAULT
+	{
+		log_info(logger_memoria_info, "PAGE FAULT / LA PAGINA TIENE EL BIT DE PRESENCIA EN 0");
+		return -1;
+	}
+}
+
+void enviar_marco_cpu(int marco, int socket, op_code codigo)
+{
+
+	t_paquete *paquete_marco = crear_paquete_con_codigo_de_operacion(codigo);
+	paquete_marco->buffer->size += sizeof(int);
+	paquete_marco->buffer->stream = realloc(paquete_marco->buffer->stream, paquete_marco->buffer->size);
+	memcpy(paquete_marco->buffer->stream, &(marco), sizeof(int));
+	enviar_paquete(paquete_marco, socket);
+	eliminar_paquete(paquete_marco);
 }
 
 // CREAR PROCESO
@@ -518,43 +605,15 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 	return proceso_nuevo;
 }
 
-t_list *recibir_bloques_swap_iniciales(int socket)
-{
-
-	int size;
-	void *buffer;
-
-	buffer = recibir_buffer(&size, socket);
-	printf("Size del stream a deserializar: %d \n", size);
-
-	t_list *lista_bloques_swap = list_create();
-
-	int offset = 0;
-
-	while (offset < size)
-	{
-		int *bloque_swap = malloc(sizeof(int));
-		memcpy(bloque_swap, buffer + offset, sizeof(int));
-		offset += sizeof(int);
-		list_add(lista_bloques_swap, bloque_swap);
-	}
-
-	free(buffer);
-
-	return lista_bloques_swap;
-}
-
 void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
 	pedido_inicio_swap(q_pags, socket_fs_int);
 
-	// cargo los bloques swap en las paginas
-
 	resp_code_fs = recibir_operacion(socket_fs_int);
 	if (resp_code_fs == LISTA_BLOQUES_SWAP)
 	{
-		t_list *lista_id_bloques = recibir_bloques_swap_iniciales(socket_fs_int);
+		t_list *lista_id_bloques = recibir_listado_id_bloques(socket_fs_int);
 		asignar_id_bloque_swap(proceso_nuevo, lista_id_bloques);
 		list_destroy_and_destroy_elements(lista_id_bloques, free);
 	}
@@ -568,8 +627,8 @@ void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 
-	proceso_nuevo->bloques_swap = list_create();
-	proceso_nuevo->tabla_paginas = malloc(sizeof(tablas_de_paginas));
+	// proceso_nuevo->bloques_swap = list_create(); BORRAR - los id de bloques los obtengo recorriendo las paginas para no redundar la info
+	proceso_nuevo->tabla_paginas = malloc(sizeof(t_tabla_paginas));
 	proceso_nuevo->tabla_paginas->entradas_tabla = list_create();
 
 	cantidad_pags = paginas_necesarias_proceso(proceso_nuevo->tamano, config_valores_memoria.tamanio_pagina);
@@ -584,7 +643,7 @@ int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *proceso_nue
 		entrada->bit_presencia = 0;
 		entrada->bit_modificado = 0;
 		entrada->id_bloque_swap = 0;
-		entrada->tiempo_lru = -1;
+		entrada->tiempo_lru = MAX_LRU;
 	}
 
 	log_info(logger_memoria_info, "CREACION DE TABLA DE PAGINAS - PID [%d] - Tamano: [%d]", proceso_nuevo->pid, proceso_nuevo->tabla_paginas->cantidad_paginas);
@@ -608,7 +667,7 @@ void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_b
 void pedido_inicio_swap(int cant_pags, int socket)
 {
 
-	t_paquete *paquete_pedido_swap = crear_paquete_con_codigo_de_operacion(TAMANO_PAGINA);
+	t_paquete *paquete_pedido_swap = crear_paquete_con_codigo_de_operacion(INICIO_SWAP);
 	paquete_pedido_swap->buffer->size += sizeof(uint32_t);
 	paquete_pedido_swap->buffer->stream = realloc(paquete_pedido_swap->buffer->stream, paquete_pedido_swap->buffer->size);
 	memcpy(paquete_pedido_swap->buffer->stream, &(cant_pags), sizeof(uint32_t));
@@ -646,6 +705,77 @@ void inicializar_marcos()
 		list_add(marcos, entradaMarco);
 	}
 }
+
+// INSTRUCCIONES CPU 
+
+void recibir_mov_out_cpu(uint32_t *valor, uint32_t *marco, int socket)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	printf("size del stream a deserializar \n%d", size);
+	memcpy(valor, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(marco, buffer + offset, sizeof(uint32_t));
+
+	free(buffer);
+}
+
+
+// MEMORIA USUARIO
+
+void escribir_memoria(uint32_t dir_fisica, uint32_t valor){
+
+	pthread_mutex_lock(&mutex_memoria_usuario);
+	memcpy(memoria_usuario + dir_fisica, &valor, sizeof(uint32_t));
+	pthread_mutex_unlock(&mutex_memoria_usuario);
+	// TODO -- Calcular el nro de marco que corresponde a esa direccion fisica, para obtener la  entrada de tabla que tiene ese marco (guardar el pid desde el marco para el log) y marcar la entrada como modificada.
+
+}
+
+// FINALIZAR PROCESO
+
+void limpiar_swap(t_proceso_memoria *proceso_a_eliminar) // listo los bloques swap y se los envio a FS para que los marque como libre
+{
+	t_list *ids_bloques_swap = obtener_lista_id_bloque_swap(proceso_a_eliminar);
+	enviar_bloques_swap_a_liberar(ids_bloques_swap, socket_fs_int);
+	list_destroy_and_destroy_elements(ids_bloques_swap, free);
+}
+
+t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
+{
+	t_list *lista_id_bloques_swap = list_create();
+
+	int cant_bloques = list_size(proceso->tabla_paginas->entradas_tabla);
+
+	for (int i = 0; i < cant_bloques; i++)
+	{
+		t_entrada_tabla_pag *entrada = list_get(proceso->tabla_paginas->entradas_tabla, i);
+		int *id_bloque = malloc(sizeof(int));
+		*id_bloque = entrada->id_bloque_swap;
+		list_add(lista_id_bloques_swap, id_bloque);
+	}
+
+	return lista_id_bloques_swap;
+}
+
+void enviar_bloques_swap_a_liberar(t_list *lista_bloques, int socket)
+{
+	t_paquete *paquete_swap_a_borrar = crear_paquete_con_codigo_de_operacion(SWAP_A_LIBERAR);
+	serializar_lista_swap(lista_bloques, paquete_swap_a_borrar);
+	enviar_paquete(paquete_swap_a_borrar, socket);
+	eliminar_paquete(paquete_swap_a_borrar);
+}
+
+void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos
+{
+
+	// TODO -- Eliminar las paginas del proceso.
+
+	log_info(logger_memoria_info, "DESTRUCCION TABLA DE PAGINAS - PID [%d] - Tamano [%d]", proceso_a_eliminar->pid, proceso_a_eliminar->tabla_paginas->cantidad_paginas); // LOG OBLIGATORIO
+}
+
 void finalizar_memoria()
 {
 	log_info(logger_memoria_info, "Finalizando Memoria");

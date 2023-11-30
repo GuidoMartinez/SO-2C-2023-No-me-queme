@@ -67,16 +67,29 @@ double marcosTotales();
 void inicializar_marcos();
 t_list *obtener_marcos_pid(uint32_t);
 bool mismo_pid_marco(t_marco *, int);
-int asignar_marco_libre(uint32_t );
-void liberar_marco_indidce(int);
-void liberar_marcos_proceso(unt32_t);
+int asignar_marco_libre(uint32_t);
+void liberar_marco_indice(int);
+void liberar_marcos_proceso(uint32_t);
+void recibir_pedido_marco(int *, int *, int);
+int obtener_marco_pid(int, int);
+bool es_marco_libre(void *);
+bool hay_marcos_libres();
 
+void enviar_marco_cpu(int, int, op_code);
 
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
 void pedido_inicio_swap(int, int);
-t_list *recibir_bloques_swap_iniciales(int);
 void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
+
+void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
+void escribir_memoria(uint32_t, uint32_t);
+
+void limpiar_swap(t_proceso_memoria *);
+t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso);
+void enviar_bloques_swap_a_liberar(t_list *, int);
+
+void eliminar_proceso_memoria(t_proceso_memoria *);
 
 void finalizar_memoria();
 

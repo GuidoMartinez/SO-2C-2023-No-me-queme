@@ -120,8 +120,8 @@ void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado)
 {
     if (pcb->estado != nuevo_estado)
     {
-        char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
-        char *estado_anterior_string = strdup(estado_to_string(pcb->estado));
+        /*char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
+        char *estado_anterior_string = strdup(estado_to_string(pcb->estado));*/
         pcb->estado = nuevo_estado;
         // free(estado_anterior_string);
         // free(nuevo_estado_string);
@@ -280,7 +280,6 @@ void exec_pcb()
         // TODO: Guardar pcb en una lista segun el tipo de desalojo (poner dentro de los switches)
         switch (codigo_instruccion)
         {
-
         case EXIT:
             kexit();
             break;
@@ -293,12 +292,6 @@ void exec_pcb()
         case SIGNAL:
             ksignal();
             break;
-        case MOV_IN:
-            kmov_in();
-        break;
-        case MOV_OUT:
-            kmov_out();
-        break;
         case F_OPEN:
             kf_open();
         break;

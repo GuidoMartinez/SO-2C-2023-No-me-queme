@@ -42,7 +42,12 @@ typedef enum
     F_READ_FS,
     F_WRITE_FS,
     INICIO_SWAP,
-    LISTA_BLOQUES_SWAP
+    LISTA_BLOQUES_SWAP,
+    SWAP_A_LIBERAR,
+    MOV_IN_CPU,
+    MOV_OUT_CPU,
+    INSTRUCCION_MEMORIA_OK,
+    MARCO
 } op_code;
 
 typedef enum
@@ -63,10 +68,8 @@ typedef enum
     F_READ,
     F_WRITE,
     F_TRUNCATE,
-    F_DELETE,
     EXIT,
-    PRINT_FILE_DATA,
-    CREATE_SEGMENT
+    PRINT_FILE_DATA
 } nombre_instruccion;
 
 typedef struct
@@ -86,9 +89,7 @@ typedef struct {
     char *param1;
     uint32_t param2_length;
     char *param2;
-    uint32_t param3_length;
-    char *param3;
-    uint32_t param4;
+    uint32_t puntero;
 } t_instruccion_fs;
 
 typedef struct
@@ -126,7 +127,8 @@ typedef enum
 {
     RECURSO_BLOCK,
     ARCHIVO_BLOCK,
-    SLEEP_BN
+    SLEEP_BN,
+    OP_FILESYSTEM
 } motivo_block;
 
 typedef enum
@@ -198,7 +200,7 @@ typedef struct
     char *path;
     uint32_t longitud_path;
     t_list *instrucciones;
-    t_list *bloques_swap;
+   // t_list *bloques_swap;
     t_tabla_paginas* tabla_paginas;
 
 } t_proceso_memoria;
@@ -232,7 +234,6 @@ typedef enum{
 	F_SEEK_SUCCESS,
 	F_READ_SUCCESS,
 	F_CREATE_SUCCESS,
-	F_DELETE_SUCCESS,
 	FILE_DOESNT_EXISTS,
 }t_resp_file;
 
@@ -250,6 +251,23 @@ typedef struct {
     int pid;
     int num_de_marco;
 } t_marco;
+
+typedef struct {
+    char* nombreArchivo;
+    uint32_t puntero;
+} t_archivo_abierto_proceso;
+
+typedef struct {
+    t_list* archivos_abiertos;
+    pthread_mutex_t mutex_archivo;
+} tabla_t_archivo_abierto_global;
+
+typedef struct {
+    char* nombreArchivo;
+    char lock;
+    uint32_t contador;
+    t_queue* colabloqueado;
+} t_archivo_global;
 
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);
@@ -281,7 +299,7 @@ t_contexto_ejecucion *recibir_contexto(int);
 
 void ask_instruccion_pid_pc(int, int, int);
 void pedido_instruccion(uint32_t *, uint32_t *, int);
-void enviar_instruccion_cpu(int, t_instruccion *);
+void enviar_instruccion(int, t_instruccion *);
 void serializar_instruccion(t_paquete *, t_instruccion *);
 t_instruccion *deserializar_instruccion(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
@@ -295,6 +313,7 @@ void enviar_interrupcion(int, t_interrupcion *);
 t_interrupcion *recibir_interrupcion(int);
 
 void serializar_lista_swap(t_list*, t_paquete*); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
+t_list *recibir_listado_id_bloques(int);
 
 
 uint32_t str_to_uint32(char *str);
