@@ -201,24 +201,19 @@ void kf_open()
     char lock = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
 
     //Sacar esto (no existe la tabla de archivos global)
-    t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, pcbelegido);
+    //t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, pcbelegido);
 
+    t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
+
+if (archivo_global_pedido == NULL)
+        {
     //Mnadar a filesystem si existe el archivo
-
-    // int existeArchivo = verif_crear_recurso_file(archivo_proceso);
-
-    if (archivo_existe(lista_global_archivos, nombre_archivo))
-    { // SI YA EXISTE EL ARCHIVO EN LA TABLA GLOBAL DE KERNEL
-
-        t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
-
-        // el archivo no estaba abierto
-        if (archivo_global_pedido == NULL)
-        {
-            open_file(nombre_archivo, lock);
+    chequear_archivo_fs(pcbelegido->pid,1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, conexion_filesystem);
+    int respuesta ;
+    sem_wait(&operacion_fs);
+    open_file(nombre_archivo, lock);
         }
-        else
-        {
+       
             if (archivo_global_pedido->lock == 'W' || lock == 'W')
             {
 
@@ -229,7 +224,7 @@ void kf_open()
                 pcbelegido->motivo_block = ARCHIVO_BLOCK;
                 pthread_mutex_unlock(&mutex_cola_block);
 
-                log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_proceso->nombreArchivo);
+                log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_global_pedido->nombreArchivo);
                 sem_post(&sem_ready);
                 // if (list_size(lista_ready) > 0) PARA DETENER PLANI
                 sem_post(&sem_exec);
@@ -238,18 +233,18 @@ void kf_open()
             {
                 archivo_global_pedido->contador++;
             }
-        }
-    }
-    else
+             else
     {
         crear_archivo_global(nombre_archivo, lock);
 
         fs_interaction();
     }
+        
+   
     sem_post(&sem_ready);
     // if (list_size(lista_ready) > 0) PARA DETENER PLANI
     sem_post(&sem_exec);
-};
+    }
 
 void kf_close()
 {

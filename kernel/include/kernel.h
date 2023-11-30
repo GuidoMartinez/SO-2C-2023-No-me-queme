@@ -24,6 +24,7 @@ extern sem_t sem_detener;
 extern sem_t sem_blocked_w;
 extern sem_t sem_detener_sleep;
 extern sem_t sem_hilo_FS;
+extern sem_t operacion_fs;
 
 extern t_list *recursos_kernel;
 extern t_list *lista_ready;
@@ -120,5 +121,5 @@ void fs_interaction();
 
 void* recibir_op_FS();
 void* manejar_pf();
-
+void chequear_archivo_fs(int , int , char *, int );
 #endif

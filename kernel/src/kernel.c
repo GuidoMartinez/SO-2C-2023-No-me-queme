@@ -25,6 +25,7 @@ sem_t sem_detener;
 sem_t sem_blocked_w;
 sem_t sem_detener_sleep;
 sem_t sem_hilo_FS;
+sem_t operacion_fs;
 
 t_list *recursos_kernel;
 t_list *lista_ready;
@@ -174,6 +175,7 @@ int main(int argc, char **argv)
     sem_init(&sem_blocked_w, 0, 0);
     sem_init(&sem_detener_sleep, 0, 0);
     sem_init(&sem_hilo_FS, 0, 0);
+    sem_init(&operacion_fs, 0, 0);
     /*sem_init(&sem_block_return, 0, 0);*/
 
     while (1)
@@ -522,6 +524,14 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
     desplazamiento += sizeof(uint32_t);
 
     memcpy(paquete->buffer->stream + desplazamiento, path, long_path);
+}
+
+void chequear_archivo_fs(int pid_nuevo, int size, char *path, int conexion_filesystem)
+{
+    t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
+    serializar_pedido_proceso_nuevo(paquete_proceso_nuevo, pid_nuevo, size, path);
+    enviar_paquete(paquete_proceso_nuevo, conexion_filesystem);
+    eliminar_paquete(paquete_proceso_nuevo);
 }
 
 /*int comparar(const void *a, const void *b) {
