@@ -178,7 +178,16 @@ void *manejo_conexion_cpu(void *arg)
 				enviar_marco_cpu(marco, socket_cpu_int, PAGE_FAULT);
 			}
 			break;
+		case MOV_OUT_CPU: // me pasa por parametro un uint32_t y tengo que guardarlo en el marco que me dice
+			uint32_t valor, dir_fisica;
+			recibir_mov_out_cpu(&valor,&dir_fisica,socket_cpu_int);
+			escribir_memoria(dir_fisica,valor);
+			
 
+			break;
+		case MOV_IN_CPU: // Lee el valor del marco y lo devuelve para guardarlo en el registro (se pide la direccion) - recibo direccion fisica
+
+			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
 			// close(socket_cpu_int);
@@ -223,7 +232,7 @@ void *manejo_conexion_kernel(void *arg)
 			liberar_marcos_proceso(pid_a_finalizar); // libero marcos ocupados por el proceso
 
 			limpiar_swap(proceso_a_eliminar);			  // listo los bloques swap y se los envio a FS para que los marque como libre
-			eliminar_proceso_memoria(proceso_a_eliminar); // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos -- 
+			eliminar_proceso_memoria(proceso_a_eliminar); // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos --
 
 			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso.
 			break;
@@ -596,7 +605,6 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 	return proceso_nuevo;
 }
 
-
 void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
@@ -698,6 +706,34 @@ void inicializar_marcos()
 	}
 }
 
+// INSTRUCCIONES CPU 
+
+void recibir_mov_out_cpu(uint32_t *valor, uint32_t *marco, int socket)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	printf("size del stream a deserializar \n%d", size);
+	memcpy(valor, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(marco, buffer + offset, sizeof(uint32_t));
+
+	free(buffer);
+}
+
+
+// MEMORIA USUARIO
+
+void escribir_memoria(uint32_t dir_fisica, uint32_t valor){
+
+	pthread_mutex_lock(&mutex_memoria_usuario);
+	memcpy(memoria_usuario + dir_fisica, &valor, sizeof(uint32_t));
+	pthread_mutex_unlock(&mutex_memoria_usuario);
+	// TODO -- Calcular el nro de marco que corresponde a esa direccion fisica, para obtener la  entrada de tabla que tiene ese marco (guardar el pid desde el marco para el log) y marcar la entrada como modificada.
+
+}
+
 // FINALIZAR PROCESO
 
 void limpiar_swap(t_proceso_memoria *proceso_a_eliminar) // listo los bloques swap y se los envio a FS para que los marque como libre
@@ -727,10 +763,9 @@ t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
 void enviar_bloques_swap_a_liberar(t_list *lista_bloques, int socket)
 {
 	t_paquete *paquete_swap_a_borrar = crear_paquete_con_codigo_de_operacion(SWAP_A_LIBERAR);
-	serializar_lista_swap(lista_bloques,paquete_swap_a_borrar);
+	serializar_lista_swap(lista_bloques, paquete_swap_a_borrar);
 	enviar_paquete(paquete_swap_a_borrar, socket);
 	eliminar_paquete(paquete_swap_a_borrar);
-
 }
 
 void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos
@@ -738,7 +773,7 @@ void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero l
 
 	// TODO -- Eliminar las paginas del proceso.
 
-	log_info(logger_memoria_info,"DESTRUCCION TABLA DE PAGINAS - PID [%d] - Tamano [%d]", proceso_a_eliminar->pid, proceso_a_eliminar->tabla_paginas->cantidad_pagina); // LOG OBLIGATORIO
+	log_info(logger_memoria_info, "DESTRUCCION TABLA DE PAGINAS - PID [%d] - Tamano [%d]", proceso_a_eliminar->pid, proceso_a_eliminar->tabla_paginas->cantidad_paginas); // LOG OBLIGATORIO
 }
 
 void finalizar_memoria()

@@ -82,9 +82,12 @@ int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
 void pedido_inicio_swap(int, int);
 void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
+void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
+void escribir_memoria(uint32_t, uint32_t);
+
 void limpiar_swap(t_proceso_memoria *);
 t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso);
-void enviar_bloques_swap_a_liberar(t_list*,int);
+void enviar_bloques_swap_a_liberar(t_list *, int);
 
 void eliminar_proceso_memoria(t_proceso_memoria *);
 
