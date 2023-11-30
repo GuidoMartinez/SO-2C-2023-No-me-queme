@@ -63,10 +63,8 @@ typedef enum
     F_READ,
     F_WRITE,
     F_TRUNCATE,
-    F_DELETE,
     EXIT,
     PRINT_FILE_DATA,
-    CREATE_SEGMENT
 } nombre_instruccion;
 
 typedef struct
@@ -231,7 +229,6 @@ typedef enum{
 	F_SEEK_SUCCESS,
 	F_READ_SUCCESS,
 	F_CREATE_SUCCESS,
-	F_DELETE_SUCCESS,
 	FILE_DOESNT_EXISTS,
 }t_resp_file;
 

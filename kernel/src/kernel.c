@@ -613,7 +613,7 @@ int verif_crear_recurso_file(t_archivo_global *archivo)
     int result = 0;
     if (!archivo_existe(lista_global_archivos, archivo->nombreArchivo))
     {
-        crear_archivo_global(archivo->nombreArchivo);
+        //crear_archivo_global(archivo->nombreArchivo);
         result = 1;
     }
 
@@ -715,6 +715,8 @@ void *recibir_op_FS()
 
         switch (op)
         {
+        case F_ERROR:
+            break;
         case F_OPEN_SUCCESS:
             break;
         case F_CLOSE_SUCCESS:
