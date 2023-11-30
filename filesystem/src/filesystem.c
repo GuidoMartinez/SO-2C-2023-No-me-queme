@@ -22,9 +22,10 @@ int main(int argc, char **argv)
     tamanio_bloque = config_valores_filesystem.tam_bloque;
     tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
     tamanio_fat = (config_valores_filesystem.cant_bloques_total - config_valores_filesystem.cant_bloques_swap);
-    bloque *fat = (int *)malloc(tamanio_fat * sizeof(bloque));
+    fat = (int *)malloc(tamanio_fat * sizeof(bloque));
     path_fcb = config_valores_filesystem.path_fcb;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
+    swap = (int *)malloc(bloques_swap * sizeof(bloque));
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
     op_code handshake_memoria = recibir_operacion(socket_memoria);
@@ -179,56 +180,59 @@ int crear_fat(int cantidad_de_bloques, char *path_fat, t_log *logger)
     }
     if (formatear == 1)
     {
-        for (int i = 0; i < cantidad_de_bloques; i++) {
+        for (int i = 0; i < cantidad_de_bloques; i++)
+        {
             fat[i].utilizado = false;
         }
         log_info(logger, "Tabla FAT formateada exitosamente");
     }
     fat[0].utilizado = true;
+    fat[0].next_block = 0; 
+    
     log_info(logger, "Tabla FAT creada");
     return 0;
 }
 
-void leerBloque(bloque *fat, int block_number, t_log *logger, bloque *block)
+void leerBloque(bloque *block, int block_number)
 {
     if (block_number < 0 || block_number >= tamanio_fat)
     {
-        log_error(logger, "Error al leer el bloque %d desde la tabla FAT. Bloque fuera de los límites.", block_number);
+        log_error(filesystem_logger_info, "Error al leer el bloque %d desde la tabla FAT. Bloque fuera de los límites.", block_number);
         return;
     }
     *block = fat[block_number];
 }
 
-void escribirBloque(bloque *fat, bloque *block, int block_number, t_log *logger)
+void escribirBloque(bloque *block, int block_number)
 {
     if (block_number < 0 || block_number >= tamanio_fat)
     {
-        log_error(logger, "Error al escribir en el bloque %d en la tabla FAT. Bloque fuera de los límites.", block_number);
+        log_error(filesystem_logger_info, "Error al escribir en el bloque %d en la tabla FAT. Bloque fuera de los límites.", block_number);
         return;
     }
     fat[block_number] = *block;
 }
 
 
-void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat, t_log *logger)
+void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat)
 {
     int file_descriptor = open(nombreArchivo, O_CREAT | O_RDWR, 0644);
     if (file_descriptor < 0)
     {
-        log_error(logger, "Error al abrir el archivo FAT para escritura");
+        log_error(filesystem_logger_info, "Error al abrir el archivo FAT para escritura");
         return;
     }
 
     if (ftruncate(file_descriptor, tamanio_fat * sizeof(bloque)) != 0)
     {
-        log_error(logger, "Error al asignar espacio en disco para el archivo FAT");
+        log_error(filesystem_logger_info, "Error al asignar espacio en disco para el archivo FAT");
         close(file_descriptor);
         return;
     }
     bloque *archivo_mapeado = mmap(NULL, tamanio_fat * sizeof(bloque), PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
     if (archivo_mapeado == MAP_FAILED)
     {
-        log_error(logger, "Error al mapear el archivo FAT en memoria");
+        log_error(filesystem_logger_info, "Error al mapear el archivo FAT en memoria");
         close(file_descriptor);
         return;
     }
@@ -237,18 +241,16 @@ void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat, t_log *
     close(file_descriptor);
 }
 
-bloque *cargarFAT(const char *nombreArchivo, int tamanio_fat, t_log *logger)
+bloque *cargarFAT(const char *nombreArchivo)
 {
-    FILE *archivo = fopen(nombreArchivo, "rb"); // Abre el archivo en modo binario para lectura
+    FILE *archivo = fopen(nombreArchivo, "rb"); 
 
     if (archivo)
     {
-        bloque *fat = (bloque *)malloc(tamanio_fat * sizeof(bloque));
-
         if (fat == NULL)
         {
             fclose(archivo);
-            log_error(logger, "Error al asignar memoria para cargar la FAT");
+            log_error(filesystem_logger_info, "Error al asignar memoria para cargar la FAT");
             return NULL;
         }
 
@@ -256,7 +258,7 @@ bloque *cargarFAT(const char *nombreArchivo, int tamanio_fat, t_log *logger)
         {
             fclose(archivo);
             free(fat);
-            log_error(logger, "Error al leer la FAT desde el archivo");
+            log_error(filesystem_logger_info, "Error al leer la FAT desde el archivo");
             return NULL;
         }
 
@@ -265,7 +267,7 @@ bloque *cargarFAT(const char *nombreArchivo, int tamanio_fat, t_log *logger)
     }
     else
     {
-        log_error(logger, "No se pudo abrir el archivo '%s' para lectura", nombreArchivo);
+        log_error(filesystem_logger_info, "No se pudo abrir el archivo '%s' para lectura", nombreArchivo);
         return NULL;
     }
 }
@@ -302,100 +304,32 @@ void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
     closedir(dir_fat);
 }
 
-int crearFCB(char *nombre_fcb, t_log *logger, bloque *fat)
-{
-    if (buscar_fcb(nombre_fcb) != -1)
-    {
-        log_error(logger, "Ya existe un FCB con ese nombre: %s", nombre_fcb);
-        return -1;
-    }
-
-    char *nombre_completo = string_from_format("%s.dat", nombre_fcb);
-    if (nombre_completo == NULL)
-    {
-        log_error(logger, "Error al construir el nombre completo del FCB");
-        return -1;
-    }
-
-    fcb_t *nuevo_fcb = inicializar_fcb();
-    if (nuevo_fcb == NULL)
-    {
-        log_error(logger, "Error al inicializar el FCB");
-        free(nombre_completo);
-        return -1;
-    }
-
-    nuevo_fcb->id = fcb_id++;
-    nuevo_fcb->nombre_archivo = string_duplicate(nombre_fcb);
-
-    t_config *fcb_fisico = malloc(sizeof(t_config));
-    if (fcb_fisico == NULL)
-    {
-        log_error(logger, "Error al asignar memoria para el FCB físico");
-        borrar_fcb(nuevo_fcb->id, logger); // Utiliza borrar_fcb para liberar el FCB
-        free(nombre_completo);
-        return -1;
-    }
-
-    fcb_fisico->path = string_duplicate(nombre_completo);
-    fcb_fisico->properties = dictionary_create();
-    if (fcb_fisico->path == NULL || fcb_fisico->properties == NULL)
-    {
-        log_error(logger, "Error al asignar memoria para el FCB físico");
-        borrar_fcb(nuevo_fcb->id, logger);
-        free(nombre_completo);
-        free(fcb_fisico->path);
-        free(fcb_fisico->properties);
-        free(fcb_fisico);
-        return -1;
-    }
-
-    char *nombre_duplicado = string_duplicate(nombre_fcb);
-    dictionary_put(fcb_fisico->properties, "NOMBRE_ARCHIVO", nombre_duplicado);
-    dictionary_put(fcb_fisico->properties, "TAMANIO_ARCHIVO", "0");
-    dictionary_put(fcb_fisico->properties, "BLOQUE_INICIAL", "0");
-
-    if (!config_save_in_file(fcb_fisico, nombre_completo))
-    {
-        log_error(logger, "Error al guardar el FCB físico en el archivo");
-        borrar_fcb(nuevo_fcb->id, logger); 
-        free(nombre_completo);
-        free(fcb_fisico->path);
-        free(fcb_fisico->properties);
-        free(fcb_fisico);
-        return -1;
-    }
-
-    list_add(lista_fcb, nuevo_fcb);
-
-    // Liberar recursos
-    free(nombre_duplicado);
-    free(nombre_completo);
-    dictionary_destroy(fcb_fisico->properties);
-    free(fcb_fisico->path);
-    free(fcb_fisico);
-
-    log_info(logger, "FCB creado correctamente: %s", nombre_fcb);
-    return nuevo_fcb->id;
-}
-
 int crearFAT(char *path_fat, t_log *logger)
 {
-    int cantidad_de_bloques = tamanio_fat;
-    FILE *archivo = fopen(path_fat, "wb"); 
+    FILE *archivo = fopen(path_fat, "wb");
     if (archivo)
     {
-        for (int i = 0; i < cantidad_de_bloques; i++)
+        bloque *fat = malloc(tamanio_fat * sizeof(bloque));
+        if (fat == NULL)
         {
-            bloque fat_entry;
-            fat_entry.next_block = 0;
-            fat_entry.tamanio = tamanio_bloque;
-            fat_entry.id = i;
-            fat[i] = fat_entry;
-            fwrite(&fat_entry, sizeof(bloque), 1, archivo);
+            log_error(logger, "Error al asignar memoria para la tabla FAT");
+            fclose(archivo);
+            return -1;
         }
+
+        for (int i = 0; i < tamanio_fat; i++)
+        {
+            fat[i].next_block = 0;
+            fat[i].tamanio = tamanio_bloque;
+            fat[i].id = i;
+        }
+
+        fwrite(fat, sizeof(bloque), tamanio_fat, archivo);
         fclose(archivo);
-        log_info(logger, "FAT table creada correctamente");
+
+        free(fat);
+
+        log_info(logger, "Tabla FAT creada correctamente");
         return 0;
     }
     else
@@ -407,39 +341,80 @@ int crearFAT(char *path_fat, t_log *logger)
 
 int crear_fcb(char *nombre_fcb)
 {
-	int resultado = -1;
-	if (buscar_fcb(nombre_fcb) != -1)
-	{
-		log_error(filesystem_logger_info, "Ya existe un FCB con ese nombre");
-		return resultado;
-	}
-	char *nombre_completo = string_new(); // esto creo que hay que vincularlo con el archivo actual
-	string_append(&nombre_completo, path_fcb);
-	string_append(&nombre_completo, nombre_fcb);
-	string_append(&nombre_completo, ".dat");
-	fcb_t *nuevo_fcb = inicializar_fcb();
-	nuevo_fcb->id = fcb_id++;
-	nuevo_fcb->nombre_archivo = string_new();
-	string_append(&nuevo_fcb->nombre_archivo, nombre_fcb);
-	nuevo_fcb->ruta_archivo = string_new();
-	string_append(&nuevo_fcb->ruta_archivo, nombre_completo);
-	t_config *fcb_fisico = malloc(sizeof(t_config));
-	fcb_fisico->path = string_new();
-	fcb_fisico->properties = dictionary_create();
-	string_append(&fcb_fisico->path, nombre_completo);
-	char *nombre_duplicado = string_duplicate(nombre_fcb);
-	dictionary_put(fcb_fisico->properties, "NOMBRE_ARCHIVO", nombre_duplicado);
-	dictionary_put(fcb_fisico->properties, "TAMANIO_ARCHIVO", "0");
-	dictionary_put(fcb_fisico->properties, "PUNTERO_DIRECTO", "0");
-	dictionary_put(fcb_fisico->properties, "PUNTERO_INDIRECTO", "0");
-	config_save_in_file(fcb_fisico, nombre_completo);
-	list_add(lista_fcb, nuevo_fcb);
-	dictionary_destroy(fcb_fisico->properties);
-	free(nombre_duplicado);
-	free(fcb_fisico->path);
-	free(fcb_fisico);
-	free(nombre_completo);
-	return nuevo_fcb->id;
+    int resultado = -1;
+
+    if (buscar_fcb(nombre_fcb) != -1)
+    {
+        log_error(filesystem_logger_info, "Ya existe un FCB con ese nombre: %s", nombre_fcb);
+        return resultado;
+    }
+
+    char *nombre_completo = string_from_format("%s%s.dat", path_fcb, nombre_fcb);
+    if (nombre_completo == NULL)
+    {
+        log_error(filesystem_logger_info, "Error al construir el nombre completo del FCB");
+        return resultado;
+    }
+
+    fcb_t *nuevo_fcb = inicializar_fcb();
+    if (nuevo_fcb == NULL)
+    {
+        log_error(filesystem_logger_info, "Error al inicializar el FCB");
+        free(nombre_completo);
+        return resultado;
+    }
+
+    nuevo_fcb->id = fcb_id++;
+    nuevo_fcb->nombre_archivo = string_duplicate(nombre_fcb);
+    nuevo_fcb->ruta_archivo = string_duplicate(nombre_completo);
+
+    t_config *fcb_fisico = malloc(sizeof(t_config));
+    if (fcb_fisico == NULL)
+    {
+        log_error(filesystem_logger_info, "Error al asignar memoria para el FCB físico");
+        borrar_fcb(nuevo_fcb);
+        free(nombre_completo);
+        return resultado;
+    }
+
+    fcb_fisico->path = string_duplicate(nombre_completo);
+    fcb_fisico->properties = dictionary_create();
+    if (fcb_fisico->path == NULL || fcb_fisico->properties == NULL)
+    {
+        log_error(filesystem_logger_info, "Error al asignar memoria para el FCB físico");
+        borrar_fcb(nuevo_fcb);
+        free(nombre_completo);
+        free(fcb_fisico->path);
+        free(fcb_fisico->properties);
+        free(fcb_fisico);
+        return resultado;
+    }
+
+    char *nombre_duplicado = string_duplicate(nombre_fcb);
+    dictionary_put(fcb_fisico->properties, "NOMBRE_ARCHIVO", nombre_duplicado);
+    dictionary_put(fcb_fisico->properties, "TAMANIO_ARCHIVO", "0");
+    dictionary_put(fcb_fisico->properties, "BLOQUE_INICIAL", "0");
+
+    if (!config_save_in_file(fcb_fisico, nombre_completo))
+    {
+        log_error(filesystem_logger_info, "Error al guardar el FCB físico en el archivo");
+        borrar_fcb(nuevo_fcb);
+        free(nombre_completo);
+        free(fcb_fisico->path);
+        free(fcb_fisico->properties);
+        free(fcb_fisico);
+        return resultado;
+    }
+
+    list_add(lista_fcb, nuevo_fcb);
+    free(nombre_duplicado);
+    free(nombre_completo);
+    dictionary_destroy(fcb_fisico->properties);
+    free(fcb_fisico->path);
+    free(fcb_fisico);
+
+    log_info(filesystem_logger_info, "FCB creado correctamente: %s", nombre_fcb);
+    return nuevo_fcb->id;
 }
 
 uint32_t buscar_fcb(char *nombre_fcb)
@@ -455,6 +430,7 @@ uint32_t buscar_fcb(char *nombre_fcb)
             break;
         }
     }
+    log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
     return resultado;
 }
 
@@ -526,6 +502,9 @@ uint32_t valor_para_fcb(fcb_t *fcb, fcb_prop_t llave)
     case BLOQUE_INICIAL:
         valor = fcb->bloque_inicial;
         break;
+    case NOMBRE_ARCHIVO:
+        valor = fcb->nombre_archivo;
+        break;
     default:
         break;
     }
@@ -556,6 +535,10 @@ int _modificar_fcb(fcb_t *fcb, fcb_prop_t llave, uint32_t valor)
     case BLOQUE_INICIAL:
         fcb->bloque_inicial = valor;
         config_set_value(fcb_fisico, "BLOQUE_INICIAL", valor_string);
+        break;
+    case NOMBRE_ARCHIVO:
+        fcb->nombre_archivo = valor;
+        config_set_value(fcb_fisico, "NOMBRE_ARCHIVO", valor_string);
         break;
     default:
         resultado = -1;
@@ -805,7 +788,7 @@ void realizar_f_write(t_instruccion_fs *instruccion_file) {
     uint32_t pid = instruccion_file->pid;
     uint32_t direccion_fisica = instruccion_file->param1_length; 
     int tamanio = instruccion_file->param2_length; 
-    int puntero_archivo = instruccion_file->param4; 
+    int puntero_archivo = instruccion_file->puntero; 
     t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_WRITE);
     agregar_a_paquete(paquete, &pid, sizeof(uint32_t));
     agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
@@ -866,17 +849,16 @@ void *leer_datos(t_list *lista_offsets) {
 void realizar_f_read(t_instruccion_fs *instruccion_file)
 {
 		int direccion_fisica = atoi(instruccion_file->param2);
-		int tamanio = atoi(instruccion_file->param3);
-		int puntero_archivo = instruccion_file->param4;
+		int puntero_archivo = instruccion_file->puntero;
 		int id_fcb = buscar_fcb(instruccion_file->param1);
-		t_list *lista_de_bloques = armar_lista_offsets(id_fcb, tamanio, direccion_fisica);
+		t_list *lista_de_bloques = armar_lista_offsets(id_fcb, tamanio_bloque, direccion_fisica);
 		log_info(filesystem_logger_info, "Entro a realizar f read");
 		void *datos = leer_datos(lista_de_bloques);
 		t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_READ_FS);
 		agregar_a_paquete(paquete, &(instruccion_file->pid), sizeof(uint32_t));
 		agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
-		agregar_a_paquete(paquete, &tamanio, sizeof(uint32_t));
-		agregar_a_paquete(paquete, datos, tamanio);
+		agregar_a_paquete(paquete, &tamanio_bloque, sizeof(uint32_t));
+		agregar_a_paquete(paquete, datos, tamanio_bloque);
 		enviar_paquete(paquete, socket_memoria);
 		eliminar_paquete(paquete);
 		op_code respuesta = recibir_operacion(socket_memoria);
@@ -887,13 +869,13 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
 		}
 }
 
-int borrar_fcb(int id, t_log *logger)
+int borrar_fcb(int id)
 {
     int resultado = -1;
 
     if (buscar_fcb_id(id) == -1)
     {
-        log_error(logger, "No existe un FCB con ese ID: %d", id);
+        log_error(filesystem_logger_info, "No existe un FCB con ese ID: %d", id);
         return resultado;
     }
 
@@ -901,7 +883,7 @@ int borrar_fcb(int id, t_log *logger)
 
     if (remove(fcb->ruta_archivo) != 0)
     {
-        log_error(logger, "Error al eliminar el archivo asociado al FCB (ID: %d)", id);
+        log_error(filesystem_logger_info, "Error al eliminar el archivo asociado al FCB (ID: %d)", id);
         return resultado;
     }
 
@@ -914,124 +896,11 @@ int borrar_fcb(int id, t_log *logger)
     return resultado;
 }
 
-void generar_instruccion_mov(t_instruccion_fs *instruccion_nueva, nombre_instruccion instruccion, uint32_t dir_fisica, uint32_t tamanio, char *valor)
-{
-	char *s_dir_fisica = string_itoa(dir_fisica);
-	char *s_tamanio = string_itoa(tamanio);
-	int size_dir = strlen(s_dir_fisica) + 1;
-	int size_tamanio = strlen(s_tamanio) + 1;
-	instruccion_nueva->param1_length = size_dir;
-	instruccion_nueva->param1 = realloc(instruccion_nueva->param1, size_dir);
-	memcpy(instruccion_nueva->param1, s_dir_fisica, size_dir);
-	instruccion_nueva->param2_length = size_tamanio;
-	instruccion_nueva->param2 = realloc(instruccion_nueva->param2, size_tamanio);
-	memcpy(instruccion_nueva->param2, s_tamanio, size_tamanio);
-	instruccion_nueva->param3_length = tamanio;
-	instruccion_nueva->param3 = realloc(instruccion_nueva->param3, tamanio);
-	memcpy(instruccion_nueva->param3, valor, tamanio);
-	instruccion_nueva->estado = instruccion;
-	free(s_dir_fisica);
-	free(s_tamanio);
-}
-
-void copiar_instruccion_mov(void *stream, t_instruccion_fs *instruccion)
-{
-	int offset = 0;
-	memcpy(stream + offset, &instruccion->estado, sizeof(nombre_instruccion));
-	offset += sizeof(nombre_instruccion);
-	memcpy(stream + offset, &instruccion->pid, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(stream + offset, &instruccion->param1_length, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(stream + offset, instruccion->param1, instruccion->param1_length);
-	offset += instruccion->param1_length;
-	memcpy(stream + offset, &instruccion->param2_length, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(stream + offset, instruccion->param2, instruccion->param2_length);
-	offset += instruccion->param2_length;
-	memcpy(stream + offset, &instruccion->param3_length, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(stream + offset, instruccion->param3, instruccion->param3_length);
-}
-
-uint32_t calcular_tam_instruc_mov(t_instruccion_fs *instruccion)
-{
-	uint32_t size = 0;
-	size = sizeof(nombre_instruccion) + sizeof(uint32_t) + sizeof(uint32_t) + instruccion->param1_length + sizeof(uint32_t) + instruccion->param2_length + sizeof(uint32_t) + instruccion->param3_length;
-	return size;
-}
-
-t_instruccion_fs *inicializar_instruc_mov()
-{
-	t_instruccion_fs *instruccion = malloc(sizeof(t_instruccion_fs));
-	instruccion->pid = 0;
-	instruccion->param1 = malloc(sizeof(char) * 2);
-	memcpy(instruccion->param1, "0", (sizeof(char) * 2));
-	instruccion->param1_length = sizeof(char) * 2;
-	instruccion->param2 = malloc(sizeof(char) * 2);
-	memcpy(instruccion->param2, "0", (sizeof(char) * 2));
-	instruccion->param2_length = sizeof(char) * 2;
-	instruccion->param3 = malloc(sizeof(char) * 2);
-	memcpy(instruccion->param3, "0", (sizeof(char)));
-	instruccion->param3_length = sizeof(char);
-	instruccion->estado = CREATE_SEGMENT;
-	log_info(filesystem_logger_info, "Instruccion mov inicializada exitosamente");
-	return instruccion;
-}
-
-void serializar_instruccion_mov(int socket, t_instruccion_fs *instruccion)
-{
-	t_buffer *buffer = malloc(sizeof(t_buffer));
-	buffer->size = calcular_tam_instruc_mov(instruccion);
-	void *stream = malloc(buffer->size);
-	copiar_instruccion_mov(stream, instruccion);
-	buffer->stream = stream;
-	t_paquete *paquete = malloc(buffer->size + sizeof(uint32_t) * 3);
-	crear_buffer(paquete);
-	send(socket, paquete, buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t), 0);
-	free(buffer->stream);
-	free(buffer);
-	free(paquete);
-}
-
-void destroy_instruc_mov(t_instruccion_fs *instruccion)
-{
-	free(instruccion->param1);
-	free(instruccion->param2);
-	free(instruccion->param3);
-	free(instruccion);
-	log_info(filesystem_logger_info, "Instruccion mov destruida exitosamente");
-}
-
-void *esperar_valor(int memoria_connection, t_log *logger)
-{
-	t_instruccion_fs *nueva_instruccion = inicializar_instruc_mov();
-	t_paquete *paquete = malloc(sizeof(t_paquete));
-	paquete->buffer = malloc(sizeof(t_buffer));
-	deserializar_header(paquete, memoria_connection);
-	switch (paquete->codigo_operacion)
-	{
-	case 1:
-		deserializar_instruccion_fs(nueva_instruccion, paquete->buffer, paquete->lineas);
-		break;
-	default:
-		log_error(logger, "Fallo respuesta memoria a File-System");
-		break;
-	}
-	free(paquete->buffer->stream);
-	free(paquete->buffer);
-	free(paquete);
-	void *valor = malloc(nueva_instruccion->param3_length);
-	memcpy(valor, nueva_instruccion->param3, nueva_instruccion->param3_length);
-	destroy_instruc_mov(nueva_instruccion);
-	return valor;
-}
-
 void destroy_instruccion_file(t_instruccion_fs *instruccion)
 {
 	free(instruccion->param1);
 	free(instruccion->param2);
-	free(instruccion->param3);
+	free(instruccion->puntero);
 	free(instruccion);
 	log_info(filesystem_logger_info, "Instruccion fs destruida exitosamente");
 }
@@ -1048,16 +917,13 @@ void comunicacion_kernel() {
     while (exit_status == 0) {
         t_paquete *paquete = crear_paquete_con_codigo_de_operacion(HANDSHAKE_FILESYSTEM);
         paquete->buffer = malloc(sizeof(t_buffer));
-        nombre_instruccion codigo_op = recibir_operacion(socket_kernel); 
+        nombre_instruccion codigo_op = recibir_operacion(socket_kernel);
+
         switch (codigo_op) {
             case 1: {
                 t_instruccion_fs *nueva_instruccion = deserializar_instruccion_fs(socket_kernel);
                 uint32_t pid = nueva_instruccion->pid;
                 t_resp_file estado_file = F_ERROR;
-                int largo = strlen(nueva_instruccion->param1);
-                nombre_archivo = realloc(nombre_archivo, largo + 1);
-                memcpy(nombre_archivo, nueva_instruccion->param1, largo);
-                memcpy(nombre_archivo + largo, "", 1);
 
                 switch (nueva_instruccion->estado) {
                     case F_OPEN:
@@ -1095,23 +961,17 @@ void comunicacion_kernel() {
                         serializar_respuesta_file_kernel(socket_kernel, estado_file);
                         break;
                     case F_WRITE:
-                        log_info(filesystem_logger_info, "PID: %d - F_WRITE: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
-                        log_info(filesystem_logger_info, "Escribir Archivo: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
+                        log_info(filesystem_logger_info, "PID: %d - F_WRITE: %s - Puntero: %d - Memoria: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
+                        log_info(filesystem_logger_info, "Escribir Archivo: %s - Puntero: %d - Memoria: %s", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
                         realizar_f_write(nueva_instruccion);
                         estado_file = F_WRITE_SUCCESS;
                         serializar_respuesta_file_kernel(socket_kernel, estado_file);
                         break;
                     case F_READ:
-                        log_info(filesystem_logger_info, "PID: %d - F_READ: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
-                        log_info(filesystem_logger_info, "Leer Archivo: %s - Puntero: %d - Memoria: %s - Tamaño: %s", nueva_instruccion->param1, nueva_instruccion->param4, nueva_instruccion->param2, nueva_instruccion->param3);
+                        log_info(filesystem_logger_info, "PID: %d - F_READ: %s - Puntero: %d - Memoria: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
+                        log_info(filesystem_logger_info, "Escribir Archivo: %s - Puntero: %d - Memoria: %s", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
                         realizar_f_read(nueva_instruccion);
                         estado_file = F_READ_SUCCESS;
-                        serializar_respuesta_file_kernel(socket_kernel, estado_file);
-                        break;
-                    case F_DELETE:
-                        borrar_fcb(buscar_fcb(nueva_instruccion->param1));
-                        estado_file = F_DELETE_SUCCESS;
-                        log_info(filesystem_logger_info, "PID: %d - F_DELETE: %s", nueva_instruccion->pid, nueva_instruccion->param1);
                         serializar_respuesta_file_kernel(socket_kernel, estado_file);
                         break;
                     case PRINT_FILE_DATA:
@@ -1131,20 +991,44 @@ void comunicacion_kernel() {
     }
 }
 
-void escribir_pagina_en_SWAP(int numero_pagina, void *contenido_pagina) {
-    if (numero_pagina >= 0 && numero_pagina < bloques_swap) {
-        char *pagina_swap = swap[numero_pagina];
-        memcpy(pagina_swap, contenido_pagina, tamanio_bloque); 
-    } else {
-        // Manejo de error: supongo que seria mandar un error a memoria
+void inicializar_swap(int cantidad_bloques) {
+    swap = (bloque *)malloc(cantidad_bloques * sizeof(bloque));
+
+    for (int i = 0; i < cantidad_bloques; i++) {
+        swap[i].utilizado = false;
     }
 }
 
-void leer_pagina_desde_SWAP(int numero_pagina, void *buffer) {
-    if (numero_pagina >= 0 && numero_pagina < bloques_swap) {
-        char *pagina_swap = swap[numero_pagina];
-        memcpy(buffer, pagina_swap, tamanio_bloque); 
-    } else {
-        // Lo mismo que escribir
+int reservar_bloques_swap(int cantidad_bloques) {
+    int bloques_reservados = 0;
+    for (int i = 0; i < cantidad_bloques; i++) {
+        if (!swap[i].utilizado) {
+            swap[i].utilizado = true;
+            bloques_reservados++;
+        } else {
+            // Ver como se tratan los errores
+        }
     }
+    return bloques_reservados;
+}
+
+void liberar_bloques_swap(int *bloques_a_liberar, int cantidad_bloques) {
+    for (int i = 0; i < cantidad_bloques; i++) {
+        int bloque = bloques_a_liberar[i];
+        if (bloque >= 0 && bloque < cantidad_bloques) {
+            swap[bloque].utilizado = false;
+        } else {
+            // Lo mismo que reservar
+        }
+    }
+}
+
+void obtener_estado_swap(int cantidad_bloques) {
+    for (int i = 0; i < cantidad_bloques; i++) {
+        printf("Bloque %d: %s\n", i, swap[i].utilizado ? "Ocupado" : "Libre");
+    }
+}
+
+void liberar_swap() {
+    free(swap);
 }

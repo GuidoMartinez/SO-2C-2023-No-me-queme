@@ -42,7 +42,8 @@ typedef struct
 
 typedef enum
 {
-	TAMANIO_ARCHIVO,
+	NOMBRE_ARCHIVO,
+    TAMANIO_ARCHIVO,
 	BLOQUE_INICIAL
 } fcb_prop_t;
 
@@ -70,8 +71,8 @@ void inicializar_datos_memoria(int , void *);
 off_t obtener_primer_bloque_libre(bloque *);
 bool bloque_esta_ocupado(bloque *, int, int);
 int crear_fat(int, char *, t_log *);
-bloque leerBloque(FILE *, int);
-void escribirBloque(FILE *, bloque *, int);
+void leerBloque(bloque *, int);
+void escribirBloque(bloque *, int);
 void guardarFAT(const char *, bloque *, int);
 bloque * cargarFAT(const char *);
 void liberarMemoriaFAT();
@@ -112,5 +113,6 @@ char *nombre_archivo;
 char * path_fcb;
 int retardo_acceso_bloque;
 int bloques_swap;
+bloque *swap;
 
 #endif
