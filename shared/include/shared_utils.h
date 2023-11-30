@@ -47,7 +47,8 @@ typedef enum
     MOV_IN_CPU,
     MOV_OUT_CPU,
     INSTRUCCION_MEMORIA_OK,
-    MARCO
+    MARCO,
+    MARCO_PAGE_FAULT
 } op_code;
 
 typedef enum
@@ -217,6 +218,12 @@ typedef struct
     int pid;
 } t_interrupcion;
 
+typedef struct
+{
+    int valor;
+    op_code codigo_operacion;
+} t_valor_operacion;
+
 typedef enum
 {
     FIFO,
@@ -315,7 +322,12 @@ t_interrupcion *recibir_interrupcion(int);
 void serializar_lista_swap(t_list*, t_paquete*); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
 t_list *recibir_listado_id_bloques(int);
 
+void enviar_pedido_marco(int, int, int);
+t_valor_operacion* recibir_marco(int);
 
-uint32_t str_to_uint32(char *str);
+void enviar_op_con_int(int, op_code, int);
+t_valor_operacion* recibir_int(int);
+
+uint32_t str_to_uint32(char*);
 
 #endif

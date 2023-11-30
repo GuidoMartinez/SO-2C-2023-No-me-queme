@@ -59,7 +59,7 @@ int main(int argc, char **argv)
             log_info(cpu_logger_info, "Recibo pid%d y pc%d", contexto_actual->pid, contexto_actual->program_counter);
             contexto_actual->codigo_ultima_instru = -1;
 
-            while (!es_syscall() && !hay_interrupciones())
+            while (!es_syscall() && !hay_interrupciones() && !page_fault)
             {
                 log_warning(cpu_logger_info, "Ejecuto proxima instruccion");
                 ejecutar_ciclo_instruccion();
@@ -161,6 +161,12 @@ void obtener_motivo_desalojo()
 {
     if (interrupciones[INTERRUPT_FIN_PROCESO])
         contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+    if (interrupciones[INTERRUPT_FIN_QUANTUM])
+        contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
+    if (interrupciones[INTERRUPT_NUEVO_PROCESO])
+        contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
+    if (page_fault)
+        contexto_actual->motivo_desalojado = PAGE_FAULT;
 }
 
 bool descartar_interrupcion(int pid)
@@ -308,7 +314,6 @@ void decode(t_instruccion *instruccion)
     case WAIT:
         _wait();
         log_info(cpu_logger_info, "Estoy usando recurso: %s", contexto_actual->instruccion_ejecutada->parametro1);
-
         break;
     case SIGNAL:
         _signal();
@@ -364,6 +369,70 @@ bool es_syscall()
         return true;
     default:
         return false;
+    }
+}
+
+int obtener_valor_dir(uint32_t dl){
+
+    int df = traducir_dl(dl);
+    int valor = -1;
+
+    if(df == -1) {return df;}
+
+    enviar_op_con_int(socket_memoria, MOV_IN, df);
+
+    t_valor_operacion* resultado = recibir_int(socket_memoria);
+
+    if (resultado->codigo_operacion == (op_code)MOV_IN) {valor = resultado->valor;}
+    else {log_error(cpu_logger_info, "Error al hacer el MOV_IN");}
+
+    free(resultado);
+
+    return valor;
+} 
+
+void escribir_memoria(uint32_t dl, int valor){
+    int df = traducir_dl(dl);
+
+    if(df != -1) {enviar_mov_out(df, valor);}
+    else {log_info(cpu_logger_info, "Hubo page fault");}
+}
+
+
+void enviar_mov_out(int df, uint32_t valor)
+{
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MOV_OUT);
+	paquete->buffer->size += sizeof(int) + sizeof(uint32_t);
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete->buffer->stream + offset, &(df), sizeof(int));
+    offset += sizeof(int);
+    memcpy(paquete->buffer->stream + offset, &(valor), sizeof(uint32_t));
+
+	enviar_paquete(paquete, socket_memoria);
+	eliminar_paquete(paquete);
+}
+
+int traducir_dl(uint32_t dl){
+    uint32_t num_pag = dl/tamano_pagina;
+    uint32_t desplazamiento = dl - num_pag * tamano_pagina;
+
+    enviar_pedido_marco(socket_memoria, num_pag, contexto_actual->pid);
+
+    t_valor_operacion* resultado = recibir_marco(socket_memoria);
+
+    if(resultado->codigo_operacion == MARCO_PAGE_FAULT) {
+        page_fault = true;
+        int marco_return = resultado->valor;
+        free(resultado);
+        return marco_return;
+    }
+    else{
+        int df = resultado->valor * tamano_pagina + desplazamiento;
+        free(resultado);
+        return df;
     }
 }
 

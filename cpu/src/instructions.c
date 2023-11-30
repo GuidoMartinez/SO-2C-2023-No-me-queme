@@ -86,8 +86,11 @@ void _mov_in(char *registro, char* direc_logica)
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
 
-    // obtener valor desde memoria
-    //*(regis) = valor;
+    int valor = obtener_valor_dir(str_to_uint32(direc_logica));
+    if(valor != -1) {
+        *(regis) = valor;
+    }
+
     contexto_actual->codigo_ultima_instru = MOV_IN;
     //free(regis);
 }
@@ -99,7 +102,8 @@ void _mov_out(char* direc_logica, char *registro)
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
 
-    // escribir en memoria el contenido del registro
+    escribir_memoria(str_to_uint32(direc_logica), *(regis));
+
     contexto_actual->codigo_ultima_instru = MOV_OUT;
     //free(regis);
 }
@@ -126,6 +130,8 @@ void _f_seek(char *nombre_archivo, char* posicion)
 // se escriba en la dirección física de Memoria la información leída
 void _f_read(char *nombre_archivo, char* direc_logica)
 {
+    traducir_dl_fs(str_to_uint32(direc_logica));
+
     contexto_actual->codigo_ultima_instru = F_READ;
 }
 
@@ -133,6 +139,8 @@ void _f_read(char *nombre_archivo, char* direc_logica)
 // la información que es obtenida a partir de la dirección física de Memoria.
 void _f_write(char *nombre_archivo, char* direc_logica)
 {
+    traducir_dl_fs(str_to_uint32(direc_logica));
+
     contexto_actual->codigo_ultima_instru = F_WRITE;
 }
 
@@ -147,6 +155,17 @@ void _f_truncate(char *nombre_archivo, char* tamanio)
 void __exit()
 {
     contexto_actual->codigo_ultima_instru = EXIT;
+}
+
+void traducir_dl_fs(char* dl){
+    int df = traducir_dl(str_to_uint32(dl));
+    if(df == -1){
+        log_error(cpu_logger_info, "Page fault: %s", dl);
+    }else{
+        char* df_string = string_itoa(df);
+        contexto_actual->instruccion_ejecutada->longitud_parametro2 = strlen(df_string) + 1;
+        contexto_actual->instruccion_ejecutada->parametro2 = strdup(df_string);
+    }
 }
 
 uint32_t *get_registry(char *registro)

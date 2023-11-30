@@ -60,6 +60,10 @@ t_instruccion* fetch(int,int);
 void decode(t_instruccion* instruccion);
 bool es_syscall();
 
+
+int traducir_dl(uint32_t );
+void enviar_mov_out(int, uint32_t);
+
 void dividirCadena(char* cadena, char** cadena_dividida);
 
 #endif

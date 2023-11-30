@@ -702,3 +702,88 @@ t_list *recibir_listado_id_bloques(int socket)
 
 	return lista_bloques_swap;
 }
+
+void enviar_pedido_marco(int socket, int pid, int pagina)
+{
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MARCO);
+	paquete->buffer->size += sizeof(int) * 2;
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(paquete->buffer->stream + offset, &(pagina), sizeof(int));
+
+	enviar_paquete(paquete, socket);
+	eliminar_paquete(paquete);
+}
+
+t_valor_operacion* recibir_marco(int socket)
+{
+
+	int size;
+	void *buffer;
+	buffer = recibir_buffer(&size, socket);
+	//printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
+
+	op_code codigo_recibido;
+	int marco;
+
+	int offset = 0;
+
+	memcpy(&(codigo_recibido), buffer + offset, sizeof(op_code));
+
+	offset += sizeof(op_code);
+
+	memcpy(&(marco), buffer + offset, sizeof(int));
+
+	t_valor_operacion* valor = malloc(sizeof(t_valor_operacion));
+	valor->valor = marco;
+	valor->codigo_operacion = codigo_recibido;
+
+	free(buffer);
+
+	return valor;
+	
+}
+
+void enviar_op_con_int(int socket, op_code code, int entero)
+{
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(code);
+	paquete->buffer->size += sizeof(int);
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete->buffer->stream + offset, &(entero), sizeof(int));
+
+	enviar_paquete(paquete, socket);
+	eliminar_paquete(paquete);
+}
+
+t_valor_operacion* recibir_int(int socket){
+	int size;
+	void *buffer;
+	buffer = recibir_buffer(&size, socket);
+
+	op_code codigo_recibido;
+	int valor_memoria;
+
+	int offset = 0;
+
+	memcpy(&(codigo_recibido), buffer + offset, sizeof(op_code));
+
+	offset += sizeof(op_code);
+
+	memcpy(&(valor_memoria), buffer + offset, sizeof(int));
+
+	t_valor_operacion* resultado = malloc(sizeof(t_valor_operacion));
+	resultado->valor = valor_memoria;
+	resultado->codigo_operacion = codigo_recibido;
+
+	free(buffer);
+
+	return resultado;
+}

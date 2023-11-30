@@ -175,7 +175,7 @@ void *manejo_conexion_cpu(void *arg)
 			}
 			else
 			{
-				enviar_marco_cpu(marco, socket_cpu_int, PAGE_FAULT);
+				enviar_marco_cpu(marco, socket_cpu_int, MARCO_PAGE_FAULT);
 			}
 			break;
 		case MOV_OUT_CPU: // me pasa por parametro un uint32_t y tengo que guardarlo en el marco que me dice
