@@ -280,7 +280,6 @@ void exec_pcb()
         // TODO: Guardar pcb en una lista segun el tipo de desalojo (poner dentro de los switches)
         switch (codigo_instruccion)
         {
-
         case EXIT:
             kexit();
             break;
@@ -293,12 +292,6 @@ void exec_pcb()
         case SIGNAL:
             ksignal();
             break;
-        case MOV_IN:
-            kmov_in();
-        break;
-        case MOV_OUT:
-            kmov_out();
-        break;
         case F_OPEN:
             kf_open();
         break;

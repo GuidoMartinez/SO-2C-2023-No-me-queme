@@ -192,10 +192,6 @@ void ksignal()
     }
 }
 
-void kmov_in(){};
-
-void kmov_out(){};
-
 void kf_open()
 {
 
