@@ -44,6 +44,9 @@ typedef enum
     INICIO_SWAP,
     LISTA_BLOQUES_SWAP,
     SWAP_A_LIBERAR,
+    MOV_IN_CPU,
+    MOV_OUT_CPU,
+    INSTRUCCION_MEMORIA_OK,
     MARCO
 } op_code;
 
