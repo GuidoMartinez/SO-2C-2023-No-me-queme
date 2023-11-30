@@ -622,7 +622,7 @@ int verif_crear_recurso_file(t_archivo_global *archivo)
 
 bool archivo_existe(t_list *lista_archivos, char *nombre_archivo)
 {
-    t_archivo_global *archivoGeneral = buscarArchivo(lista_archivos, nombre_archivo);
+    t_archivo_global *archivoGeneral = buscarArchivoGlobal(lista_archivos, nombre_archivo);
 
     // Verificar si el archivo existe antes de acceder a su campo nombreArchivo
     if (archivoGeneral != NULL && archivoGeneral->nombreArchivo != NULL)
@@ -633,24 +633,25 @@ bool archivo_existe(t_list *lista_archivos, char *nombre_archivo)
     return false;
 }
 
-t_archivo_global *buscarArchivo(t_list *lista, char *recursoPedido2)
+t_archivo_abierto_proceso *buscar_archivo_proceso(t_list *lista, char *recursoPedido2)
 {
     bool _archivoPorNombre(void *elemento)
     {
-        return strcmp(((t_archivo_global *)elemento)->nombreArchivo, recursoPedido2) == 0;
+        return strcmp(((t_archivo_abierto_proceso *)elemento)->nombreArchivo, recursoPedido2) == 0;
     }
 
-    t_archivo_global *archivoExistente;
+    t_archivo_abierto_proceso *archivoExistente;
     archivoExistente = list_find(lista, _archivoPorNombre);
     return archivoExistente;
 }
 
-t_archivo_global *crear_archivo_global(char *nombre)
+t_archivo_global *crear_archivo_global(char *nombre, char lock)
 {
 
     t_archivo_global *archivo = malloc(sizeof(t_archivo_global));
     archivo->nombreArchivo = string_new();
     string_append(&(archivo->nombreArchivo), nombre);
+    archivo->lock = lock;
     archivo->contador = 1;
     archivo->colabloqueado = queue_create();
     list_add(lista_global_archivos, archivo);
@@ -684,10 +685,22 @@ void exec_block_fs()
 
 void open_file(char *nombre_archivo, char lock)
 {
-    t_archivo_global *archivo = buscarArchivo(lista_global_archivos, nombre_archivo);
+    //lista_global_archivos: sacar
+    t_archivo_global *archivo = buscarArchivoGlobal(lista_global_archivos, nombre_archivo);
     archivo->lock = lock;
     archivo->contador += 1;
-    crear_archivo_proceso(nombre_archivo, pcbelegido);
+}
+
+void fs_interaction(){
+        // Usar instruccion_fs
+        enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
+
+        // Se espera respuesta en hilo
+        sem_post(&sem_hilo_FS);
+
+        exec_block_fs();
+
+        //Chequear si hay que mandar el post aca para replanificar
 }
 
 void *recibir_op_FS()
@@ -702,8 +715,6 @@ void *recibir_op_FS()
 
         switch (op)
         {
-        case F_ERROR:
-            break;
         case F_OPEN_SUCCESS:
             break;
         case F_CLOSE_SUCCESS:
@@ -718,14 +729,14 @@ void *recibir_op_FS()
             break;
         case F_CREATE_SUCCESS:
             break;
-        case F_DELETE_SUCCESS:
-            break;
+        //Creemos que no existe esto
         case FILE_DOESNT_EXISTS:
             break;
         }
 
         t_pcb *pcb_bloqueado = buscarProceso(pid);
         set_pcb_ready(pcb_bloqueado);
+
         sem_post(&sem_ready);
         sem_post(&sem_exec);
     }

@@ -108,14 +108,15 @@ void serializar_pedido_proceso_nuevo(t_paquete *, int, int, char *);
 
 void liberar_recursos(t_pcb*);
 void finalizar_proceso_en_ejecucion();
-t_archivo_global *buscarArchivo(t_list *, char *);
+t_archivo_abierto_proceso *buscar_archivo_proceso(t_list *, char *);
 bool archivo_existe(t_list *, char *);
-t_archivo_global *crear_archivo_global(char *);
+t_archivo_global *crear_archivo_global(char *, char);
 int verif_crear_recurso_file(t_archivo_global *);
 t_archivo_global *buscarArchivoGlobal(t_list *, char *);
 void exec_block_fs () ;
 
 void open_file(char*, char);
+void fs_interaction();
 
 void* recibir_op_FS();
 

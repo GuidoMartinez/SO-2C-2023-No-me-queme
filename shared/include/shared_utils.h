@@ -86,9 +86,7 @@ typedef struct {
     char *param1;
     uint32_t param2_length;
     char *param2;
-    uint32_t param3_length;
-    char *param3;
-    uint32_t param4;
+    uint32_t puntero;
 } t_instruccion_fs;
 
 typedef struct

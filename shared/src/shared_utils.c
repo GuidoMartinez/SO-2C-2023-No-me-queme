@@ -634,12 +634,8 @@ void deserializar_instruccion_fs(t_instruccion_fs *instruccion, t_buffer *buffer
 	instruccion->param2 = realloc(instruccion->param2, instruccion->param2_length);
 	memcpy(instruccion->param2, stream, instruccion->param2_length);
 	stream += instruccion->param2_length;
+	memcpy(&(instruccion->puntero), stream, sizeof(uint32_t));
 
-	memcpy(&(instruccion->param3_length), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
-	instruccion->param3 = realloc(instruccion->param3, instruccion->param3_length);
-	memcpy(instruccion->param3, stream, instruccion->param3_length);
-	stream += instruccion->param3_length;
 }
 
 // en la lista debo guardar los punteros de int ya que las listas manejan punteros a estructuras. @ TOMAS

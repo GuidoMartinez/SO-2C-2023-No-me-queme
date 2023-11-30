@@ -204,14 +204,17 @@ void kf_open()
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     char lock = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
 
+    //Sacar esto (no existe la tabla de archivos global)
     t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, pcbelegido);
+
+    //Mnadar a filesystem si existe el archivo
 
     // int existeArchivo = verif_crear_recurso_file(archivo_proceso);
 
     if (archivo_existe(lista_global_archivos, nombre_archivo))
     { // SI YA EXISTE EL ARCHIVO EN LA TABLA GLOBAL DE KERNEL
 
-        t_archivo_global *archivo_global_pedido = buscarArchivo(lista_archivos_abiertos, nombre_archivo);
+        t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
 
         // el archivo no estaba abierto
         if (archivo_global_pedido == NULL)
@@ -225,9 +228,11 @@ void kf_open()
 
                 queue_push(archivo_global_pedido->colabloqueado, pcbelegido);
                 exec_block_fs();
+
                 pthread_mutex_lock(&mutex_cola_block);
                 pcbelegido->motivo_block = ARCHIVO_BLOCK;
                 pthread_mutex_unlock(&mutex_cola_block);
+
                 log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_proceso->nombreArchivo);
                 sem_post(&sem_ready);
                 // if (list_size(lista_ready) > 0) PARA DETENER PLANI
@@ -236,35 +241,101 @@ void kf_open()
             else if (lock == 'R')
             {
                 archivo_global_pedido->contador++;
-                sem_post(&sem_ready);
-                sem_post(&sem_exec);
             }
         }
     }
     else
     {
+        crear_archivo_global(nombre_archivo, lock);
 
-        t_archivo_global *archivoGlobalNuevo = crear_archivo_global(archivo_proceso->nombreArchivo);
-
-        //Revisar si no hay q usar otro tipo de estructura q nosea la instrucción normal
-        enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
-
-        //Se espera respuesta en hilo
-        sem_post(&sem_hilo_FS);
-
-        exec_block_fs();
+        fs_interaction();
     }
     sem_post(&sem_ready);
     // if (list_size(lista_ready) > 0) PARA DETENER PLANI
     sem_post(&sem_exec);
 };
 
-void kf_close(){};
+void kf_close()
+{
 
-void kf_seek(){};
+    log_info(kernel_logger_info, "ESTOY EN F_CLOSE");
 
-void kf_read(){};
+    char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
 
-void kf_write(){};
+    t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
+    t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, nombre_archivo);
 
-void kf_truncate(){};
+    if (archivo_global_pedido != NULL && archivo_proceso != NULL)
+    {
+
+        if (archivo_global_pedido->lock == 'R')
+        {
+            archivo_global_pedido->contador--;
+        }
+        if (archivo_global_pedido->lock == 'W' || archivo_global_pedido->contador == 0)
+        {
+            archivo_global_pedido->lock = 'N';
+            archivo_global_pedido->contador = 0;
+        }
+        else
+        {
+            log_info(kernel_logger_info, "El archivo no tenia lock (no estaba abierto)");
+        }
+    }
+    else
+    {
+        log_info(kernel_logger_info, "El archivo no estaba abierto");
+    }
+
+    //NO sacar la lista de archivos abiertos
+    //list_remove_element(proceso_en_ejecucion->archivos_abiertos, archivo_proceso);
+    //Mutex! capaz no? solo un proceso en ejecucion...
+    list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
+
+    if(archivo_global_pedido->lock=='N' && queue_size(archivo_global_pedido->colabloqueado) > 0){
+        t_pcb *pcb_desbloqueado = queue_pop(archivo_global_pedido->colabloqueado);
+
+        //Se abre el archivo para ese proceso
+        crear_archivo_proceso(nombre_archivo, pcb_desbloqueado);
+        open_file(nombre_archivo, pcb_desbloqueado->contexto_ejecucion->instruccion_ejecutada->parametro2[0]);
+
+        set_pcb_ready(pcb_desbloqueado);
+    }
+
+    sem_post(&sem_ready);
+    sem_post(&sem_exec);
+};
+
+void kf_seek(){
+
+    char* nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
+    int nueva_ubicacion_puntero = atoi(proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro2);
+
+    t_list* lista_archivos = proceso_en_ejecucion->archivos_abiertos;
+
+    t_archivo_abierto_proceso* archivo_proceso = buscar_archivo_proceso(lista_archivos, nombre_archivo);
+    archivo_proceso->puntero = nueva_ubicacion_puntero;
+
+    sem_post(&sem_ready);
+    sem_post(&sem_exec);
+};
+
+void kf_read(){
+    fs_interaction();
+};
+
+void kf_write(){
+    char* nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
+
+    t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
+
+    if(archivo_global_pedido->lock == 'W'){
+        fs_interaction();
+    }else{
+        finalizar_proceso_en_ejecucion();
+    }
+};
+
+void kf_truncate(){
+    fs_interaction();
+};
