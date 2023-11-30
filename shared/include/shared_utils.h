@@ -42,7 +42,9 @@ typedef enum
     F_READ_FS,
     F_WRITE_FS,
     INICIO_SWAP,
-    LISTA_BLOQUES_SWAP
+    LISTA_BLOQUES_SWAP,
+    SWAP_A_LIBERAR,
+    MARCO
 } op_code;
 
 typedef enum
@@ -64,7 +66,7 @@ typedef enum
     F_WRITE,
     F_TRUNCATE,
     EXIT,
-    PRINT_FILE_DATA,
+    PRINT_FILE_DATA
 } nombre_instruccion;
 
 typedef struct
@@ -195,7 +197,7 @@ typedef struct
     char *path;
     uint32_t longitud_path;
     t_list *instrucciones;
-    t_list *bloques_swap;
+   // t_list *bloques_swap;
     t_tabla_paginas* tabla_paginas;
 
 } t_proceso_memoria;
@@ -308,6 +310,7 @@ void enviar_interrupcion(int, t_interrupcion *);
 t_interrupcion *recibir_interrupcion(int);
 
 void serializar_lista_swap(t_list*, t_paquete*); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
+t_list *recibir_listado_id_bloques(int);
 
 
 uint32_t str_to_uint32(char *str);

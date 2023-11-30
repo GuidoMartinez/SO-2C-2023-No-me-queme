@@ -282,7 +282,7 @@ op_code recibir_handshake(int conexion, t_log *logger)
 	int size;
 	void *buffer;
 	buffer = recibir_buffer(&size, conexion);
-	printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
+	//printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
 
 	op_code codigo_recibido;
 
@@ -645,15 +645,15 @@ void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
 
 	for (int i = 0; i < list_size(bloques_swap); i++)
 	{
-		uint32_t *ptr_bloque = list_get(bloques_swap, i);
-		uint32_t id_bloque = *ptr_bloque;
+		int *ptr_bloque = list_get(bloques_swap, i);
+		int id_bloque = *ptr_bloque;
 
-		paquete->buffer->size += sizeof(uint32_t);
+		paquete->buffer->size += sizeof(int);
 		paquete->buffer->stream = realloc(paquete->buffer->stream, paquete->buffer->size);
-		memcpy(paquete->buffer->stream + offset, &(id_bloque), sizeof(uint32_t));
-		offset += sizeof(uint32_t);
+		memcpy(paquete->buffer->stream + offset, &(id_bloque), sizeof(int));
+		offset += sizeof(int);
 	}
-	list_destroy(bloques_swap);
+	// list_destroy(bloques_swap); TODO chequear donde se libera
 }
 
 void enviar_pid(int pid, int socket, op_code codigo)
@@ -672,4 +672,33 @@ void recibir_pid(int socket,int* pid)
 	void *buffer = recibir_buffer(&size, socket);
 	memcpy(pid, buffer, sizeof(int));
 	free(buffer);
+}
+
+// MEMORIA - FS
+
+
+t_list *recibir_listado_id_bloques(int socket)
+{
+
+	int size;
+	void *buffer;
+
+	buffer = recibir_buffer(&size, socket);
+	printf("Size del stream a deserializar: %d \n", size);
+
+	t_list *lista_bloques_swap = list_create();
+
+	int offset = 0;
+
+	while (offset < size)
+	{
+		int *bloque_swap = malloc(sizeof(int));
+		memcpy(bloque_swap, buffer + offset, sizeof(int));
+		offset += sizeof(int);
+		list_add(lista_bloques_swap, bloque_swap);
+	}
+
+	free(buffer);
+
+	return lista_bloques_swap;
 }
