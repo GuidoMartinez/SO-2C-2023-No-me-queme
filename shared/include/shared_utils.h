@@ -264,10 +264,10 @@ typedef struct {
 
 typedef struct {
     char* nombreArchivo;
-    char* lock;
+    char lock;
     uint32_t contador;
     t_queue* colabloqueado;
-} t_archivo_abierto_global;
+} t_archivo_global;
 
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);
@@ -299,7 +299,7 @@ t_contexto_ejecucion *recibir_contexto(int);
 
 void ask_instruccion_pid_pc(int, int, int);
 void pedido_instruccion(uint32_t *, uint32_t *, int);
-void enviar_instruccion_cpu(int, t_instruccion *);
+void enviar_instruccion(int, t_instruccion *);
 void serializar_instruccion(t_paquete *, t_instruccion *);
 t_instruccion *deserializar_instruccion(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);

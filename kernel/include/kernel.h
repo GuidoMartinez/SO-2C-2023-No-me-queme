@@ -23,6 +23,7 @@ extern sem_t sem_exec;
 extern sem_t sem_detener;
 extern sem_t sem_blocked_w;
 extern sem_t sem_detener_sleep;
+extern sem_t sem_hilo_FS;
 
 extern t_list *recursos_kernel;
 extern t_list *lista_ready;
@@ -37,10 +38,13 @@ extern t_list *lista_ready_detenidos;
 extern t_list *lista_block_detenidos;
 extern t_list *lista_exec_detenidos;
 extern t_list *lista_exit_detenidos;
-extern t_list *archivosAbiertosGlobales;
+extern t_list *lista_archivos_abiertos;
+extern t_list *lista_global_archivos;
 
 extern t_pcb *proceso_aux;
 extern t_pcb *proceso_en_ejecucion;
+
+extern pthread_t hiloFS;
 
 extern int generador_de_id;
 extern int grado_multiprogramacion_ini;
@@ -104,11 +108,15 @@ void serializar_pedido_proceso_nuevo(t_paquete *, int, int, char *);
 
 void liberar_recursos(t_pcb*);
 void finalizar_proceso_en_ejecucion();
-t_archivo_abierto_global *buscarArchivo(t_list *, char *);
-bool archivo_existe_en_tabla(t_list *, const char *);
-t_archivo_abierto_global *crear_archivo_global(char *);
-int verif_crear_recurso_file(t_archivo_abierto_proceso *);
-t_archivo_abierto_global *buscarArchivoGlobal(t_list *, char *);
+t_archivo_global *buscarArchivo(t_list *, char *);
+bool archivo_existe(t_list *, char *);
+t_archivo_global *crear_archivo_global(char *);
+int verif_crear_recurso_file(t_archivo_global *);
+t_archivo_global *buscarArchivoGlobal(t_list *, char *);
 void exec_block_fs () ;
+
+void open_file(char*, char);
+
+void* recibir_op_FS();
 
 #endif

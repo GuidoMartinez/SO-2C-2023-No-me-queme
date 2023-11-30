@@ -467,7 +467,7 @@ t_contexto_ejecucion *recibir_contexto(int socket)
 	return contexto_recibido;
 }
 
-void enviar_instruccion_cpu(int socket, t_instruccion *instruccion)
+void enviar_instruccion(int socket, t_instruccion *instruccion)
 {
 	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(INSTRUCCION);
 	serializar_instruccion(paquete, instruccion);

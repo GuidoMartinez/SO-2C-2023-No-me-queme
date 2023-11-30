@@ -24,6 +24,7 @@ sem_t sem_exec;
 sem_t sem_detener;
 sem_t sem_blocked_w;
 sem_t sem_detener_sleep;
+sem_t sem_hilo_FS;
 
 t_list *recursos_kernel;
 t_list *lista_ready;
@@ -37,10 +38,13 @@ t_list *cola_blocked_recurso;
 t_list *lista_ready_detenidos;
 t_list *lista_blocked_detenidos;
 t_list *lista_exec_detenidos;
-t_list *archivosAbiertosGlobales;
+t_list *lista_archivos_abiertos;
+t_list *lista_global_archivos;
 
 t_pcb *proceso_aux;
 t_pcb *proceso_en_ejecucion;
+
+pthread_t hiloFS;
 
 int generador_de_id = 0;
 int grado_multiprogramacion_ini;
@@ -82,7 +86,7 @@ int main(int argc, char **argv)
     realizar_handshake(conexion_memoria, HANDSHAKE_KERNEL, kernel_logger_info);
 
     op_code respuesta = recibir_operacion(conexion_memoria);
-    log_info(kernel_logger_info,"el codigo que me llego es %d",respuesta);
+    log_info(kernel_logger_info, "el codigo que me llego es %d", respuesta);
     if (respuesta == HANDSHAKE_MEMORIA)
     {
         op_code prueba = recibir_handshake(conexion_memoria, kernel_logger_info);
@@ -140,15 +144,20 @@ int main(int argc, char **argv)
         log_warning(kernel_logger_info, "Operación desconocida. No se pudo recibir la respuesta del FILESYSTEM.");
     }
 
+    pthread_create(&hiloFS, NULL, recibir_op_FS, NULL);
+    pthread_detach(hiloFS);
+
     cola_block = list_create();
     cola_exit = list_create();
     cola_exec = list_create();
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
     lista_global = list_create();
-    //lista_block_detenidos = list_create();
+    // lista_block_detenidos = list_create();
     lista_ready_detenidos = list_create();
-    //lista_exec_detenidos = list_create();
+    // lista_exec_detenidos = list_create();
+    lista_archivos_abiertos = list_create();
+    lista_global_archivos = list_create();
 
     pthread_mutex_init(&mutex_cola_ready, NULL);
     pthread_mutex_init(&mutex_cola_listos_para_ready, NULL);
@@ -163,7 +172,8 @@ int main(int argc, char **argv)
     sem_init(&sem_exit, 0, 0);
     sem_init(&sem_detener, 0, 0);
     sem_init(&sem_blocked_w, 0, 0);
-    sem_init(&sem_detener_sleep, 0,0);
+    sem_init(&sem_detener_sleep, 0, 0);
+    sem_init(&sem_hilo_FS, 0, 0);
     /*sem_init(&sem_block_return, 0, 0);*/
 
     while (1)
@@ -279,7 +289,7 @@ void cargar_configuracion(char *path)
     config_valores_kernel.recursos = config_get_array_value(config, "RECURSOS");
     config_valores_kernel.instancias_recursos = config_get_array_value(config, "INSTANCIAS_RECURSOS");
 
-        // Cargo lista de recursosKernel con el archivo config
+    // Cargo lista de recursosKernel con el archivo config
     recursos_kernel = list_create();
 
     int i;
@@ -325,7 +335,9 @@ void finalizar_proceso(int pid)
         interrupcion->motivo_interrupcion = INTERRUPT_FIN_PROCESO;
         interrupcion->pid = pid;
         enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
-    }else {
+    }
+    else
+    {
         log_error(kernel_logger_info, "El PID enviado no se encuentra en ejecucion");
         return;
     }
@@ -365,18 +377,21 @@ t_pcb *buscarProceso(int pid_pedido)
 
 void iniciar_planificacion()
 {
-    if(frenado){
-        log_info(kernel_logger_info,"entre a iniciar plani dsp de haber frenado");
+    if (frenado)
+    {
+        log_info(kernel_logger_info, "entre a iniciar plani dsp de haber frenado");
         list_add_all(lista_ready, lista_ready_detenidos);
         sem_post(&sem_detener);
         sem_post(&sem_detener_sleep);
         sem_post(&sem_ready);
         sem_post(&sem_exec);
-    }else{
+    }
+    else
+    {
         planificar_largo_plazo();
         planificar_corto_plazo();
     }
-    
+
     frenado = false;
 }
 
@@ -385,16 +400,16 @@ void detener_planificacion()
     frenado = true;
 
     pthread_mutex_lock(&mutex_cola_ready);
-    //pthread_mutex_lock(&mutex_cola_exec);
+    // pthread_mutex_lock(&mutex_cola_exec);
 
     list_add_all(lista_ready_detenidos, lista_ready);
-    //list_add_all(cola_block, lista_block_detenidos);
-    //list_add_all(cola_exec, lista_exec_detenidos);
+    // list_add_all(cola_block, lista_block_detenidos);
+    // list_add_all(cola_exec, lista_exec_detenidos);
 
     list_clean(lista_ready);
-    //list_clean(cola_exec);
+    // list_clean(cola_exec);
     pthread_mutex_unlock(&mutex_cola_ready);
-    //pthread_mutex_unlock(&mutex_cola_exec);
+    // pthread_mutex_unlock(&mutex_cola_exec);
 }
 
 void quantum_interrupter(void)
@@ -498,7 +513,6 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
     memcpy(paquete->buffer->stream + desplazamiento, path, long_path);
 }
 
-
 /*int comparar(const void *a, const void *b) {
     return ((MiStruct*)a)->enum_field - ((MiStruct*)b)->enum_field;
 }*/
@@ -514,10 +528,10 @@ recurso_instancia *buscar_recurso(t_list *lista_recursos, char *nombre_recurso)
     return recurso_existente;
 }
 
-//Libera recursos del proceso y también los agrega en el kernel
-void liberar_recursos(t_pcb* pcb)
+// Libera recursos del proceso y también los agrega en el kernel
+void liberar_recursos(t_pcb *pcb)
 {
-    t_list* lista_recursos_liberar = pcb->recursos_asignados;
+    t_list *lista_recursos_liberar = pcb->recursos_asignados;
     recurso_instancia *recurso_en_kernel = (recurso_instancia *)malloc(sizeof(recurso_instancia));
     t_pcb *pcb_bloqueado;
 
@@ -545,13 +559,15 @@ void liberar_recursos(t_pcb* pcb)
             {
                 log_info(kernel_logger_info, "Libero proceso: %d", pcb_bloqueado->pid);
                 remove_blocked(pcb_bloqueado->pid);
-                if(!frenado){
+                if (!frenado)
+                {
                     set_pcb_ready(pcb_bloqueado);
                     sem_post(&sem_ready);
                     if (list_size(lista_ready) > 0)
                         sem_post(&sem_exec);
-                    }
-                else{
+                }
+                else
+                {
                     list_add(lista_ready_detenidos, pcb_bloqueado);
                 }
             }
@@ -559,20 +575,21 @@ void liberar_recursos(t_pcb* pcb)
     }
 }
 
-void finalizar_proceso_en_ejecucion(){
+void finalizar_proceso_en_ejecucion()
+{
     pthread_mutex_lock(&mutex_cola_exec);
 
-        proceso_aux = list_remove(cola_exec, 0);
+    proceso_aux = list_remove(cola_exec, 0);
 
     pthread_mutex_unlock(&mutex_cola_exec);
 
-            proceso_en_ejecucion = NULL;
+    proceso_en_ejecucion = NULL;
 
     pthread_mutex_lock(&mutex_cola_exit);
 
-            pcbelegido->estado = FINISH_EXIT;
-            list_add(cola_exit, pcbelegido);
-            
+    pcbelegido->estado = FINISH_EXIT;
+    list_add(cola_exit, pcbelegido);
+
     pthread_mutex_unlock(&mutex_cola_exit);
 }
 
@@ -582,15 +599,19 @@ t_archivo_abierto_proceso *crear_archivo_proceso(char *nombre, t_pcb *proceso)
     archivo->puntero = 0;
     archivo->nombreArchivo = string_new();
     string_append(&(archivo->nombreArchivo), nombre);
+    list_add(proceso->archivos_abiertos, archivo);
     return archivo;
 }
 
-int verif_crear_recurso_file(t_archivo_abierto_proceso *archivo)
+void agregar_nuevo_archivo(char *nombre)
 {
-    pthread_mutex_lock(&mutex_tabla_archivos);
+    list_add(lista_global_archivos, nombre);
+}
+
+int verif_crear_recurso_file(t_archivo_global *archivo)
+{
     int result = 0;
-    pthread_mutex_unlock(&mutex_tabla_archivos);
-    if (!archivo_existe_en_tabla(archivosAbiertosGlobales, archivo->nombreArchivo))
+    if (!archivo_existe(lista_global_archivos, archivo->nombreArchivo))
     {
         crear_archivo_global(archivo->nombreArchivo);
         result = 1;
@@ -599,9 +620,9 @@ int verif_crear_recurso_file(t_archivo_abierto_proceso *archivo)
     return result;
 }
 
-bool archivo_existe_en_tabla(t_list *tabla_archivos_abiertos, const char *nombre_archivo)
+bool archivo_existe(t_list *lista_archivos, char *nombre_archivo)
 {
-    t_archivo_abierto_global *archivoGeneral = buscarArchivo(tabla_archivos_abiertos, nombre_archivo);
+    t_archivo_global *archivoGeneral = buscarArchivo(lista_archivos, nombre_archivo);
 
     // Verificar si el archivo existe antes de acceder a su campo nombreArchivo
     if (archivoGeneral != NULL && archivoGeneral->nombreArchivo != NULL)
@@ -612,35 +633,36 @@ bool archivo_existe_en_tabla(t_list *tabla_archivos_abiertos, const char *nombre
     return false;
 }
 
-
-t_archivo_abierto_global *buscarArchivo(t_list *lista, char *recursoPedido2)
+t_archivo_global *buscarArchivo(t_list *lista, char *recursoPedido2)
 {
     bool _archivoPorNombre(void *elemento)
     {
-        return strcmp(((t_archivo_abierto_global *)elemento)->nombreArchivo, recursoPedido2) == 0;
+        return strcmp(((t_archivo_global *)elemento)->nombreArchivo, recursoPedido2) == 0;
     }
 
-    t_archivo_abierto_global *archivoExistente;
+    t_archivo_global *archivoExistente;
     archivoExistente = list_find(lista, _archivoPorNombre);
     return archivoExistente;
 }
-t_archivo_abierto_global *crear_archivo_global(char *nombre)
+
+t_archivo_global *crear_archivo_global(char *nombre)
 {
 
-    t_archivo_abierto_global *archivo = malloc(sizeof(t_archivo_abierto_global));
+    t_archivo_global *archivo = malloc(sizeof(t_archivo_global));
     archivo->nombreArchivo = string_new();
     string_append(&(archivo->nombreArchivo), nombre);
     archivo->contador = 1;
     archivo->colabloqueado = queue_create();
-    list_add(archivosAbiertosGlobales, archivo);
+    list_add(lista_global_archivos, archivo);
+    list_add(lista_archivos_abiertos, archivo);
     return archivo;
 }
 
-t_archivo_abierto_global *buscarArchivoGlobal(t_list *lista_archivos, char *nombre_archivo)
+t_archivo_global *buscarArchivoGlobal(t_list *lista_archivos, char *nombre_archivo)
 {
     for (int i = 0; i < list_size(lista_archivos); i++)
     {
-        t_archivo_abierto_global *archivo = (t_archivo_abierto_global *)list_get(lista_archivos, i);
+        t_archivo_global *archivo = (t_archivo_global *)list_get(lista_archivos, i);
         if (strcmp(archivo->nombreArchivo, nombre_archivo) == 0)
         {
             return archivo;
@@ -649,12 +671,62 @@ t_archivo_abierto_global *buscarArchivoGlobal(t_list *lista_archivos, char *nomb
     return NULL;
 }
 
-void exec_block_fs () {
-    
-    safe_pcb_remove(cola_exec,&mutex_cola_exec);
-    proceso_en_ejecucion=NULL;
+void exec_block_fs()
+{
+
+    safe_pcb_remove(cola_exec, &mutex_cola_exec);
+    proceso_en_ejecucion = NULL;
     set_pcb_block(pcbelegido);
     pthread_mutex_lock(&mutex_cola_block);
-    pcbelegido->motivo_block= OP_FILESYSTEM;
+    pcbelegido->motivo_block = OP_FILESYSTEM;
     pthread_mutex_unlock(&mutex_cola_block);
+}
+
+void open_file(char *nombre_archivo, char lock)
+{
+    t_archivo_global *archivo = buscarArchivo(lista_global_archivos, nombre_archivo);
+    archivo->lock = lock;
+    archivo->contador += 1;
+    crear_archivo_proceso(nombre_archivo, pcbelegido);
+}
+
+void *recibir_op_FS()
+{
+    while (1)
+    {
+        sem_wait(&sem_hilo_FS);
+
+        // HAy que cambiar por una estructura que tenga el PID
+        t_resp_file op = recibir_operacion(conexion_filesystem);
+        int pid;
+
+        switch (op)
+        {
+        case F_ERROR:
+            break;
+        case F_OPEN_SUCCESS:
+            break;
+        case F_CLOSE_SUCCESS:
+            break;
+        case F_TRUNCATE_SUCCESS:
+            break;
+        case F_WRITE_SUCCESS:
+            break;
+        case F_SEEK_SUCCESS:
+            break;
+        case F_READ_SUCCESS:
+            break;
+        case F_CREATE_SUCCESS:
+            break;
+        case F_DELETE_SUCCESS:
+            break;
+        case FILE_DOESNT_EXISTS:
+            break;
+        }
+
+        t_pcb *pcb_bloqueado = buscarProceso(pid);
+        set_pcb_ready(pcb_bloqueado);
+        sem_post(&sem_ready);
+        sem_post(&sem_exec);
+    }
 }

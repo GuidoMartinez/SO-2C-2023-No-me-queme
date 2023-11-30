@@ -26,7 +26,8 @@ void ksleep()
     pthread_create(&hilo_sleep, NULL, (void *)sleeper, args);
     pthread_detach(hilo_sleep);
 
-    if(frenado){
+    if (frenado)
+    {
         sem_wait(&sem_detener);
     }
     sem_post(&sem_ready);
@@ -42,7 +43,8 @@ void sleeper(void *args)
     log_warning(kernel_logger_info, "Inicio sleep de %d segundos para proceso: %d,", _args->tiempo, _args->pcb->pid);
     sleep(_args->tiempo);
     log_warning(kernel_logger_info, "Paso proceso: %d a ready", _args->pcb->pid);
-    if(frenado){
+    if (frenado)
+    {
         sem_wait(&sem_detener_sleep);
     }
     safe_pcb_add(lista_ready, _args->pcb, &mutex_cola_ready);
@@ -68,8 +70,9 @@ void kwait()
             pthread_mutex_unlock(&mutex_cola_exec);
 
             log_info(kernel_logger_info, "No tengo instancias disponibles del recurso: [%s] -instancias %d", pcbelegido->recurso_instruccion, recurso_kernel->cantidad);
-            
-            if(frenado){
+
+            if (frenado)
+            {
                 sem_wait(&sem_detener);
             }
 
@@ -162,7 +165,7 @@ void ksignal()
         else
         {
             log_info(kernel_logger_info, "El pcb: %d liberó el recurso: %s y no lo tenia asignado", pcbelegido->pid, pcbelegido->recurso_instruccion);
-            
+
             finalizar_proceso_en_ejecucion();
 
             // TODO: Hacer funcion de enum a char* para hacer el log de los estados
@@ -193,65 +196,67 @@ void kmov_in(){};
 
 void kmov_out(){};
 
-void kf_open(){
+void kf_open()
+{
 
     log_info(kernel_logger_info, "ESTOY EN F_OPEN");
 
+    char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
+    char lock = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
 
-    t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido); 
- 
-    int existeArchivo = verif_crear_recurso_file(archivo_proceso); 
+    t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, pcbelegido);
 
-     if (existeArchivo == 0)
-            { // SI YA EXISTE EL ARCHIVO EN LA TABLA GLOBAL DE KERNEL
-            //cheuqear lock
+    // int existeArchivo = verif_crear_recurso_file(archivo_proceso);
 
-             t_archivo_abierto_global *archivoGlobalPedido = buscarArchivoGlobal(archivosAbiertosGlobales, archivo_proceso->nombreArchivo);
-               
-              if (strcmp(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2,"R")==0){
-                    if(archivoGlobalPedido->lock=='W'){
+    if (archivo_existe(lista_global_archivos, nombre_archivo))
+    { // SI YA EXISTE EL ARCHIVO EN LA TABLA GLOBAL DE KERNEL
 
-                queue_push(archivoGlobalPedido->colabloqueado, pcbelegido);
+        t_archivo_global *archivo_global_pedido = buscarArchivo(lista_archivos_abiertos, nombre_archivo);
+
+        // el archivo no estaba abierto
+        if (archivo_global_pedido == NULL)
+        {
+            open_file(nombre_archivo, lock);
+        }
+        else
+        {
+            if (archivo_global_pedido->lock == 'W' || lock == 'W')
+            {
+
+                queue_push(archivo_global_pedido->colabloqueado, pcbelegido);
                 exec_block_fs();
                 pthread_mutex_lock(&mutex_cola_block);
-                pcbelegido->motivo_block= ARCHIVO_BLOCK;
+                pcbelegido->motivo_block = ARCHIVO_BLOCK;
                 pthread_mutex_unlock(&mutex_cola_block);
                 log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_proceso->nombreArchivo);
                 sem_post(&sem_ready);
-            // if (list_size(lista_ready) > 0) PARA DETENER PLANI
-                sem_post(&sem_exec);
-
-                    } else {
-                archivoGlobalPedido->contador++;
-                sem_post(&sem_ready);
-                sem_post(&sem_exec);
-                }
-              } else {
-
-
-                
-              }
-             
-                queue_push(archivoGlobalPedido->colabloqueado, pcbelegido);
-                exec_block_fs();
-                log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_proceso->nombreArchivo);
-                 sem_post(&sem_ready);
-            // if (list_size(lista_ready) > 0) PARA DETENER PLANI
-                sem_post(&sem_exec);
-
-
-
-            } 
-            else
-            {
-               
-                t_archivo_abierto_global *archivoGlobalNuevo = crear_archivo_global(archivo_proceso->nombreArchivo);
-                //queue_push(archivoGlobalNuevo->colabloqueado, pcbelegido);
-                exec_block_fs();
-                sem_post(&sem_ready);
-            // if (list_size(lista_ready) > 0) PARA DETENER PLANI
+                // if (list_size(lista_ready) > 0) PARA DETENER PLANI
                 sem_post(&sem_exec);
             }
+            else if (lock == 'R')
+            {
+                archivo_global_pedido->contador++;
+                sem_post(&sem_ready);
+                sem_post(&sem_exec);
+            }
+        }
+    }
+    else
+    {
+
+        t_archivo_global *archivoGlobalNuevo = crear_archivo_global(archivo_proceso->nombreArchivo);
+
+        //Revisar si no hay q usar otro tipo de estructura q nosea la instrucción normal
+        enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
+
+        //Se espera respuesta en hilo
+        sem_post(&sem_hilo_FS);
+
+        exec_block_fs();
+    }
+    sem_post(&sem_ready);
+    // if (list_size(lista_ready) > 0) PARA DETENER PLANI
+    sem_post(&sem_exec);
 };
 
 void kf_close(){};

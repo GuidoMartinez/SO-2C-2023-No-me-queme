@@ -160,7 +160,7 @@ void *manejo_conexion_cpu(void *arg)
 			pedido_instruccion(&pid, &pc, socket_cpu_int);
 			t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
 			printf("La instruccion de PC %d para el PID %d es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
-			enviar_instruccion_cpu(socket_cpu_int, instruccion_pedida);
+			enviar_instruccion(socket_cpu_int, instruccion_pedida);
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
