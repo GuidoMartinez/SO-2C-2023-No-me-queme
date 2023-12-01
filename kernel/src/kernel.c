@@ -544,6 +544,22 @@ void serializar_pedido_archivo_fs(t_paquete *paquete, int pid,char *nombreArchiv
 
 }
 
+void serializar_truncate_archivo_fs(t_paquete *paquete, int pid, int tamanio)
+{
+
+    printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+    paquete->buffer->stream = malloc(paquete->buffer->size);
+
+    int desplazamiento = 0;
+
+    memcpy(paquete->buffer->stream + desplazamiento, &(pid), sizeof(uint32_t));
+    desplazamiento += sizeof(uint32_t);
+
+    memcpy(paquete->buffer->stream + desplazamiento, &(tamanio), sizeof(uint32_t));
+    desplazamiento += sizeof(uint32_t);
+
+}
+
 void chequear_archivo_fs(int pid_nuevo, char *nombreArchivo, int conexion_filesystem)
 {
     t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
@@ -552,6 +568,13 @@ void chequear_archivo_fs(int pid_nuevo, char *nombreArchivo, int conexion_filesy
     eliminar_paquete(paquete_proceso_nuevo);
 }
 
+void truncate_archivo_fs(int pid_nuevo, int tamanio, int conexion_filesystem)
+{
+    t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
+    serializar_truncate_archivo_fs(paquete_proceso_nuevo, pid_nuevo, tamanio);
+    enviar_paquete(paquete_proceso_nuevo, conexion_filesystem);
+    eliminar_paquete(paquete_proceso_nuevo);
+}
 /*void mandar_truncate_fs(int pid_nuevo, int tamañoAcambiar, char *path, int conexion_filesystem)
 {
     t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
@@ -740,7 +763,7 @@ void open_file(char *nombre_archivo, char lock)
 
 void fs_interaction(){
         // Usar instruccion_fs
-        enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
+       // enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
 
         exec_block_fs();
         // Se espera respuesta en hilo

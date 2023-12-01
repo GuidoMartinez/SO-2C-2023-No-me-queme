@@ -209,6 +209,7 @@ if (archivo_global_pedido == NULL)
         {
     //Mnadar a filesystem si existe el archivo
     chequear_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, conexion_filesystem);
+   //ACA ESPERA LA RTA DEL FS Y SE AGREGARIA UN IF DEPENDE COMO VUELVA
     int respuesta ;
     sem_wait(&operacion_fs);
     open_file(nombre_archivo, lock);
@@ -329,5 +330,7 @@ void kf_write(){
 
 void kf_truncate(){
 
+     truncate_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2, conexion_filesystem);
+   
     fs_interaction();
 };
