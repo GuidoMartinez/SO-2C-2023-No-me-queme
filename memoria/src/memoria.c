@@ -198,9 +198,6 @@ void *manejo_conexion_cpu(void *arg)
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
-			// close(socket_cpu_int);
-			// close(server_memoria);
-			// abort();
 			//  finalizar_memoria();
 			break;
 		}
@@ -804,6 +801,12 @@ void recibir_mov_in_cpu(int *dir_fisica, int socket)
 
 void enviar_valor_mov_in_cpu(uint32_t valor, int socket)
 {
+	t_paquete *paquete_mov_in = crear_paquete_con_codigo_de_operacion(MOV_IN_CPU);
+	paquete_mov_in->buffer->size += sizeof(uint32_t);
+	paquete_mov_in->buffer->stream = realloc(paquete_mov_in->buffer->stream, paquete_mov_in->buffer->size);
+	memcpy(paquete_tam_pagina->buffer->stream, &(valor), sizeof(uint32_t));
+	enviar_paquete(paquete_mov_in, socket);
+	eliminar_paquete(paquete_mov_in);
 }
 
 // MEMORIA USUARIO
@@ -814,7 +817,7 @@ void escribir_memoria(uint32_t dir_fisica, uint32_t valor)
 	pthread_mutex_lock(&mutex_memoria_usuario);
 	memcpy(memoria_usuario + dir_fisica, &valor, sizeof(uint32_t));
 	pthread_mutex_unlock(&mutex_memoria_usuario);
-	
+
 	t_marco *marco = marco_desde_df(dir_fisica);
 
 	marcar_pag_modificada(marco->pid, marco->num_de_marco);
@@ -877,7 +880,7 @@ void enviar_bloques_swap_a_liberar(t_list *lista_bloques, int socket)
 
 void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos
 {
-	//t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso_a_eliminar);
+	// t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso_a_eliminar);
 	liberar_marcos_proceso(proceso_a_eliminar->pid);
 
 	log_info(logger_memoria_info, "DESTRUCCION TABLA DE PAGINAS - PID [%d] - Tamano [%d]", proceso_a_eliminar->pid, proceso_a_eliminar->tabla_paginas->cantidad_paginas); // LOG OBLIGATORIO
@@ -901,4 +904,5 @@ void finalizar_memoria()
 	close(socket_kernel_int);
 	close(socket_fs_int);
 	config_destroy(config);
+	abort();
 }
