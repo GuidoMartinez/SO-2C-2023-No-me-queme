@@ -121,5 +121,6 @@ void fs_interaction();
 
 void* recibir_op_FS();
 void* manejar_pf();
-void chequear_archivo_fs(int , int , char *, int );
+void chequear_archivo_fs(int , char *, int);
+void serializar_pedido_archivo_fs(t_paquete *, int ,char *);
 #endif

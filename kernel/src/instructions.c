@@ -208,7 +208,7 @@ void kf_open()
 if (archivo_global_pedido == NULL)
         {
     //Mnadar a filesystem si existe el archivo
-    chequear_archivo_fs(pcbelegido->pid,1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, conexion_filesystem);
+    chequear_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, conexion_filesystem);
     int respuesta ;
     sem_wait(&operacion_fs);
     open_file(nombre_archivo, lock);
@@ -328,5 +328,6 @@ void kf_write(){
 };
 
 void kf_truncate(){
+
     fs_interaction();
 };

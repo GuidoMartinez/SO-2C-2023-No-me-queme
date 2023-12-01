@@ -526,13 +526,39 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
     memcpy(paquete->buffer->stream + desplazamiento, path, long_path);
 }
 
-void chequear_archivo_fs(int pid_nuevo, int size, char *path, int conexion_filesystem)
+void serializar_pedido_archivo_fs(t_paquete *paquete, int pid,char *nombreArchivo)
+{
+    paquete->buffer->size += sizeof(uint32_t) * 3 +
+                             strlen(nombreArchivo) + 1;
+
+    printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+    paquete->buffer->stream = malloc(paquete->buffer->size);
+
+    int desplazamiento = 0;
+
+    memcpy(paquete->buffer->stream + desplazamiento, &(pid), sizeof(uint32_t));
+    desplazamiento += sizeof(uint32_t);
+
+    memcpy(paquete->buffer->stream + desplazamiento, &(nombreArchivo), sizeof(uint32_t));
+    desplazamiento += sizeof(uint32_t);
+
+}
+
+void chequear_archivo_fs(int pid_nuevo, char *nombreArchivo, int conexion_filesystem)
+{
+    t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
+    serializar_pedido_archivo_fs(paquete_proceso_nuevo, pid_nuevo, nombreArchivo);
+    enviar_paquete(paquete_proceso_nuevo, conexion_filesystem);
+    eliminar_paquete(paquete_proceso_nuevo);
+}
+
+/*void mandar_truncate_fs(int pid_nuevo, int tamañoAcambiar, char *path, int conexion_filesystem)
 {
     t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
     serializar_pedido_proceso_nuevo(paquete_proceso_nuevo, pid_nuevo, size, path);
     enviar_paquete(paquete_proceso_nuevo, conexion_filesystem);
     eliminar_paquete(paquete_proceso_nuevo);
-}
+}*/
 
 /*int comparar(const void *a, const void *b) {
     return ((MiStruct*)a)->enum_field - ((MiStruct*)b)->enum_field;
@@ -716,12 +742,12 @@ void fs_interaction(){
         // Usar instruccion_fs
         enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
 
+        exec_block_fs();
         // Se espera respuesta en hilo
         sem_post(&sem_hilo_FS);
 
-        exec_block_fs();
-
-        //Chequear si hay que mandar el post aca para replanificar
+        sem_post(&sem_ready);
+        sem_post(&sem_exec);
 }
 
 void *recibir_op_FS()
