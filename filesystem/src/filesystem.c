@@ -991,6 +991,7 @@ void comunicacion_kernel() {
     }
 }
 
+// Swap y Memoria
 void inicializar_swap(int cantidad_bloques) {
     swap = (bloque *)malloc(cantidad_bloques * sizeof(bloque));
 
