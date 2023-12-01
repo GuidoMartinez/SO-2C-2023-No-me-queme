@@ -575,13 +575,14 @@ void truncate_archivo_fs(int pid_nuevo, int tamanio, int conexion_filesystem)
     enviar_paquete(paquete_proceso_nuevo, conexion_filesystem);
     eliminar_paquete(paquete_proceso_nuevo);
 }
-/*void mandar_truncate_fs(int pid_nuevo, int tamañoAcambiar, char *path, int conexion_filesystem)
+
+void read_archivo_fs(int pid_nuevo, int puntero, int conexion_filesystem)
 {
     t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
-    serializar_pedido_proceso_nuevo(paquete_proceso_nuevo, pid_nuevo, size, path);
+    serializar_truncate_archivo_fs(paquete_proceso_nuevo, pid_nuevo, puntero);
     enviar_paquete(paquete_proceso_nuevo, conexion_filesystem);
     eliminar_paquete(paquete_proceso_nuevo);
-}*/
+}
 
 /*int comparar(const void *a, const void *b) {
     return ((MiStruct*)a)->enum_field - ((MiStruct*)b)->enum_field;

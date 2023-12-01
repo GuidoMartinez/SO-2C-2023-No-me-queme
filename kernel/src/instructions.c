@@ -313,6 +313,9 @@ void kf_seek(){
 };
 
 void kf_read(){
+
+     read_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2, conexion_filesystem);
+   
     fs_interaction();
 };
 

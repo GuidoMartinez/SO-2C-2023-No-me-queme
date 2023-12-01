@@ -125,4 +125,5 @@ void chequear_archivo_fs(int , char *, int);
 void serializar_pedido_archivo_fs(t_paquete *, int ,char *);
 void truncate_archivo_fs(int , int, int);
 void serializar_truncate_archivo_fs(t_paquete *, int , int );
+void read_archivo_fs(int , int, int);
 #endif
