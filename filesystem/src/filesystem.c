@@ -68,9 +68,7 @@ int main(int argc, char **argv)
     memoria_file_system = mmap(NULL, tam_memoria_file_system, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (formatear == 1)
         inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
-    // inicializar_fcb_list(config_valores_filesystem.path_fcb, fcb_id, filesystem_logger_info);
     inicializarFATDesdeDirectorio(config_valores_filesystem.path_fcb, filesystem_logger_info);
-    // int exit_status = crear_fat(tamanio_fat, config_valores_filesystem.path_fat, filesystem_logger_info);
     int exit_status = crearFAT(config_valores_filesystem.path_fat, filesystem_logger_info);
     if (exit_status == -1)
     {
@@ -1002,9 +1000,7 @@ void inicializar_swap(int cantidad_bloques) {
 
 void iniciar_swap(uint32_t cantidad_bloques) {
     int bloques_reservados = reservar_bloques_swap(cantidad_bloques);
-    t_paquete *respuesta = crear_paquete(LISTA_BLOQUES_SWAP);
-    agregar_buffer_int(respuesta->buffer, bloques_reservados);
-    enviar_paquete(respuesta, socket_memoria);
+    enviar_op_con_int(socket_memoria, LISTA_BLOQUES_SWAP, bloques_reservados);
 }
 
 int reservar_bloques_swap(int cantidad_bloques, int *bloques_reservados) {
@@ -1054,30 +1050,7 @@ void escribir_bloque_swap(int id_bloque, uint32_t valor) {
 }
 
 void enviar_escritura_bloque_ok(int socket, int resultado) {
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(ESCRITURA_BLOQUE_OK);
-    agregar_buffer_int(paquete->buffer, resultado);
-    enviar_paquete(paquete, socket_memoria);
-    eliminar_paquete(paquete);
-}
-
-t_list *recibir_listado_id_bloques(int socket) {
-    int size;
-    void *buffer = recibir_buffer(&size, socket);
-    log_error(filesystem_logger_info, "Size del stream a deserializar: %d", size);
-
-    t_list *lista_bloques_swap = list_create();
-    int offset = 0;
-
-    while (offset < size) {
-        int *bloque_swap = malloc(sizeof(int));
-        memcpy(bloque_swap, buffer + offset, sizeof(int));
-        offset += sizeof(int);
-        list_add(lista_bloques_swap, bloque_swap);
-    }
-
-    free(buffer);
-
-    return lista_bloques_swap;
+    enviar_op_con_int(socket, ESCRITURA_BLOQUE_OK, resultado);
 }
 
 void obtener_estado_swap(int cantidad_bloques) {
