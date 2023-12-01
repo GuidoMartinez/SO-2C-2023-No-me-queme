@@ -22,10 +22,10 @@ int main(int argc, char **argv)
     tamanio_bloque = config_valores_filesystem.tam_bloque;
     tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
     tamanio_fat = (config_valores_filesystem.cant_bloques_total - config_valores_filesystem.cant_bloques_swap);
-    fat = (int *)malloc(tamanio_fat * sizeof(bloque));
+    fat = malloc(tamanio_fat * sizeof(bloque));
     path_fcb = config_valores_filesystem.path_fcb;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
-    swap = (int *)malloc(bloques_swap * sizeof(bloque));
+    swap = malloc(bloques_swap * sizeof(bloque));
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
     op_code handshake_memoria = recibir_operacion(socket_memoria);
@@ -999,33 +999,89 @@ void inicializar_swap(int cantidad_bloques) {
     }
 }
 
-int reservar_bloques_swap(int cantidad_bloques) {
-    int bloques_reservados = 0;
+void iniciar_swap(uint32_t cantidad_bloques) {
+    int bloques_reservados = reservar_bloques_swap(cantidad_bloques);
+    t_paquete *respuesta = crear_paquete(LISTA_BLOQUES_SWAP);
+    agregar_buffer_int(respuesta->buffer, bloques_reservados);
+    enviar_paquete(respuesta, socket_memoria);
+}
+
+int reservar_bloques_swap(int cantidad_bloques, int *bloques_reservados) {
+    int bloques_reservados_count = 0;
     for (int i = 0; i < cantidad_bloques; i++) {
         if (!swap[i].utilizado) {
             swap[i].utilizado = true;
-            bloques_reservados++;
+            bloques_reservados[bloques_reservados_count++] = i;
         } else {
-            // Ver como se tratan los errores
+            log_error(filesystem_logger_info, "Bloque %d ya está en uso en la swap", i);
         }
     }
-    return bloques_reservados;
+    return bloques_reservados_count;
 }
 
 void liberar_bloques_swap(int *bloques_a_liberar, int cantidad_bloques) {
     for (int i = 0; i < cantidad_bloques; i++) {
         int bloque = bloques_a_liberar[i];
         if (bloque >= 0 && bloque < cantidad_bloques) {
-            swap[bloque].utilizado = false;
+            if (swap[bloque].utilizado) {
+                swap[bloque].utilizado = false;
+            } else {
+                log_error(filesystem_logger_info, "Intento de liberar bloque %d que no está en uso en la swap", bloque);
+            }
         } else {
-            // Lo mismo que reservar
+            log_error(filesystem_logger_info, "ID de bloque %d fuera de rango en la swap", bloque);
         }
     }
 }
 
+uint32_t leer_bloque_swap(int id_bloque) {
+    if (id_bloque >= 0 && id_bloque < bloques_swap) {
+        return swap[id_bloque].tamanio;
+    } else {
+        log_error(filesystem_logger_info, "ID de bloque %d fuera de rango en la swap", id_bloque);
+        return 0;
+    }
+}
+
+// Esta funcion habria que ver si pide escribir un bloque o escribir un valor !!
+void escribir_bloque_swap(int id_bloque, uint32_t valor) {
+    if (id_bloque >= 0 && id_bloque < bloques_swap) {
+        swap[id_bloque].tamanio = valor;
+    } else {
+        log_error(filesystem_logger_info, "ID de bloque %d fuera de rango en la swap", id_bloque);
+    }
+}
+
+void enviar_escritura_bloque_ok(int socket, int resultado) {
+    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(ESCRITURA_BLOQUE_OK);
+    agregar_buffer_int(paquete->buffer, resultado);
+    enviar_paquete(paquete, socket_memoria);
+    eliminar_paquete(paquete);
+}
+
+t_list *recibir_listado_id_bloques(int socket) {
+    int size;
+    void *buffer = recibir_buffer(&size, socket);
+    log_error(filesystem_logger_info, "Size del stream a deserializar: %d", size);
+
+    t_list *lista_bloques_swap = list_create();
+    int offset = 0;
+
+    while (offset < size) {
+        int *bloque_swap = malloc(sizeof(int));
+        memcpy(bloque_swap, buffer + offset, sizeof(int));
+        offset += sizeof(int);
+        list_add(lista_bloques_swap, bloque_swap);
+    }
+
+    free(buffer);
+
+    return lista_bloques_swap;
+}
+
 void obtener_estado_swap(int cantidad_bloques) {
     for (int i = 0; i < cantidad_bloques; i++) {
-        printf("Bloque %d: %s\n", i, swap[i].utilizado ? "Ocupado" : "Libre");
+        log_error(filesystem_logger_info, "Bloque %d: %s\n", i, swap[i].utilizado ? "Ocupado" : "Libre");
     }
 }
 
