@@ -200,18 +200,17 @@ void kf_open()
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     char lock = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
 
-    //Sacar esto (no existe la tabla de archivos global)
-    //t_archivo_abierto_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, pcbelegido);
-
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
 
 if (archivo_global_pedido == NULL)
         {
     //Mnadar a filesystem si existe el archivo
-    chequear_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, conexion_filesystem);
-   //ACA ESPERA LA RTA DEL FS Y SE AGREGARIA UN IF DEPENDE COMO VUELVA
-    int respuesta ;
-    sem_wait(&operacion_fs);
+    t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
+
+    enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
+
+    sem_post(&sem_hilo_FS);
+    sem_wait(&reanudaar_exec);
     open_file(nombre_archivo, lock);
         }
        
@@ -237,8 +236,8 @@ if (archivo_global_pedido == NULL)
              else
     {
         crear_archivo_global(nombre_archivo, lock);
-
-        fs_interaction();
+     
+       
     }
         
    
@@ -314,8 +313,10 @@ void kf_seek(){
 
 void kf_read(){
 
-     read_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2, conexion_filesystem);
-   
+    t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1 );
+
+    t_instruccion_fs *inst_f_read_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, archivo_proceso->puntero);
+    enviarInstruccionFS(conexion_filesystem, inst_f_read_fs);
     fs_interaction();
 };
 
@@ -325,6 +326,9 @@ void kf_write(){
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
 
     if(archivo_global_pedido->lock == 'W'){
+
+        t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
+        enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
         fs_interaction();
     }else{
         finalizar_proceso_en_ejecucion();
@@ -333,7 +337,8 @@ void kf_write(){
 
 void kf_truncate(){
 
-    truncate_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2, conexion_filesystem);
-   
+    t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
+
+    enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
     fs_interaction();
 };

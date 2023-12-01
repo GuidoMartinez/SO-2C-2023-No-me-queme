@@ -24,7 +24,7 @@ extern sem_t sem_detener;
 extern sem_t sem_blocked_w;
 extern sem_t sem_detener_sleep;
 extern sem_t sem_hilo_FS;
-extern sem_t operacion_fs;
+extern sem_t reanudaar_exec;
 
 extern t_list *recursos_kernel;
 extern t_list *lista_ready;
@@ -125,5 +125,12 @@ void chequear_archivo_fs(int , char *, int);
 void serializar_pedido_archivo_fs(t_paquete *, int ,char *);
 void truncate_archivo_fs(int , int, int);
 void serializar_truncate_archivo_fs(t_paquete *, int , int );
-void read_archivo_fs(int , int, int);
+t_instruccion_fs* inicializar_instruccion_fs(t_instruccion* , uint32_t );
+t_resp_file esperar_respuesta_file();
+t_resp_file recibir_operacion_fs(int);
+t_resp_file* obtener_nombre_resp_file(t_resp_file);
+void enviarInstruccionFS(int, t_instruccion_fs*);
+t_paquete* crear_paquete_con_codigo_de_operacion_fs(t_instruccion_fs* inst_fs);
+t_pcb *buscarProcesoBloqueado(int );
+void serializar_instruccion_fs(t_paquete*,  t_instruccion_fs*);
 #endif

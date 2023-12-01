@@ -25,7 +25,7 @@ sem_t sem_detener;
 sem_t sem_blocked_w;
 sem_t sem_detener_sleep;
 sem_t sem_hilo_FS;
-sem_t operacion_fs;
+sem_t reanudaar_exec;
 
 t_list *recursos_kernel;
 t_list *lista_ready;
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
     sem_init(&sem_blocked_w, 0, 0);
     sem_init(&sem_detener_sleep, 0, 0);
     sem_init(&sem_hilo_FS, 0, 0);
-    sem_init(&operacion_fs, 0, 0);
+    sem_init(&reanudaar_exec, 0, 0);
     /*sem_init(&sem_block_return, 0, 0);*/
 
     while (1)
@@ -374,6 +374,17 @@ t_pcb *buscarProceso(int pid_pedido)
     }
     t_pcb *proceso_elegido;
     proceso_elegido = list_find(lista_global, _proceso_id);
+    return proceso_elegido;
+}
+
+t_pcb *buscarProcesoBloqueado(int pid_pedido)
+{
+    bool _proceso_id(void *elemento)
+    {
+        return ((t_pcb *)elemento)->pid == pid_pedido;
+    }
+    t_pcb *proceso_elegido;
+    proceso_elegido = list_find(cola_block, _proceso_id);
     return proceso_elegido;
 }
 
@@ -576,17 +587,14 @@ void truncate_archivo_fs(int pid_nuevo, int tamanio, int conexion_filesystem)
     eliminar_paquete(paquete_proceso_nuevo);
 }
 
-void read_archivo_fs(int pid_nuevo, int puntero, int conexion_filesystem)
+void enviarInstruccionFS(int conexion, t_instruccion_fs* inst_fs)
 {
-    t_paquete *paquete_proceso_nuevo = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
-    serializar_truncate_archivo_fs(paquete_proceso_nuevo, pid_nuevo, puntero);
-    enviar_paquete(paquete_proceso_nuevo, conexion_filesystem);
-    eliminar_paquete(paquete_proceso_nuevo);
+    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
+   serializar_instruccion_fs(paquete, inst_fs);
+	enviar_paquete(paquete, conexion);
+	eliminar_paquete(paquete);
 }
 
-/*int comparar(const void *a, const void *b) {
-    return ((MiStruct*)a)->enum_field - ((MiStruct*)b)->enum_field;
-}*/
 
 recurso_instancia *buscar_recurso(t_list *lista_recursos, char *nombre_recurso)
 {
@@ -725,7 +733,6 @@ t_archivo_global *crear_archivo_global(char *nombre, char lock)
     archivo->lock = lock;
     archivo->contador = 1;
     archivo->colabloqueado = queue_create();
-    list_add(lista_global_archivos, archivo);
     list_add(lista_archivos_abiertos, archivo);
     return archivo;
 }
@@ -763,6 +770,7 @@ void open_file(char *nombre_archivo, char lock)
 }
 
 void fs_interaction(){
+
         // Usar instruccion_fs
        // enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
 
@@ -778,40 +786,56 @@ void *recibir_op_FS()
 {
     while (1)
     {
+        t_pcb *pcb_bloqueado;
         sem_wait(&sem_hilo_FS);
 
         // HAy que cambiar por una estructura que tenga el PID
         t_resp_file op = recibir_operacion(conexion_filesystem);
-        int pid  = -1;
+        int *pid= malloc(sizeof(int));
+        recibir_pid(conexion_filesystem,pid);
 
         switch (op)
         {
         case F_ERROR:
+            log_error(kernel_logger_info, "Obtuvimos codigo F_ERROR");
             break;
         case F_OPEN_SUCCESS:
-            break;
-        case F_CLOSE_SUCCESS:
+        sem_post(&reanudaar_exec);
             break;
         case F_TRUNCATE_SUCCESS:
-            break;
-        case F_WRITE_SUCCESS:
-            break;
-        case F_SEEK_SUCCESS:
-            break;
-        case F_READ_SUCCESS:
-            break;
-        case F_CREATE_SUCCESS:
-            break;
-        //Creemos que no existe esto
-        case FILE_DOESNT_EXISTS:
-            break;
-        }
-
-        t_pcb *pcb_bloqueado = buscarProceso(pid);
+        pcb_bloqueado = buscarProceso(*(pid));
+        remove_blocked(pcb_bloqueado->pid);
         set_pcb_ready(pcb_bloqueado);
-
         sem_post(&sem_ready);
         sem_post(&sem_exec);
+            break;
+        case F_WRITE_SUCCESS:
+        pcb_bloqueado = buscarProceso(*(pid));
+        remove_blocked(pcb_bloqueado->pid);
+        set_pcb_ready(pcb_bloqueado);
+        sem_post(&sem_ready);
+        sem_post(&sem_exec);
+            break;
+        case F_READ_SUCCESS:
+       pcb_bloqueado = buscarProceso(*(pid));
+        remove_blocked(pcb_bloqueado->pid);
+        set_pcb_ready(pcb_bloqueado);
+        sem_post(&sem_ready);
+        sem_post(&sem_exec);
+            break;
+        case F_CREATE_SUCCESS:
+        sem_post(&reanudaar_exec);
+            break;
+        case FILE_DOESNT_EXISTS:
+        t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada, 1);
+        inst_f_open_fs->estado=F_CREATE;
+        enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
+        sem_post(&sem_hilo_FS);
+            break;
+        }
+/*
+        sem_post(&sem_ready);
+        sem_post(&sem_exec);*/
     }
 }
 
@@ -846,4 +870,43 @@ void* manejar_pf(){
     sem_post(&sem_exec);
 
     return NULL;
+}
+t_instruccion_fs* inicializar_instruccion_fs(t_instruccion* instr, uint32_t ptr) {
+    t_instruccion_fs* instr_fs = malloc(sizeof(t_instruccion_fs));
+
+    instr_fs->estado = instr->codigo;
+    instr_fs->pid = instr->pid;
+    instr_fs->param1_length = instr->longitud_parametro1;
+    instr_fs->param2_length = instr->longitud_parametro2;
+
+    instr_fs->param1 = malloc(instr->longitud_parametro1);
+    memcpy(instr_fs->param1, instr->parametro1, instr->longitud_parametro1);
+
+    instr_fs->param2 = malloc(instr->longitud_parametro2);
+    memcpy(instr_fs->param2, instr->parametro2, instr->longitud_parametro2);
+
+    instr_fs->puntero = ptr;
+
+    return instr_fs;
+    
+}
+
+t_resp_file esperar_respuesta_file()
+{
+
+    t_resp_file respuesta = F_ERROR;
+
+    respuesta = recibir_operacion(conexion_filesystem);
+    switch (respuesta)
+    {
+    case 0:
+        log_error(kernel_logger_info, "Fallo de serializacion de respuesta file");
+
+        break;
+    default:
+
+        break;
+    }
+   // log_warning(kernel_logger_info, "El codigo que recibi es %s", obtener_nombre_resp_file(respuesta));
+    return respuesta;
 }
