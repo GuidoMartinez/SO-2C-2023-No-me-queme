@@ -333,7 +333,7 @@ void kf_write(){
 
 void kf_truncate(){
 
-     truncate_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2, conexion_filesystem);
+    truncate_archivo_fs(pcbelegido->pid,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2, conexion_filesystem);
    
     fs_interaction();
 };

@@ -819,6 +819,7 @@ void* manejar_pf(){
     /*1.- Mover al proceso al estado Bloqueado. Este estado bloqueado será independiente de todos los
     demás ya que solo afecta al proceso y no compromete recursos compartidos.*/
 
+    //todo AGREGAR SEMAFORO
     set_pcb_block(proceso_en_ejecucion);
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
@@ -827,7 +828,7 @@ void* manejar_pf(){
     /*2.- Solicitar al módulo memoria que se cargue en memoria principal la página correspondiente, la
     misma será obtenida desde el mensaje recibido de la CPU.*/
 
-    enviar_op_con_int(conexion_memoria,MARCO_PAGE_FAULT, nro_pf);
+    enviar_op_con_int(conexion_memoria, PAGE_FAULT_KERNEL, nro_pf);
 
     /*3.- Esperar la respuesta del módulo memoria.*/
 

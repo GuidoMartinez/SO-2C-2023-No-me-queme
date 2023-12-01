@@ -720,7 +720,7 @@ void enviar_pedido_marco(int socket, int pid, int pagina)
 	eliminar_paquete(paquete);
 }
 
-t_valor_operacion* recibir_marco(int socket)
+int recibir_marco(int socket)
 {
 
 	int size;
@@ -728,24 +728,15 @@ t_valor_operacion* recibir_marco(int socket)
 	buffer = recibir_buffer(&size, socket);
 	//printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
 
-	op_code codigo_recibido;
 	int marco;
 
 	int offset = 0;
 
-	memcpy(&(codigo_recibido), buffer + offset, sizeof(op_code));
-
-	offset += sizeof(op_code);
-
 	memcpy(&(marco), buffer + offset, sizeof(int));
-
-	t_valor_operacion* valor = malloc(sizeof(t_valor_operacion));
-	valor->valor = marco;
-	valor->codigo_operacion = codigo_recibido;
 
 	free(buffer);
 
-	return valor;
+	return marco;
 	
 }
 
@@ -763,27 +754,18 @@ void enviar_op_con_int(int socket, op_code code, int entero)
 	eliminar_paquete(paquete);
 }
 
-t_valor_operacion* recibir_int(int socket){
+uint32_t* recibir_valor_memoria(int socket){
 	int size;
 	void *buffer;
 	buffer = recibir_buffer(&size, socket);
 
-	op_code codigo_recibido;
-	int valor_memoria;
+	uint32_t valor_memoria;
 
 	int offset = 0;
 
-	memcpy(&(codigo_recibido), buffer + offset, sizeof(op_code));
-
-	offset += sizeof(op_code);
-
 	memcpy(&(valor_memoria), buffer + offset, sizeof(int));
-
-	t_valor_operacion* resultado = malloc(sizeof(t_valor_operacion));
-	resultado->valor = valor_memoria;
-	resultado->codigo_operacion = codigo_recibido;
 
 	free(buffer);
 
-	return resultado;
+	return valor_memoria;
 }

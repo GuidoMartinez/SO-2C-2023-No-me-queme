@@ -63,6 +63,7 @@ bool es_syscall();
 
 int traducir_dl(uint32_t );
 void enviar_mov_out(int, uint32_t);
+uint32_t obtener_valor_dir(int);
 
 void dividirCadena(char* cadena, char** cadena_dividida);
 

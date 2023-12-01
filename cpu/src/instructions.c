@@ -86,7 +86,7 @@ void _mov_in(char *registro, char* direc_logica)
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
 
-    int valor = obtener_valor_dir(str_to_uint32(direc_logica));
+    uint32_t valor = obtener_valor_dir(str_to_uint32(direc_logica));
     if(valor != -1) {
         *(regis) = valor;
     }
@@ -104,6 +104,7 @@ void _mov_out(char* direc_logica, char *registro)
 
     escribir_memoria(str_to_uint32(direc_logica), *(regis));
 
+    //TODO: solo cambiar si no es page fault
     contexto_actual->codigo_ultima_instru = MOV_OUT;
     //free(regis);
 }

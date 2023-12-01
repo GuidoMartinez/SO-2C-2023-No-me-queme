@@ -372,18 +372,20 @@ bool es_syscall()
     }
 }
 
-int obtener_valor_dir(uint32_t dl){
+uint32_t obtener_valor_dir(uint32_t dl){
 
     int df = traducir_dl(dl);
     int valor = -1;
 
     if(df == -1) {return df;}
 
-    enviar_op_con_int(socket_memoria, MOV_IN, df);
+    enviar_op_con_int(socket_memoria, MOV_IN_CPU, df);
 
-    t_valor_operacion* resultado = recibir_int(socket_memoria);
+    op_code codigo_operacion = recibir_operacion(socket_memoria);
 
-    if (resultado->codigo_operacion == (op_code)MOV_IN) {valor = resultado->valor;}
+    uint32_t resultado = recibir_valor_memoria(socket_memoria);
+
+    if (codigo_operacion == (op_code)MOV_IN_CPU) {valor = resultado;}
     else {log_error(cpu_logger_info, "Error al hacer el MOV_IN");}
 
     free(resultado);
@@ -401,15 +403,15 @@ void escribir_memoria(uint32_t dl, int valor){
 
 void enviar_mov_out(int df, uint32_t valor)
 {
-	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MOV_OUT);
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MOV_OUT_CPU);
 	paquete->buffer->size += sizeof(int) + sizeof(uint32_t);
 	paquete->buffer->stream = malloc(paquete->buffer->size);
 
 	int offset = 0;
 
-	memcpy(paquete->buffer->stream + offset, &(df), sizeof(int));
-    offset += sizeof(int);
     memcpy(paquete->buffer->stream + offset, &(valor), sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+	memcpy(paquete->buffer->stream + offset, &(df), sizeof(int));
 
 	enviar_paquete(paquete, socket_memoria);
 	eliminar_paquete(paquete);
@@ -417,22 +419,24 @@ void enviar_mov_out(int df, uint32_t valor)
 
 int traducir_dl(uint32_t dl){
     uint32_t num_pag = dl/tamano_pagina;
+
+    log_error(cpu_logger_info, "Numero de pagina: %d", num_pag);
+
     uint32_t desplazamiento = dl - num_pag * tamano_pagina;
 
     enviar_pedido_marco(socket_memoria, num_pag, contexto_actual->pid);
 
-    t_valor_operacion* resultado = recibir_marco(socket_memoria);
+    op_code operacion = recibir_operacion(socket_memoria);
 
-    if(resultado->codigo_operacion == MARCO_PAGE_FAULT) {
+    int marco = recibir_marco(socket_memoria);
+
+    if(operacion == MARCO_PAGE_FAULT) {
         page_fault = true;
         contexto_actual->nro_pf = num_pag;
-        int marco_return = resultado->valor;
-        free(resultado);
-        return marco_return;
+        return marco;
     }
     else{
-        int df = resultado->valor * tamano_pagina + desplazamiento;
-        free(resultado);
+        int df = marco * tamano_pagina + desplazamiento;
         return df;
     }
 }

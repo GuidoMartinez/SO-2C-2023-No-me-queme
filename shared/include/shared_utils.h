@@ -48,7 +48,7 @@ typedef enum
     MOV_OUT_CPU,
     INSTRUCCION_MEMORIA_OK,
     MARCO,
-    MARCO_PAGE_FAULT,
+    PAGE_FAULT_KERNEL,
     PAGINA_CARGADA
 } op_code;
 
@@ -324,10 +324,10 @@ void serializar_lista_swap(t_list*, t_paquete*); // serializa en el paquete la l
 t_list *recibir_listado_id_bloques(int);
 
 void enviar_pedido_marco(int, int, int);
-t_valor_operacion* recibir_marco(int);
+int recibir_marco(int);
 
 void enviar_op_con_int(int, op_code, int);
-t_valor_operacion* recibir_int(int);
+uint32_t* recibir_valor_memoria(int);
 
 uint32_t str_to_uint32(char*);
 
