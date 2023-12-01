@@ -18,6 +18,7 @@ void *memoria_usuario;
 t_algoritmo algoritmo_pags;
 
 pthread_mutex_t mutex_procesos;
+pthread_mutex_t mutex_contador_LRU;
 pthread_mutex_t mutex_memoria_usuario;
 pthread_mutex_t mutex_marcos;
 
@@ -63,6 +64,9 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t, uint32_t);
 t_proceso_memoria *recibir_proceso_nuevo(int);
 t_algoritmo obtener_algoritmo();
 
+void actualizar_LRU(t_entrada_tabla_pag*);
+
+
 double marcosTotales();
 void inicializar_marcos();
 t_list *obtener_marcos_pid(uint32_t);
@@ -72,10 +76,20 @@ void liberar_marco_indice(int);
 void liberar_marcos_proceso(uint32_t);
 void recibir_pedido_marco(int *, int *, int);
 int obtener_marco_pid(int, int);
+t_marco *marco_desde_df(int);
+void marcar_pag_modificada(int, int);
+bool tiene_bit_presencia_igual_a_1(void *);
+t_list *obtener_entradas_con_bit_presencia_1(t_proceso_memoria *);
+t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *, int);
+void cambiar_bit_modificado(t_proceso_memoria*, int, int);
+
 bool es_marco_libre(void *);
 bool hay_marcos_libres();
-
 void enviar_marco_cpu(int, int, op_code);
+
+
+
+
 
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
@@ -84,6 +98,10 @@ void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
 void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
 void escribir_memoria(uint32_t, uint32_t);
+
+void recibir_mov_in_cpu(int *, int);
+uint32_t leer_memoria(uint32_t);
+void enviar_valor_mov_in_cpu(uint32_t, int);
 
 void limpiar_swap(t_proceso_memoria *);
 t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso);

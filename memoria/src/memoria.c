@@ -66,6 +66,7 @@ void inicializar_memoria()
 	pthread_mutex_init(&mutex_procesos, NULL);
 	pthread_mutex_init(&mutex_memoria_usuario, NULL);
 	pthread_mutex_init(&mutex_marcos, NULL);
+	pthread_mutex_init(&mutex_contador_LRU, NULL);
 }
 
 void atender_clientes_memoria()
@@ -180,12 +181,19 @@ void *manejo_conexion_cpu(void *arg)
 			break;
 		case MOV_OUT_CPU: // me pasa por parametro un uint32_t y tengo que guardarlo en el marco que me dice
 			uint32_t valor, dir_fisica;
-			recibir_mov_out_cpu(&valor,&dir_fisica,socket_cpu_int);
-			escribir_memoria(dir_fisica,valor);
-			
+			recibir_mov_out_cpu(&valor, &dir_fisica, socket_cpu_int);
+			escribir_memoria(dir_fisica, valor);
+
+			// TODO -- VER SI DEVUELVO OK.
 
 			break;
 		case MOV_IN_CPU: // Lee el valor del marco y lo devuelve para guardarlo en el registro (se pide la direccion) - recibo direccion fisica
+
+			int df;
+			recibir_mov_in_cpu(&df, socket_cpu_int); // TODO
+			uint32_t valor_leido = leer_memoria(df);
+
+			enviar_valor_mov_in_cpu(valor_leido, socket_cpu_int); // MOV_IN_CPU
 
 			break;
 		default:
@@ -452,6 +460,17 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 
+// PAGINAS
+
+void actualizar_LRU(t_entrada_tabla_pag *entrada)
+{
+
+	pthread_mutex_lock(&mutex_contador_LRU);
+	contador_lru++;
+	pthread_mutex_unlock(&mutex_contador_LRU);
+	entrada->tiempo_lru = contador_lru;
+}
+
 // MARCOS
 
 t_list *obtener_marcos_pid(uint32_t pid_pedido)
@@ -536,7 +555,7 @@ int obtener_marco_pid(int pid_pedido, int entrada)
 
 	log_info(logger_memoria_info, "Se obtiene la pagina [%d] del PID [%d]", entrada_tabla->indice, proceso->pid);
 
-	log_info(logger_memoria_info, "PID: [%d] - Pagina: [%d] - MARCO: [%d]", proceso->pid, entrada_tabla->indice, entrada_tabla->marco); // LOG OBLIGATORIO
+	log_info(logger_memoria_info, "ACCESO A TABLA DE PAGINAS - PID: [%d] - Pagina: [%d] - MARCO: [%d]", proceso->pid, entrada_tabla->indice, entrada_tabla->marco); // LOG OBLIGATORIO
 
 	if (entrada_tabla->bit_presencia)
 	{
@@ -548,6 +567,55 @@ int obtener_marco_pid(int pid_pedido, int entrada)
 		log_info(logger_memoria_info, "PAGE FAULT / LA PAGINA TIENE EL BIT DE PRESENCIA EN 0");
 		return -1;
 	}
+}
+
+t_marco *marco_desde_df(int df)
+{
+	int num_marco = floor(df / config_valores_memoria.tamanio_pagina);
+	pthread_mutex_lock(&mutex_marcos);
+	t_marco *marco_elegido = list_get(marcos, num_marco);
+	pthread_mutex_unlock(&mutex_marcos);
+	return marco_elegido;
+}
+
+void marcar_pag_modificada(int pid_mod, int marco_mod)
+{
+	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)pid_mod);
+	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
+	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco_mod);
+	cambiar_bit_modificado(proceso, pagina_modificada->indice, 1);
+	actualizar_LRU(pagina_modificada);
+}
+
+void cambiar_bit_modificado(t_proceso_memoria *proceso, int index_entrada, int valor)
+{
+	t_entrada_tabla_pag *entrada = list_get(proceso->tabla_paginas->entradas_tabla, index_entrada);
+	entrada->bit_modificado = valor;
+}
+
+bool tiene_bit_presencia_igual_a_1(void *elemento)
+{
+	t_entrada_tabla_pag *entrada = (t_entrada_tabla_pag *)elemento;
+	return entrada->bit_presencia == 1;
+}
+
+t_list *obtener_entradas_con_bit_presencia_1(t_proceso_memoria *proceso)
+{
+	t_list *lista_filtrada = list_filter(proceso->tabla_paginas->entradas_tabla, tiene_bit_presencia_igual_a_1);
+	return lista_filtrada;
+}
+
+t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *entradas, int marco)
+{
+
+	bool pagConMismoMarco(t_entrada_tabla_pag * pagina)
+	{
+
+		return pagina->marco == marco;
+	}
+
+	t_entrada_tabla_pag *paginaM = (t_entrada_tabla_pag *)list_find(entradas, pagConMismoMarco);
+	return paginaM;
 }
 
 void enviar_marco_cpu(int marco, int socket, op_code codigo)
@@ -706,7 +774,7 @@ void inicializar_marcos()
 	}
 }
 
-// INSTRUCCIONES CPU 
+// INSTRUCCIONES CPU
 
 void recibir_mov_out_cpu(uint32_t *valor, uint32_t *marco, int socket)
 {
@@ -722,16 +790,55 @@ void recibir_mov_out_cpu(uint32_t *valor, uint32_t *marco, int socket)
 	free(buffer);
 }
 
+void recibir_mov_in_cpu(int *dir_fisica, int socket)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	// printf("size del stream a deserializar \n%d", size);
+	memcpy(dir_fisica, buffer + offset, sizeof(int));
+
+	free(buffer);
+}
+
+void enviar_valor_mov_in_cpu(uint32_t valor, int socket)
+{
+}
 
 // MEMORIA USUARIO
 
-void escribir_memoria(uint32_t dir_fisica, uint32_t valor){
+void escribir_memoria(uint32_t dir_fisica, uint32_t valor)
+{
 
 	pthread_mutex_lock(&mutex_memoria_usuario);
 	memcpy(memoria_usuario + dir_fisica, &valor, sizeof(uint32_t));
 	pthread_mutex_unlock(&mutex_memoria_usuario);
-	// TODO -- Calcular el nro de marco que corresponde a esa direccion fisica, para obtener la  entrada de tabla que tiene ese marco (guardar el pid desde el marco para el log) y marcar la entrada como modificada.
+	
+	t_marco *marco = marco_desde_df(dir_fisica);
 
+	marcar_pag_modificada(marco->pid, marco->num_de_marco);
+	sleep(config_valores_memoria.retardo_respuesta / 1000);
+	log_info(logger_memoria_info, "ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
+}
+
+uint32_t leer_memoria(uint32_t dir_fisica)
+{
+	uint32_t valor_leido = 0;
+	pthread_mutex_lock(&mutex_memoria_usuario);
+	memcpy(&valor_leido, memoria_usuario + dir_fisica, sizeof(uint32_t));
+	pthread_mutex_unlock(&mutex_memoria_usuario);
+
+	t_marco *marco = marco_desde_df(dir_fisica);
+
+	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)marco->pid);
+	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
+	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
+	actualizar_LRU(pagina_modificada);
+	sleep(config_valores_memoria.retardo_respuesta / 1000);
+	log_info(logger_memoria_info, "ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica);
+
+	return valor_leido;
 }
 
 // FINALIZAR PROCESO
@@ -770,10 +877,19 @@ void enviar_bloques_swap_a_liberar(t_list *lista_bloques, int socket)
 
 void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos
 {
-
-	// TODO -- Eliminar las paginas del proceso.
+	//t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso_a_eliminar);
+	liberar_marcos_proceso(proceso_a_eliminar->pid);
 
 	log_info(logger_memoria_info, "DESTRUCCION TABLA DE PAGINAS - PID [%d] - Tamano [%d]", proceso_a_eliminar->pid, proceso_a_eliminar->tabla_paginas->cantidad_paginas); // LOG OBLIGATORIO
+
+	pthread_mutex_lock(&mutex_procesos);
+	list_remove_element(procesos_totales, proceso_a_eliminar);
+	pthread_mutex_unlock(&mutex_procesos);
+
+	list_destroy_and_destroy_elements(proceso_a_eliminar->tabla_paginas->entradas_tabla, free);
+	free(proceso_a_eliminar->path);
+	liberar_lista_instrucciones(proceso_a_eliminar->instrucciones);
+	free(proceso_a_eliminar);
 }
 
 void finalizar_memoria()

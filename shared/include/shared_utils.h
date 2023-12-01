@@ -44,11 +44,16 @@ typedef enum
     INICIO_SWAP,
     LISTA_BLOQUES_SWAP,
     SWAP_A_LIBERAR,
+    LEER_BLOQUE,
+    VALOR_BLOQUE,
+    ESCRIBIR_BLOQUE,
+    ESCRITURA_BLOQUE_OK,
     MOV_IN_CPU,
     MOV_OUT_CPU,
     INSTRUCCION_MEMORIA_OK,
     MARCO,
     PAGE_FAULT_KERNEL,
+    MARCO_PAGE_FAULT,
     PAGINA_CARGADA
 } op_code;
 
@@ -84,7 +89,8 @@ typedef struct
     uint32_t longitud_parametro2;
 } t_instruccion;
 
-typedef struct {
+typedef struct
+{
     nombre_instruccion estado;
     uint32_t pid;
     uint32_t param1_length;
@@ -190,8 +196,9 @@ typedef struct
     int longitud_path;
 } t_ini_proceso;
 
-typedef struct {
-    t_list* entradas_tabla;
+typedef struct
+{
+    t_list *entradas_tabla;
     int cantidad_paginas;
 } t_tabla_paginas;
 
@@ -202,8 +209,7 @@ typedef struct
     char *path;
     uint32_t longitud_path;
     t_list *instrucciones;
-   // t_list *bloques_swap;
-    t_tabla_paginas* tabla_paginas;
+    t_tabla_paginas *tabla_paginas;
 
 } t_proceso_memoria;
 
@@ -233,19 +239,21 @@ typedef enum
     LRU
 } t_algoritmo;
 
-typedef enum{
-	F_ERROR,
-	F_OPEN_SUCCESS,
-	F_CLOSE_SUCCESS,
-	F_TRUNCATE_SUCCESS,
-	F_WRITE_SUCCESS,
-	F_SEEK_SUCCESS,
-	F_READ_SUCCESS,
-	F_CREATE_SUCCESS,
-	FILE_DOESNT_EXISTS,
-}t_resp_file;
+typedef enum
+{
+    F_ERROR,
+    F_OPEN_SUCCESS,
+    F_CLOSE_SUCCESS,
+    F_TRUNCATE_SUCCESS,
+    F_WRITE_SUCCESS,
+    F_SEEK_SUCCESS,
+    F_READ_SUCCESS,
+    F_CREATE_SUCCESS,
+    FILE_DOESNT_EXISTS,
+} t_resp_file;
 
-typedef struct {
+typedef struct
+{
     int indice;
     int marco;
     int bit_presencia;
@@ -255,26 +263,30 @@ typedef struct {
 
 } t_entrada_tabla_pag;
 
-typedef struct {
+typedef struct
+{
     int pid;
     int num_de_marco;
 } t_marco;
 
-typedef struct {
-    char* nombreArchivo;
+typedef struct
+{
+    char *nombreArchivo;
     uint32_t puntero;
 } t_archivo_abierto_proceso;
 
-typedef struct {
-    t_list* archivos_abiertos;
+typedef struct
+{
+    t_list *archivos_abiertos;
     pthread_mutex_t mutex_archivo;
 } tabla_t_archivo_abierto_global;
 
-typedef struct {
-    char* nombreArchivo;
+typedef struct
+{
+    char *nombreArchivo;
     char lock;
     uint32_t contador;
-    t_queue* colabloqueado;
+    t_queue *colabloqueado;
 } t_archivo_global;
 
 void enviar_mensaje(char *, int);
@@ -312,23 +324,24 @@ void serializar_instruccion(t_paquete *, t_instruccion *);
 t_instruccion *deserializar_instruccion(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
 
-void enviar_pid(int, int,op_code);
-void recibir_pid(int,int*);
-
-
+void enviar_pid(int, int, op_code);
+void recibir_pid(int, int *);
 
 void enviar_interrupcion(int, t_interrupcion *);
 t_interrupcion *recibir_interrupcion(int);
 
-void serializar_lista_swap(t_list*, t_paquete*); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
+void serializar_lista_swap(t_list *, t_paquete *); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
 t_list *recibir_listado_id_bloques(int);
 
 void enviar_pedido_marco(int, int, int);
 int recibir_marco(int);
 
 void enviar_op_con_int(int, op_code, int);
-uint32_t* recibir_valor_memoria(int);
+uint32_t recibir_valor_memoria(int);
 
-uint32_t str_to_uint32(char*);
+uint32_t str_to_uint32(char *);
+
+void liberar_instruccion(t_instruccion *);
+void liberar_lista_instrucciones(t_list *);
 
 #endif

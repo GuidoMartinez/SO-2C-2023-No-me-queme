@@ -754,7 +754,7 @@ void enviar_op_con_int(int socket, op_code code, int entero)
 	eliminar_paquete(paquete);
 }
 
-uint32_t* recibir_valor_memoria(int socket){
+uint32_t recibir_valor_memoria(int socket){
 	int size;
 	void *buffer;
 	buffer = recibir_buffer(&size, socket);
@@ -763,9 +763,24 @@ uint32_t* recibir_valor_memoria(int socket){
 
 	int offset = 0;
 
-	memcpy(&(valor_memoria), buffer + offset, sizeof(int));
+	memcpy(&(valor_memoria), buffer + offset, sizeof(uint32_t));
 
 	free(buffer);
 
 	return valor_memoria;
+}
+
+
+void liberar_instruccion(t_instruccion* instr) {
+    if (strcmp(instr->parametro1, "") != 0) {
+        free(instr->parametro1);
+    }
+    if (strcmp(instr->parametro2, "") != 0) {
+        free(instr->parametro2);
+    }
+    free(instr);
+}
+
+void liberar_lista_instrucciones(t_list* instrucciones) {
+    list_destroy_and_destroy_elements(instrucciones, (void (*)(void *))liberar_instruccion);
 }
