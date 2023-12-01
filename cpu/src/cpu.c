@@ -375,7 +375,7 @@ bool es_syscall()
 uint32_t obtener_valor_dir(uint32_t dl){
 
     int df = traducir_dl(dl);
-    int valor = -1;
+    int valor = 0;
 
     if(df == -1) {return df;}
 
@@ -387,8 +387,6 @@ uint32_t obtener_valor_dir(uint32_t dl){
 
     if (codigo_operacion == (op_code)MOV_IN_CPU) {valor = resultado;}
     else {log_error(cpu_logger_info, "Error al hacer el MOV_IN");}
-
-    free(resultado);
 
     return valor;
 } 

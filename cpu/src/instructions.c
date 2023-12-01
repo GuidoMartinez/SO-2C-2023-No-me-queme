@@ -131,7 +131,7 @@ void _f_seek(char *nombre_archivo, char* posicion)
 // se escriba en la dirección física de Memoria la información leída
 void _f_read(char *nombre_archivo, char* direc_logica)
 {
-    traducir_dl_fs(str_to_uint32(direc_logica));
+    traducir_dl_fs(direc_logica);
 
     contexto_actual->codigo_ultima_instru = F_READ;
 }
@@ -140,7 +140,7 @@ void _f_read(char *nombre_archivo, char* direc_logica)
 // la información que es obtenida a partir de la dirección física de Memoria.
 void _f_write(char *nombre_archivo, char* direc_logica)
 {
-    traducir_dl_fs(str_to_uint32(direc_logica));
+    traducir_dl_fs(direc_logica);
 
     contexto_actual->codigo_ultima_instru = F_WRITE;
 }

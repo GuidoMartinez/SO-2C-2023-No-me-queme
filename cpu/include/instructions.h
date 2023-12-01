@@ -26,4 +26,6 @@ void __exit();
 
 uint32_t *get_registry(char* registry);
 
+void traducir_dl_fs(char*);
+
 #endif

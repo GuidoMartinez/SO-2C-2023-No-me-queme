@@ -40,6 +40,7 @@ void cargar_configuracion(char *path)
 	config_valores_memoria.ip_escucha = config_get_string_value(config, "IP_ESCUCHA");
 	config_valores_memoria.ip_filesystem = config_get_string_value(config, "IP_FILESYSTEM");
 	config_valores_memoria.puerto_filesystem = config_get_string_value(config, "PUERTO_FILESYSTEM");
+	config_valores_memoria.puerto_filesystem_swap = config_get_string_value(config, "PUERTO_FILESYSTEM_SWAP");
 	config_valores_memoria.tamanio_memoria = config_get_int_value(config, "TAM_MEMORIA");
 	config_valores_memoria.tamanio_pagina = config_get_int_value(config, "TAM_PAGINA");
 	config_valores_memoria.path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
@@ -72,7 +73,7 @@ void inicializar_memoria()
 void atender_clientes_memoria()
 {
 	atender_cliente_cpu();
-	atender_cliente_fs();
+	atender_cliente_fs_archivos();
 	atender_cliente_kernel();
 }
 
@@ -119,7 +120,7 @@ int atender_cliente_kernel()
 	return 0;
 }
 
-int atender_cliente_fs()
+int atender_cliente_fs_archivos()
 {
 
 	socket_fs = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
@@ -127,7 +128,7 @@ int atender_cliente_fs()
 	if (socket_fs != -1)
 	{
 		pthread_t hilo_cliente;
-		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem, (void *)&socket_fs);
+		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem_archivos, (void *)&socket_fs);
 		pthread_detach(hilo_cliente);
 		return 1;
 	}
@@ -198,7 +199,7 @@ void *manejo_conexion_cpu(void *arg)
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion CON CPU. Abortando \n");
-			//  finalizar_memoria();
+			finalizar_memoria();
 			break;
 		}
 	}
@@ -250,7 +251,7 @@ void *manejo_conexion_kernel(void *arg)
 	return NULL;
 }
 
-void *manejo_conexion_filesystem(void *arg)
+void *manejo_conexion_filesystem_archivos(void *arg)
 {
 
 	socket_fs_int = *(int *)arg;
@@ -267,6 +268,12 @@ void *manejo_conexion_filesystem(void *arg)
 			log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FILESYSTEM");
 			recibir_handshake(socket_fs_int, logger_memoria_info);
 			realizar_handshake(socket_fs_int, HANDSHAKE_MEMORIA, logger_memoria_info);
+			break;
+		case F_WRITE_FS:
+
+			break;
+		case F_READ_FS:
+
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
@@ -675,6 +682,8 @@ void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
 	pedido_inicio_swap(q_pags, socket_fs_int);
 
+	/* TODO -- GUIDO -- PASO ESTO A LA CONEXION DE SWAP PARA MANEJAR TODO EN ESE HILO
+
 	resp_code_fs = recibir_operacion(socket_fs_int);
 	if (resp_code_fs == LISTA_BLOQUES_SWAP)
 	{
@@ -685,7 +694,7 @@ void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 	else
 	{
 		log_error(logger_memoria_info, "Se recibio un codigo de operacion de FS distinto a LISTA_BLOQUES_SWAP al pedido de inicio de SWAP para el proceso PID [%d]", proceso_nuevo->pid);
-	}
+	}*/
 }
 
 // Inicializo la tabla de paginas y devuelvo la cantidad de paginas para inicializar el swap en fs.
@@ -804,7 +813,7 @@ void enviar_valor_mov_in_cpu(uint32_t valor, int socket)
 	t_paquete *paquete_mov_in = crear_paquete_con_codigo_de_operacion(MOV_IN_CPU);
 	paquete_mov_in->buffer->size += sizeof(uint32_t);
 	paquete_mov_in->buffer->stream = realloc(paquete_mov_in->buffer->stream, paquete_mov_in->buffer->size);
-	memcpy(paquete_tam_pagina->buffer->stream, &(valor), sizeof(uint32_t));
+	memcpy(paquete_mov_in->buffer->stream, &(valor), sizeof(uint32_t));
 	enviar_paquete(paquete_mov_in, socket);
 	eliminar_paquete(paquete_mov_in);
 }

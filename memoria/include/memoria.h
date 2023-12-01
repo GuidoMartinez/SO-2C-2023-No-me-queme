@@ -28,6 +28,7 @@ typedef struct
     char *ip_escucha;
     char *ip_filesystem;
     char *puerto_filesystem;
+    char *puerto_filesystem_swap;
     uint32_t tamanio_memoria;
     uint32_t tamanio_pagina;
     uint32_t retardo_respuesta;
@@ -43,10 +44,10 @@ void atender_clientes_memoria();
 void *manejo_conexiones(void *);
 
 int atender_cliente_cpu();
-int atender_cliente_fs();
+int atender_cliente_fs_archivos();
 int atender_cliente_kernel();
 void *manejo_conexion_cpu(void *);
-void *manejo_conexion_filesystem(void *);
+void *manejo_conexion_filesystem_archivos(void *);
 void *manejo_conexion_kernel(void *);
 void send_page_size(uint32_t, int);
 
@@ -64,8 +65,7 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t, uint32_t);
 t_proceso_memoria *recibir_proceso_nuevo(int);
 t_algoritmo obtener_algoritmo();
 
-void actualizar_LRU(t_entrada_tabla_pag*);
-
+void actualizar_LRU(t_entrada_tabla_pag *);
 
 double marcosTotales();
 void inicializar_marcos();
@@ -81,15 +81,11 @@ void marcar_pag_modificada(int, int);
 bool tiene_bit_presencia_igual_a_1(void *);
 t_list *obtener_entradas_con_bit_presencia_1(t_proceso_memoria *);
 t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *, int);
-void cambiar_bit_modificado(t_proceso_memoria*, int, int);
+void cambiar_bit_modificado(t_proceso_memoria *, int, int);
 
 bool es_marco_libre(void *);
 bool hay_marcos_libres();
 void enviar_marco_cpu(int, int, op_code);
-
-
-
-
 
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);

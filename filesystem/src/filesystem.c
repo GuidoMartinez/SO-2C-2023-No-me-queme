@@ -39,7 +39,7 @@ int main(int argc, char **argv)
     {
         log_warning(filesystem_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
     }
-    t_paquete *respuesta = recibir_paquete(socket_memoria);
+    // t_paquete *respuesta = recibir_paquete(socket_memoria);
 
     // CONEXION CON KERNEL
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     pthread_t thread_kernel;
     pthread_create(&thread_kernel, NULL, (void *)comunicacion_kernel, (void *)socket_kernel);
     pthread_join(thread_kernel, NULL);
-    eliminar_paquete(respuesta);
+    //eliminar_paquete(respuesta);
 
     while(1);
     abort();
