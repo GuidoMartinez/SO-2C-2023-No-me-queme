@@ -301,16 +301,22 @@ void *manejo_conexion_filesystem_archivos(void *arg)
 
 			break;
 		case LISTA_BLOQUES_SWAP:
+			// TODO -- GUIDO -- PASO ESTO A LA CONEXION DE SWAP PARA MANEJAR TODO EN ESE HILO
 
-			break;
-		case LEER_BLOQUE:
+			t_list_pid *lista_id_bloques = recibir_listado_id_bloques(socket_fs_int);
+			asignar_id_bloque_swap(lista_id_bloques);
+			//list_destroy_and_destroy_elements(lista_id_bloques->lista, free);
+		
+			log_error(logger_memoria_info, "Se recibio un codigo de operacion de FS distinto a LISTA_BLOQUES_SWAP al pedido de inicio de SWAP para el proceso PID [%d]", lista_id_bloques->pid);
+		break;
+	case LEER_BLOQUE:
 
-			break;
-		default:
-			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
-			abort();
-			// finalizar_memoria();
-			break;
+		break;
+	default:
+		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
+		abort();
+		// finalizar_memoria();
+		break;
 		}
 	}
 	return NULL;
@@ -872,20 +878,6 @@ void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
 	pedido_inicio_swap(proceso_nuevo->pid, q_pags, socket_fs_int);
-
-	/* TODO -- GUIDO -- PASO ESTO A LA CONEXION DE SWAP PARA MANEJAR TODO EN ESE HILO
-
-	resp_code_fs = recibir_operacion(socket_fs_int);
-	if (resp_code_fs == LISTA_BLOQUES_SWAP)
-	{
-		t_list *lista_id_bloques = recibir_listado_id_bloques(socket_fs_int);
-		asignar_id_bloque_swap(proceso_nuevo, lista_id_bloques);
-		list_destroy_and_destroy_elements(lista_id_bloques, free);
-	}
-	else
-	{
-		log_error(logger_memoria_info, "Se recibio un codigo de operacion de FS distinto a LISTA_BLOQUES_SWAP al pedido de inicio de SWAP para el proceso PID [%d]", proceso_nuevo->pid);
-	}*/
 }
 
 // Inicializo la tabla de paginas y devuelvo la cantidad de paginas para inicializar el swap en fs.
@@ -916,14 +908,15 @@ int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *proceso_nue
 	return cantidad_pags;
 }
 
-void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_bloques)
+void asignar_id_bloque_swap(t_list_pid *lista_id_bloques)
 {
+	t_proceso_memoria *proceso_nuevo = obtener_proceso_pid(lista_id_bloques->pid);
 	int cant_bloques = list_size(proceso_nuevo->tabla_paginas->entradas_tabla);
 
 	for (int i = 0; i < cant_bloques; i++)
 	{
 		t_entrada_tabla_pag *entrada = list_get(proceso_nuevo->tabla_paginas->entradas_tabla, i);
-		int *id_bloque = list_get(lista_id_bloques, i);
+		int *id_bloque = list_get(lista_id_bloques->lista, i);
 		entrada->id_bloque_swap = *id_bloque;
 	}
 	log_warning(logger_memoria_info, "Se asignaron OK los id de los bloques SWAP para el PID [%d]", proceso_nuevo->pid);
@@ -1057,7 +1050,7 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 void limpiar_swap(t_proceso_memoria *proceso_a_eliminar) // listo los bloques swap y se los envio a FS para que los marque como libre
 {
 	t_list *ids_bloques_swap = obtener_lista_id_bloque_swap(proceso_a_eliminar);
-	enviar_bloques_swap_a_liberar(ids_bloques_swap, socket_fs_int);
+	enviar_bloques_swap_a_liberar(proceso_a_eliminar->pid, ids_bloques_swap, socket_fs_int);
 	list_destroy_and_destroy_elements(ids_bloques_swap, free);
 }
 
@@ -1078,10 +1071,10 @@ t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
 	return lista_id_bloques_swap;
 }
 
-void enviar_bloques_swap_a_liberar(t_list *lista_bloques, int socket)
+void enviar_bloques_swap_a_liberar(int pid, t_list *lista_bloques, int socket)
 {
 	t_paquete *paquete_swap_a_borrar = crear_paquete_con_codigo_de_operacion(SWAP_A_LIBERAR);
-	serializar_lista_swap(lista_bloques, paquete_swap_a_borrar);
+	serializar_lista_swap(pid, lista_bloques, paquete_swap_a_borrar);
 	enviar_paquete(paquete_swap_a_borrar, socket);
 	eliminar_paquete(paquete_swap_a_borrar);
 }
