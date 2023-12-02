@@ -286,20 +286,26 @@ t_instruccion *fetch(int pid, int pc)
         abort();
     }
 
+    log_info(cpu_logger_info, "PID: %d - FETCH - Program Counter: %d", pid, pc);
+
     return instruccion;
 }
 
 // Ejecuta instrucciones
 void decode(t_instruccion *instruccion)
 {
+    char* param1 = "";
+    char* param2 = "";
+    if(instruccion->parametro1 != NULL) strcpy(param1, instruccion->parametro1);
+    if(instruccion->parametro1 != NULL) strcpy(param2, instruccion->parametro2);
+    log_info(cpu_logger_info, "PID: %d - DECODE - Instruccion: %s - %s", contexto_actual->pid, instruccion->codigo, param1, param2);
+
     switch (instruccion->codigo)
     {
     case SET:
-        log_info(cpu_logger_info, "Ejecutando instruccion SET");
         _set(instruccion->parametro1, instruccion->parametro2);
         break;
     case SUM:
-        log_info(cpu_logger_info, "Ejecutando instruccion SUM");
         _sum(instruccion->parametro1, instruccion->parametro2);
         break;
     case SUB:
@@ -313,11 +319,9 @@ void decode(t_instruccion *instruccion)
         break;
     case WAIT:
         _wait();
-        log_info(cpu_logger_info, "Estoy usando recurso: %s", contexto_actual->instruccion_ejecutada->parametro1);
         break;
     case SIGNAL:
         _signal();
-        log_info(cpu_logger_info, "Estoy usando recurso: %s", contexto_actual->instruccion_ejecutada->parametro1);
         break;
     case MOV_IN:
         _mov_in(instruccion->parametro1, instruccion->parametro2);
@@ -429,12 +433,15 @@ int traducir_dl(uint32_t dl){
     int marco = recibir_marco(socket_memoria);
 
     if(operacion == MARCO_PAGE_FAULT) {
+        log_info(cpu_logger_info, "Page Fault PID: %d - Página: %d", contexto_actual->pid, num_pag);
         page_fault = true;
         contexto_actual->nro_pf = num_pag;
         return marco;
     }
     else{
+        log_info(cpu_logger_info, "“PID: %d - OBTENER MARCO - Página: %d - Marco:%d”",contexto_actual->pid, num_pag, marco);
         int df = marco * tamano_pagina + desplazamiento;
+        log_info(cpu_logger_info, "Dirección física: %d", df);
         return df;
     }
 }
