@@ -43,7 +43,6 @@ if (list_size(pcb->archivos_abiertos)>0){
 
     list_destroy(pcb->archivos_abiertos);
 
-    // contexto_destroyer(pcb->contexto_ejecucion);
     free(pcb);
     log_info(kernel_logger_info, "Hice free ");
 }
@@ -177,15 +176,12 @@ void planificar_largo_plazo()
     log_info(kernel_logger_info, "Entre al largo plazo");
     pthread_t hilo_ready;
     pthread_t hilo_exit;
-    //pthread_t hilo_block;
 
     pthread_create(&hilo_exit, NULL, (void *)exit_pcb, NULL);
     pthread_create(&hilo_ready, NULL, (void *)ready_pcb, NULL);
-    // pthread_create(&hilo_block, NULL, (void *)block, NULL);
 
     pthread_detach(hilo_exit);
     pthread_detach(hilo_ready);
-    // pthread_detach(hilo_block);
 }
 
 void planificar_corto_plazo()
@@ -217,7 +213,6 @@ void ready_pcb(void)
             int procesos_ready = list_size(lista_ready);
             int procesos_exec = list_size(cola_exec);
             int procesos_bloqueado = list_size(cola_block);
-            // TODO: Cerrar semaforo acá?
 
             int procesos_activos = procesos_ready + procesos_exec + procesos_bloqueado;
 
@@ -226,7 +221,6 @@ void ready_pcb(void)
 
                 procesos_activos = procesos_activos + 1;
                 pthread_mutex_unlock(&leer_grado);
-                // log_info(kernel_logger_info, "Voy a pasar al ready %d", pcb->pid);
                 set_pcb_ready(pcb);
                 if (ALGORITMO_PLANIFICACION == PRIORIDADES)
                 {
@@ -354,7 +348,6 @@ void exec_pcb()
 
     }
 
-    //     sem_post(&sem_exec);
     // TODO: Chequear estos free
     // free(pcb);
     // free(ultimo_contexto);
@@ -364,7 +357,6 @@ void proceso_admitido(t_pcb *pcb)
 {
     cambiar_estado(pcb, EXEC);
     safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
-    // sem_post(&sem_exec);
 }
 
 void block()

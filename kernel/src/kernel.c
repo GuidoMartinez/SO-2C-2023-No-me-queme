@@ -621,7 +621,7 @@ void liberar_recursos(t_pcb *pcb)
         recurso_en_kernel = buscar_recurso(recursos_kernel, recurso_proceso->nombre);
 
         t_queue *cola_bloqueados = recurso_en_kernel->colabloqueado;
-        log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
+        //log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
 
        // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_en_kernel->cantidad);
 
@@ -756,6 +756,8 @@ void exec_block_fs()
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
     proceso_en_ejecucion = NULL;
     set_pcb_block(pcbelegido);
+    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "BLOCKED");  
+   
     pthread_mutex_lock(&mutex_cola_block);
     pcbelegido->motivo_block = OP_FILESYSTEM;
     pthread_mutex_unlock(&mutex_cola_block);
@@ -805,6 +807,7 @@ void *recibir_op_FS()
         case F_TRUNCATE_SUCCESS:
         pcb_bloqueado = buscarProceso(*(pid));
         remove_blocked(pcb_bloqueado->pid);
+        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY"); 
         set_pcb_ready(pcb_bloqueado);
         sem_post(&sem_ready);
         sem_post(&sem_exec);
@@ -812,6 +815,7 @@ void *recibir_op_FS()
         case F_WRITE_SUCCESS:
         pcb_bloqueado = buscarProceso(*(pid));
         remove_blocked(pcb_bloqueado->pid);
+        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY"); 
         set_pcb_ready(pcb_bloqueado);
         sem_post(&sem_ready);
         sem_post(&sem_exec);
@@ -819,6 +823,7 @@ void *recibir_op_FS()
         case F_READ_SUCCESS:
        pcb_bloqueado = buscarProceso(*(pid));
         remove_blocked(pcb_bloqueado->pid);
+        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");   
         set_pcb_ready(pcb_bloqueado);
         sem_post(&sem_ready);
         sem_post(&sem_exec);
@@ -833,9 +838,6 @@ void *recibir_op_FS()
         sem_post(&sem_hilo_FS);
             break;
         }
-/*
-        sem_post(&sem_ready);
-        sem_post(&sem_exec);*/
     }
 }
 
@@ -845,6 +847,8 @@ void* manejar_pf(){
 
     //todo AGREGAR SEMAFORO
     set_pcb_block(proceso_en_ejecucion);
+    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", proceso_en_ejecucion->pid, "EXEC", "BLOCKED"); 
+        
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
     int nro_pf = proceso_en_ejecucion->contexto_ejecucion->nro_pf;
@@ -872,7 +876,8 @@ void* manejar_pf(){
     t_pcb* pcb_bloqueado = buscarProceso(*(pid));
     remove_blocked(pcb_bloqueado->pid);
     set_pcb_ready(pcb_bloqueado);
-
+    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY"); 
+     
     sem_post(&sem_ready);
     sem_post(&sem_exec);
 

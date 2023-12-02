@@ -339,6 +339,8 @@ void kf_write(){
         fs_interaction();
     }else{
         finalizar_proceso_en_ejecucion();
+            log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
+        
     }
 };
 
