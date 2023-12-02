@@ -62,6 +62,7 @@ void inicializar_memoria()
 	inicializar_marcos();
 	// tablas_de_paginas = list_create(); // para acceder a las tablas de paginas ingreso al proceso
 	procesos_totales = list_create();
+	paginas_utilizadas = list_create();
 	algoritmo_pags = obtener_algoritmo();
 
 	pthread_mutex_init(&mutex_procesos, NULL);
@@ -241,6 +242,28 @@ void *manejo_conexion_kernel(void *arg)
 			eliminar_proceso_memoria(proceso_a_eliminar); // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos --
 
 			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso.
+			break;
+		case PAGE_FAULT_KERNEL:
+
+			int pid_pf, nro_pag_pf;
+			recibir_pf_kernel(socket_kernel_int, &pid_pf, &nro_pag_pf);
+
+			if (hay_marcos_libres())
+			{
+				int marco_asignado = asignar_marco_libre(pid_pf);
+				t_proceso_memoria *proceso_pf = obtener_proceso_pid(pid_pf);
+				t_entrada_tabla_pag *entrada_proceso = list_get(proceso_pf->tabla_paginas->entradas_tabla, nro_pag_pf);
+				entrada_proceso->marco = marco_asignado;
+				entrada_proceso->bit_presencia = 1;
+				entrada_proceso->bit_modificado = 0;
+				pedido_lectura_swap(socket_fs_int, entrada_proceso);
+				// GONZA?? DUDA - ATENDER LA RESPUESTA POR UNA CONEXION NUEVA O POR EL HILO QUE MANEJA LAS RESPUESTAS DE FS.
+				// RECIBO EL VOID* de bloques y lo guardo en memoria
+				// escribirPagEnMemoria(respuestaFS,marco_asignado);
+			}
+			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
+			{
+			}
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion con KERNEL. Abortando");
@@ -445,7 +468,9 @@ t_proceso_memoria *obtener_proceso_pid(uint32_t pid_pedido)
 		return ((t_proceso_memoria *)elemento)->pid == pid_pedido;
 	}
 	t_proceso_memoria *proceso_elegido;
+	pthread_mutex_lock(&mutex_procesos);
 	proceso_elegido = list_find(procesos_totales, _proceso_id);
+	pthread_mutex_unlock(&mutex_procesos);
 	return proceso_elegido;
 }
 
@@ -473,6 +498,157 @@ void actualizar_LRU(t_entrada_tabla_pag *entrada)
 	contador_lru++;
 	pthread_mutex_unlock(&mutex_contador_LRU);
 	entrada->tiempo_lru = contador_lru;
+	agregar_pagina_fifo(entrada);
+}
+
+void agregar_pagina_fifo(t_entrada_tabla_pag *entrada)
+{
+	pthread_mutex_lock(&mutex_fifo);
+
+	bool _mismo_id_bloque(void *elemento)
+	{
+		return ((t_entrada_tabla_pag *)elemento)->id_bloque_swap == entrada->id_bloque_swap;
+	}
+
+	t_entrada_tabla_pag *entrada_existente;
+	pthread_mutex_lock(&mutex_fifo);
+	entrada_existente = list_find(paginas_utilizadas, _mismo_id_bloque);
+
+	if (entrada_existente == NULL)
+	{
+		// Si la entrada no existe, agrégala a la lista
+		list_add(paginas_utilizadas, entrada);
+	}
+	pthread_mutex_unlock(&mutex_fifo);
+}
+
+bool son_iguales(t_entrada_tabla_pag *entrada1, t_entrada_tabla_pag *entrada2)
+{
+	return entrada1->indice == entrada2->indice && entrada1->marco == entrada2->marco && entrada1->id_bloque_swap == entrada2->id_bloque_swap;
+}
+
+// MANEJO PF
+
+void recibir_pf_kernel(int socket, int *pid, int *nro_pag)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	// printf("size del stream a deserializar \n%d", size);
+	memcpy(pid, buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(nro_pag, buffer + offset, sizeof(int));
+
+	free(buffer);
+}
+
+t_entrada_tabla_pag *paginaAReemplazar()
+{
+	t_entrada_tabla_pag *pagina_a_reemplazar;
+	t_marco *marco_reemplazo;
+
+	switch (algoritmo_pags)
+	{
+	case FIFO:
+		pagina_a_reemplazar = obtenerPaginaFIFO();
+		marco_reemplazo = list_get(marcos, pagina_a_reemplazar->marco);
+
+		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
+		return pagina_a_reemplazar;
+		break;
+	case LRU:
+		pagina_a_reemplazar = obtenerPaginaLRU();
+		marco_reemplazo = list_get(marcos, pagina_a_reemplazar->marco);
+
+		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
+		return pagina_a_reemplazar;
+		break;
+	default:
+		log_error(logger_memoria_info, "no se encontro el algoritmo de reemplazo");
+		return NULL;
+	}
+}
+
+t_entrada_tabla_pag *obtenerPaginaLRU()
+{
+	t_list *paginas_en_memoria = obtener_total_pags_en_memoria(procesos_totales);
+
+	t_entrada_tabla_pag *pagina = obtener_entrada_menor_tiempo_lru(paginas_en_memoria);
+
+	return pagina;
+}
+
+t_entrada_tabla_pag *obtener_entrada_menor_tiempo_lru(t_list *lista_entradas)
+{
+	t_entrada_tabla_pag *entrada_menor_tiempo_lru = NULL;
+	int menor_tiempo_lru = MAX_LRU; // Inicializar con un valor grande
+
+	// Iterar sobre la lista
+	for (int i = 0; i < list_size(lista_entradas); i++)
+	{
+		t_entrada_tabla_pag *entrada_actual = list_get(lista_entradas, i);
+
+		// Verificar si el tiempo_lru es menor al menor registrado
+		if (entrada_actual->tiempo_lru < menor_tiempo_lru)
+		{
+			menor_tiempo_lru = entrada_actual->tiempo_lru;
+			entrada_menor_tiempo_lru = entrada_actual;
+		}
+	}
+
+	return entrada_menor_tiempo_lru;
+}
+
+t_entrada_tabla_pag *obtenerPaginaFIFO()
+{
+	pthread_mutex_lock(&mutex_fifo);
+	t_entrada_tabla_pag *pagina = list_remove(paginas_utilizadas, 0);
+	pthread_mutex_unlock(&mutex_fifo);
+	return pagina;
+}
+
+void escribirPagEnMemoria(void *valor, int numMarco)
+{
+	pthread_mutex_lock(&mutex_memoria_usuario);
+	memcpy(memoria_usuario + numMarco * config_valores_memoria.tamanio_pagina, valor, config_valores_memoria.tamanio_pagina);
+	pthread_mutex_unlock(&mutex_memoria_usuario);
+}
+
+void pedido_lectura_swap(int socket, t_entrada_tabla_pag *entrada)
+{
+	int index_bloque = entrada->id_bloque_swap;
+	t_paquete *paquete_pagina = crear_paquete_con_codigo_de_operacion(LEER_BLOQUE);
+	paquete_pagina->buffer->size += sizeof(int);
+	paquete_pagina->buffer->stream = realloc(paquete_pagina->buffer->stream, paquete_pagina->buffer->size);
+	memcpy(paquete_pagina->buffer->stream, &(index_bloque), sizeof(int));
+	enviar_paquete(paquete_pagina, socket);
+	eliminar_paquete(paquete_pagina);
+}
+
+t_list *obtener_total_pags_en_memoria(t_list *lista_procesos)
+{
+	t_list *lista_filtrada = list_create();
+
+	// Iterar sobre todos los procesos en la lista
+	for (int i = 0; i < list_size(lista_procesos); i++)
+	{
+		t_proceso_memoria *proceso = list_get(lista_procesos, i);
+
+		// Iterar sobre todas las entradas de la tabla de páginas del proceso
+		for (int j = 0; j < list_size(proceso->tabla_paginas->entradas_tabla); j++)
+		{
+			t_entrada_tabla_pag *entrada = list_get(proceso->tabla_paginas->entradas_tabla, j);
+
+			// Filtrar las entradas con bit_presencia igual a 1
+			if (tiene_bit_presencia_igual_a_1(entrada))
+			{
+				list_add(lista_filtrada, entrada);
+			}
+		}
+	}
+
+	return lista_filtrada;
 }
 
 // MARCOS
@@ -847,6 +1023,7 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
 	actualizar_LRU(pagina_modificada);
+
 	sleep(config_valores_memoria.retardo_respuesta / 1000);
 	log_info(logger_memoria_info, "ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica);
 
