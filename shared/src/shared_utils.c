@@ -784,3 +784,17 @@ void liberar_instruccion(t_instruccion* instr) {
 void liberar_lista_instrucciones(t_list* instrucciones) {
     list_destroy_and_destroy_elements(instrucciones, (void (*)(void *))liberar_instruccion);
 }
+
+void enviar_op(int socket, op_code code, int entero)
+{
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(code);
+	paquete->buffer->size += sizeof(int);
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete->buffer->stream + offset, &(entero), sizeof(int));
+
+	enviar_paquete(paquete, socket);
+	eliminar_paquete(paquete);
+}

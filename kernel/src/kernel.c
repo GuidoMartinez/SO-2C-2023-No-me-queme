@@ -857,12 +857,19 @@ void* manejar_pf(){
     /*3.- Esperar la respuesta del módulo memoria.*/
 
     op_code op = recibir_operacion(conexion_memoria);
-    if(op != PAGINA_CARGADA) {log_error(kernel_logger_info,"No se puedo cargar la pagina.");}
+    if(op != PAGINA_CARGADA) {
+        log_error(kernel_logger_info,"No se puedo cargar la pagina.");
+        return NULL;
+    }
+
+    int* pid = malloc(sizeof(int));
+
+    recibir_pid(conexion_memoria, pid);
 
     /*4.- Al recibir la respuesta del módulo memoria, desbloquear el proceso y colocarlo en la cola de
     ready.*/
 
-    t_pcb* pcb_bloqueado = buscar_proceso_por_nro_pf(nro_pf);
+    t_pcb* pcb_bloqueado = buscarProceso(*(pid));
     remove_blocked(pcb_bloqueado->pid);
     set_pcb_ready(pcb_bloqueado);
 
@@ -871,6 +878,7 @@ void* manejar_pf(){
 
     return NULL;
 }
+
 t_instruccion_fs* inicializar_instruccion_fs(t_instruccion* instr, uint32_t ptr) {
     t_instruccion_fs* instr_fs = malloc(sizeof(t_instruccion_fs));
 
@@ -909,4 +917,17 @@ t_resp_file esperar_respuesta_file()
     }
    // log_warning(kernel_logger_info, "El codigo que recibi es %s", obtener_nombre_resp_file(respuesta));
     return respuesta;
+}
+
+bool hay_deadlock(char* recurso_deadlock){
+    t_list* nombres_recursos = proceso_en_ejecucion->recursos_asignados;
+
+    log_info(kernel_logger_info, "Deadlock detectado: %d - Recursos en posesión: ", proceso_en_ejecucion->pid);
+
+    for(int i=0; i<list_size(nombres_recursos); i++){
+        char* recurso = list_get(nombres_recursos, i);
+        log_info(kernel_logger_info, "%s", recurso);
+    }
+
+    log_info(kernel_logger_info, "Recurso Requerido: %d ", recurso_deadlock);
 }

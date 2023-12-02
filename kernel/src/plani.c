@@ -22,7 +22,22 @@ void exit_pcb(void)
 
 void pcb_destroy(t_pcb *pcb){
     log_info(kernel_logger_info, "Entre al destroy ");
+
+    for(int i = 0; i <= list_size(pcb->archivos_abiertos); i++){
+        t_archivo_global* archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, list_get(pcb->archivos_abiertos, i));
+        if(archivo_global == NULL){
+            continue;
+        }
+        archivo_global->contador--;
+        if(archivo_global->contador == 0){
+            list_remove_element(lista_archivos_abiertos, archivo_global);
+            free(archivo_global->nombreArchivo);
+            free(archivo_global);
+        }
+    }
+
     list_destroy(pcb->archivos_abiertos);
+
     // contexto_destroyer(pcb->contexto_ejecucion);
     free(pcb);
     log_info(kernel_logger_info, "Hice free ");
@@ -329,6 +344,8 @@ void exec_pcb()
             sem_post(&sem_exec);
             break;
         }
+
+
     }
 
     //     sem_post(&sem_exec);
