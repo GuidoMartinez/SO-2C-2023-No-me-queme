@@ -341,7 +341,7 @@ void finalizar_proceso(int pid)
     else
     {
         log_error(kernel_logger_info, "El PID enviado no se encuentra en ejecucion");
-        return;
+        //return;
     }
     t_pcb *proceso_encontrado;
     proceso_encontrado = buscarProceso(pid);
@@ -623,10 +623,10 @@ void liberar_recursos(t_pcb *pcb)
         t_queue *cola_bloqueados = recurso_en_kernel->colabloqueado;
         log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
 
-        log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_en_kernel->cantidad);
+       // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_en_kernel->cantidad);
 
         recurso_en_kernel->cantidad += recurso_proceso->cantidad;
-        log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_en_kernel->cantidad);
+       // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_en_kernel->cantidad);
 
         recurso_proceso->cantidad -= recurso_proceso->cantidad;
 
@@ -929,5 +929,5 @@ bool hay_deadlock(char* recurso_deadlock){
         log_info(kernel_logger_info, "%s", recurso);
     }
 
-    log_info(kernel_logger_info, "Recurso Requerido: %d ", recurso_deadlock);
+    log_info(kernel_logger_info, "Recurso Requerido: %s ", recurso_deadlock);
 }

@@ -23,18 +23,23 @@ void exit_pcb(void)
 void pcb_destroy(t_pcb *pcb){
     log_info(kernel_logger_info, "Entre al destroy ");
 
+
+if (list_size(pcb->archivos_abiertos)>0){  
     for(int i = 0; i <= list_size(pcb->archivos_abiertos); i++){
         t_archivo_global* archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, list_get(pcb->archivos_abiertos, i));
         if(archivo_global == NULL){
             continue;
         }
         archivo_global->contador--;
+ 
         if(archivo_global->contador == 0){
             list_remove_element(lista_archivos_abiertos, archivo_global);
             free(archivo_global->nombreArchivo);
             free(archivo_global);
         }
     }
+ }
+
 
     list_destroy(pcb->archivos_abiertos);
 
@@ -261,6 +266,7 @@ void exec_pcb()
         if (list_size(lista_ready) < 1)
         {
             log_info(kernel_logger_info, "Lista ready vacia");
+            continue;
         }
 
         if (proceso_en_ejecucion == NULL || proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL)

@@ -192,6 +192,7 @@ void ksignal()
 
         // TODO: Hacer funcion de enum a char* para hacer el log de los estados
         log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
+        log_info(kernel_logger_info, "Finaliza el proceso <%d> Motivo <%s> \n", pcbelegido->pid, "INVALID_RESOURCE");
 
         sem_post(&sem_exit);
         sem_post(&sem_ready);
