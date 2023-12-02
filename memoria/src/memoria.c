@@ -62,6 +62,7 @@ void inicializar_memoria()
 	inicializar_marcos();
 	// tablas_de_paginas = list_create(); // para acceder a las tablas de paginas ingreso al proceso
 	procesos_totales = list_create();
+	paginas_utilizadas = list_create();
 	algoritmo_pags = obtener_algoritmo();
 
 	pthread_mutex_init(&mutex_procesos, NULL);
@@ -242,6 +243,30 @@ void *manejo_conexion_kernel(void *arg)
 
 			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso.
 			break;
+		case PAGE_FAULT_KERNEL:
+
+			int pid_pf, nro_pag_pf;
+			recibir_pf_kernel(socket_kernel_int, &pid_pf, &nro_pag_pf);
+
+			if (hay_marcos_libres())
+			{
+				int marco_asignado = asignar_marco_libre(pid_pf);
+				t_proceso_memoria *proceso_pf = obtener_proceso_pid(pid_pf);
+				t_entrada_tabla_pag *entrada_proceso = list_get(proceso_pf->tabla_paginas->entradas_tabla, nro_pag_pf);
+				entrada_proceso->marco = marco_asignado;
+				entrada_proceso->bit_presencia = 1;
+				entrada_proceso->bit_modificado = 0;
+				pedido_lectura_swap(socket_fs_int, proceso_pf->pid, entrada_proceso);
+				// GONZA?? DUDA - ATENDER LA RESPUESTA POR UNA CONEXION NUEVA O POR EL HILO QUE MANEJA LAS RESPUESTAS DE FS.
+				// RECIBO EL VOID* de bloques y lo guardo en memoria
+				// escribirPagEnMemoria(respuestaFS,marco_asignado);
+			}
+			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
+			{
+				t_entrada_tabla_pag *entrada_a_swapear = paginaAReemplazar();
+				int nro_marco = entrada_a_swapear->marco;
+			}
+			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion con KERNEL. Abortando");
 			finalizar_memoria();
@@ -275,11 +300,23 @@ void *manejo_conexion_filesystem_archivos(void *arg)
 		case F_READ_FS:
 
 			break;
-		default:
-			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
-			abort();
-			// finalizar_memoria();
-			break;
+		case LISTA_BLOQUES_SWAP:
+			// TODO -- GUIDO -- PASO ESTO A LA CONEXION DE SWAP PARA MANEJAR TODO EN ESE HILO
+
+			t_list_pid *lista_id_bloques = recibir_listado_id_bloques(socket_fs_int);
+			asignar_id_bloque_swap(lista_id_bloques);
+			//list_destroy_and_destroy_elements(lista_id_bloques->lista, free);
+		
+			log_error(logger_memoria_info, "Se recibio un codigo de operacion de FS distinto a LISTA_BLOQUES_SWAP al pedido de inicio de SWAP para el proceso PID [%d]", lista_id_bloques->pid);
+		break;
+	case LEER_BLOQUE:
+
+		break;
+	default:
+		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
+		abort();
+		// finalizar_memoria();
+		break;
 		}
 	}
 	return NULL;
@@ -445,7 +482,9 @@ t_proceso_memoria *obtener_proceso_pid(uint32_t pid_pedido)
 		return ((t_proceso_memoria *)elemento)->pid == pid_pedido;
 	}
 	t_proceso_memoria *proceso_elegido;
+	pthread_mutex_lock(&mutex_procesos);
 	proceso_elegido = list_find(procesos_totales, _proceso_id);
+	pthread_mutex_unlock(&mutex_procesos);
 	return proceso_elegido;
 }
 
@@ -473,6 +512,164 @@ void actualizar_LRU(t_entrada_tabla_pag *entrada)
 	contador_lru++;
 	pthread_mutex_unlock(&mutex_contador_LRU);
 	entrada->tiempo_lru = contador_lru;
+	agregar_pagina_fifo(entrada);
+}
+
+void agregar_pagina_fifo(t_entrada_tabla_pag *entrada)
+{
+	pthread_mutex_lock(&mutex_fifo);
+
+	bool _mismo_id_bloque(void *elemento)
+	{
+		return ((t_entrada_tabla_pag *)elemento)->id_bloque_swap == entrada->id_bloque_swap;
+	}
+
+	t_entrada_tabla_pag *entrada_existente;
+	pthread_mutex_lock(&mutex_fifo);
+	entrada_existente = list_find(paginas_utilizadas, _mismo_id_bloque);
+
+	if (entrada_existente == NULL)
+	{
+		// Si la entrada no existe, agrégala a la lista
+		list_add(paginas_utilizadas, entrada);
+	}
+	pthread_mutex_unlock(&mutex_fifo);
+}
+
+bool son_iguales(t_entrada_tabla_pag *entrada1, t_entrada_tabla_pag *entrada2)
+{
+	return entrada1->indice == entrada2->indice && entrada1->marco == entrada2->marco && entrada1->id_bloque_swap == entrada2->id_bloque_swap;
+}
+
+// MANEJO PF
+
+void recibir_pf_kernel(int socket, int *pid, int *nro_pag)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	// printf("size del stream a deserializar \n%d", size);
+	memcpy(pid, buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(nro_pag, buffer + offset, sizeof(int));
+
+	free(buffer);
+}
+
+t_entrada_tabla_pag *paginaAReemplazar()
+{
+	t_entrada_tabla_pag *pagina_a_reemplazar;
+	t_marco *marco_reemplazo;
+
+	switch (algoritmo_pags)
+	{
+	case FIFO:
+		pagina_a_reemplazar = obtenerPaginaFIFO();
+		marco_reemplazo = list_get(marcos, pagina_a_reemplazar->marco);
+
+		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
+		return pagina_a_reemplazar;
+		break;
+	case LRU:
+		pagina_a_reemplazar = obtenerPaginaLRU();
+		marco_reemplazo = list_get(marcos, pagina_a_reemplazar->marco);
+
+		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
+		return pagina_a_reemplazar;
+		break;
+	default:
+		log_error(logger_memoria_info, "no se encontro el algoritmo de reemplazo");
+		return NULL;
+	}
+}
+
+t_entrada_tabla_pag *obtenerPaginaLRU()
+{
+	t_list *paginas_en_memoria = obtener_total_pags_en_memoria(procesos_totales);
+
+	t_entrada_tabla_pag *pagina = obtener_entrada_menor_tiempo_lru(paginas_en_memoria);
+
+	return pagina;
+}
+
+t_entrada_tabla_pag *obtener_entrada_menor_tiempo_lru(t_list *lista_entradas)
+{
+	t_entrada_tabla_pag *entrada_menor_tiempo_lru = NULL;
+	int menor_tiempo_lru = MAX_LRU; // Inicializar con un valor grande
+
+	// Iterar sobre la lista
+	for (int i = 0; i < list_size(lista_entradas); i++)
+	{
+		t_entrada_tabla_pag *entrada_actual = list_get(lista_entradas, i);
+
+		// Verificar si el tiempo_lru es menor al menor registrado
+		if (entrada_actual->tiempo_lru < menor_tiempo_lru)
+		{
+			menor_tiempo_lru = entrada_actual->tiempo_lru;
+			entrada_menor_tiempo_lru = entrada_actual;
+		}
+	}
+
+	return entrada_menor_tiempo_lru;
+}
+
+t_entrada_tabla_pag *obtenerPaginaFIFO()
+{
+	pthread_mutex_lock(&mutex_fifo);
+	t_entrada_tabla_pag *pagina = list_remove(paginas_utilizadas, 0);
+	pthread_mutex_unlock(&mutex_fifo);
+	return pagina;
+}
+
+void escribirPagEnMemoria(void *valor, int numMarco)
+{
+	pthread_mutex_lock(&mutex_memoria_usuario);
+	memcpy(memoria_usuario + numMarco * config_valores_memoria.tamanio_pagina, valor, config_valores_memoria.tamanio_pagina);
+	pthread_mutex_unlock(&mutex_memoria_usuario);
+}
+
+void pedido_lectura_swap(int socket, int pid, t_entrada_tabla_pag *entrada)
+{
+	int index_bloque = entrada->id_bloque_swap;
+	t_paquete *paquete_pagina = crear_paquete_con_codigo_de_operacion(LEER_BLOQUE);
+	paquete_pagina->buffer->size += sizeof(int) * 2;
+	paquete_pagina->buffer->stream = malloc(paquete_pagina->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete_pagina->buffer->stream + offset, &(pid), sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(paquete_pagina->buffer->stream + offset, &(index_bloque), sizeof(int));
+
+	enviar_paquete(paquete_pagina, socket);
+	eliminar_paquete(paquete_pagina);
+}
+
+t_list *obtener_total_pags_en_memoria(t_list *lista_procesos)
+{
+	t_list *lista_filtrada = list_create();
+
+	// Iterar sobre todos los procesos en la lista
+	for (int i = 0; i < list_size(lista_procesos); i++)
+	{
+		t_proceso_memoria *proceso = list_get(lista_procesos, i);
+
+		// Iterar sobre todas las entradas de la tabla de páginas del proceso
+		for (int j = 0; j < list_size(proceso->tabla_paginas->entradas_tabla); j++)
+		{
+			t_entrada_tabla_pag *entrada = list_get(proceso->tabla_paginas->entradas_tabla, j);
+
+			// Filtrar las entradas con bit_presencia igual a 1
+			if (tiene_bit_presencia_igual_a_1(entrada))
+			{
+				list_add(lista_filtrada, entrada);
+			}
+		}
+	}
+
+	return lista_filtrada;
 }
 
 // MARCOS
@@ -680,21 +877,7 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
-	pedido_inicio_swap(q_pags, socket_fs_int);
-
-	/* TODO -- GUIDO -- PASO ESTO A LA CONEXION DE SWAP PARA MANEJAR TODO EN ESE HILO
-
-	resp_code_fs = recibir_operacion(socket_fs_int);
-	if (resp_code_fs == LISTA_BLOQUES_SWAP)
-	{
-		t_list *lista_id_bloques = recibir_listado_id_bloques(socket_fs_int);
-		asignar_id_bloque_swap(proceso_nuevo, lista_id_bloques);
-		list_destroy_and_destroy_elements(lista_id_bloques, free);
-	}
-	else
-	{
-		log_error(logger_memoria_info, "Se recibio un codigo de operacion de FS distinto a LISTA_BLOQUES_SWAP al pedido de inicio de SWAP para el proceso PID [%d]", proceso_nuevo->pid);
-	}*/
+	pedido_inicio_swap(proceso_nuevo->pid, q_pags, socket_fs_int);
 }
 
 // Inicializo la tabla de paginas y devuelvo la cantidad de paginas para inicializar el swap en fs.
@@ -725,26 +908,34 @@ int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *proceso_nue
 	return cantidad_pags;
 }
 
-void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_bloques)
+void asignar_id_bloque_swap(t_list_pid *lista_id_bloques)
 {
+	t_proceso_memoria *proceso_nuevo = obtener_proceso_pid(lista_id_bloques->pid);
 	int cant_bloques = list_size(proceso_nuevo->tabla_paginas->entradas_tabla);
 
 	for (int i = 0; i < cant_bloques; i++)
 	{
 		t_entrada_tabla_pag *entrada = list_get(proceso_nuevo->tabla_paginas->entradas_tabla, i);
-		int *id_bloque = list_get(lista_id_bloques, i);
+		int *id_bloque = list_get(lista_id_bloques->lista, i);
 		entrada->id_bloque_swap = *id_bloque;
 	}
 	log_warning(logger_memoria_info, "Se asignaron OK los id de los bloques SWAP para el PID [%d]", proceso_nuevo->pid);
 }
 
-void pedido_inicio_swap(int cant_pags, int socket)
+void pedido_inicio_swap(int pid, int cant_pags, int socket)
 {
 
 	t_paquete *paquete_pedido_swap = crear_paquete_con_codigo_de_operacion(INICIO_SWAP);
-	paquete_pedido_swap->buffer->size += sizeof(uint32_t);
-	paquete_pedido_swap->buffer->stream = realloc(paquete_pedido_swap->buffer->stream, paquete_pedido_swap->buffer->size);
-	memcpy(paquete_pedido_swap->buffer->stream, &(cant_pags), sizeof(uint32_t));
+	paquete_pedido_swap->buffer->size += sizeof(int) * 2;
+	paquete_pedido_swap->buffer->stream = malloc(paquete_pedido_swap->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete_pedido_swap->buffer->stream + offset, &(pid), sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(paquete_pedido_swap->buffer->stream + offset, &(cant_pags), sizeof(int));
+
 	enviar_paquete(paquete_pedido_swap, socket);
 	eliminar_paquete(paquete_pedido_swap);
 }
@@ -847,6 +1038,7 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
 	actualizar_LRU(pagina_modificada);
+
 	sleep(config_valores_memoria.retardo_respuesta / 1000);
 	log_info(logger_memoria_info, "ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica);
 
@@ -858,7 +1050,7 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 void limpiar_swap(t_proceso_memoria *proceso_a_eliminar) // listo los bloques swap y se los envio a FS para que los marque como libre
 {
 	t_list *ids_bloques_swap = obtener_lista_id_bloque_swap(proceso_a_eliminar);
-	enviar_bloques_swap_a_liberar(ids_bloques_swap, socket_fs_int);
+	enviar_bloques_swap_a_liberar(proceso_a_eliminar->pid, ids_bloques_swap, socket_fs_int);
 	list_destroy_and_destroy_elements(ids_bloques_swap, free);
 }
 
@@ -879,10 +1071,10 @@ t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
 	return lista_id_bloques_swap;
 }
 
-void enviar_bloques_swap_a_liberar(t_list *lista_bloques, int socket)
+void enviar_bloques_swap_a_liberar(int pid, t_list *lista_bloques, int socket)
 {
 	t_paquete *paquete_swap_a_borrar = crear_paquete_con_codigo_de_operacion(SWAP_A_LIBERAR);
-	serializar_lista_swap(lista_bloques, paquete_swap_a_borrar);
+	serializar_lista_swap(pid, lista_bloques, paquete_swap_a_borrar);
 	enviar_paquete(paquete_swap_a_borrar, socket);
 	eliminar_paquete(paquete_swap_a_borrar);
 }

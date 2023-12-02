@@ -202,6 +202,11 @@ typedef struct
     int cantidad_paginas;
 } t_tabla_paginas;
 
+typedef struct {
+    int pid;
+    t_list* lista;
+} t_list_pid;
+
 typedef struct
 {
     uint32_t pid;
@@ -259,7 +264,7 @@ typedef struct
     int bit_presencia;
     int bit_modificado;
     int id_bloque_swap;
-    double tiempo_lru;
+    int tiempo_lru;
 
 } t_entrada_tabla_pag;
 
@@ -331,8 +336,8 @@ void recibir_pid(int, int *);
 void enviar_interrupcion(int, t_interrupcion *);
 t_interrupcion *recibir_interrupcion(int);
 
-void serializar_lista_swap(t_list *, t_paquete *); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
-t_list *recibir_listado_id_bloques(int);
+void serializar_lista_swap(int, t_list *, t_paquete *); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
+t_list_pid *recibir_listado_id_bloques(int);
 
 void enviar_pedido_marco(int, int, int);
 int recibir_marco(int);

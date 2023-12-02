@@ -282,7 +282,7 @@ op_code recibir_handshake(int conexion, t_log *logger)
 	int size;
 	void *buffer;
 	buffer = recibir_buffer(&size, conexion);
-	//printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
+	// printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
 
 	op_code codigo_recibido;
 
@@ -635,15 +635,14 @@ void deserializar_instruccion_fs(t_instruccion_fs *instruccion, t_buffer *buffer
 	memcpy(instruccion->param2, stream, instruccion->param2_length);
 	stream += instruccion->param2_length;
 	memcpy(&(instruccion->puntero), stream, sizeof(uint32_t));
-
 }
-void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs* instruccion)
+void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs *instruccion)
 {
 	paquete->buffer->size = sizeof(nombre_instruccion) +
 							sizeof(uint32_t) * 4 +
 							instruccion->param1_length +
 							instruccion->param2_length;
- 
+
 	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
 	paquete->buffer->stream = malloc(paquete->buffer->size);
 
@@ -652,10 +651,8 @@ void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs* instruccion
 	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->estado), sizeof(nombre_instruccion));
 	desplazamiento += sizeof(nombre_instruccion);
 
-
 	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->pid), sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-
 
 	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->param1_length), sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
@@ -673,11 +670,12 @@ void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs* instruccion
 	desplazamiento += sizeof(uint32_t);
 }
 
-
 // en la lista debo guardar los punteros de int ya que las listas manejan punteros a estructuras. @ TOMAS
-void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
+void serializar_lista_swap(int pid, t_list *bloques_swap, t_paquete *paquete)
 {
 	int offset = paquete->buffer->size;
+	memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
+	offset += sizeof(int);
 
 	for (int i = 0; i < list_size(bloques_swap); i++)
 	{
@@ -702,7 +700,7 @@ void enviar_pid(int pid, int socket, op_code codigo)
 	eliminar_paquete(paquete_pid);
 }
 
-void recibir_pid(int socket,int* pid)
+void recibir_pid(int socket, int *pid)
 {
 	int size;
 	void *buffer = recibir_buffer(&size, socket);
@@ -712,8 +710,7 @@ void recibir_pid(int socket,int* pid)
 
 // MEMORIA - FS
 
-
-t_list *recibir_listado_id_bloques(int socket)
+t_list_pid *recibir_listado_id_bloques(int socket)
 {
 
 	int size;
@@ -722,21 +719,24 @@ t_list *recibir_listado_id_bloques(int socket)
 	buffer = recibir_buffer(&size, socket);
 	printf("Size del stream a deserializar: %d \n", size);
 
-	t_list *lista_bloques_swap = list_create();
+	t_list_pid *lista_pid = malloc(sizeof(t_list_pid));
+	lista_pid->lista = list_create();
 
 	int offset = 0;
+	memcpy(&(lista_pid->pid),buffer + offset, sizeof(int));
+	offset += sizeof(int);
 
 	while (offset < size)
 	{
 		int *bloque_swap = malloc(sizeof(int));
 		memcpy(bloque_swap, buffer + offset, sizeof(int));
 		offset += sizeof(int);
-		list_add(lista_bloques_swap, bloque_swap);
+		list_add(lista_pid->lista, bloque_swap);
 	}
 
 	free(buffer);
 
-	return lista_bloques_swap;
+	return lista_pid;
 }
 
 void enviar_pedido_marco(int socket, int pid, int pagina)
@@ -762,7 +762,7 @@ int recibir_marco(int socket)
 	int size;
 	void *buffer;
 	buffer = recibir_buffer(&size, socket);
-	//printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
+	// printf("Size del stream a deserializar: %d \n", size); // TODO -- BORRAR
 
 	int marco;
 
@@ -773,7 +773,6 @@ int recibir_marco(int socket)
 	free(buffer);
 
 	return marco;
-	
 }
 
 void enviar_op_con_int(int socket, op_code code, int entero)
@@ -790,7 +789,8 @@ void enviar_op_con_int(int socket, op_code code, int entero)
 	eliminar_paquete(paquete);
 }
 
-uint32_t recibir_valor_memoria(int socket){
+uint32_t recibir_valor_memoria(int socket)
+{
 	int size;
 	void *buffer;
 	buffer = recibir_buffer(&size, socket);
@@ -806,19 +806,22 @@ uint32_t recibir_valor_memoria(int socket){
 	return valor_memoria;
 }
 
-
-void liberar_instruccion(t_instruccion* instr) {
-    if (strcmp(instr->parametro1, "") != 0) {
-        free(instr->parametro1);
-    }
-    if (strcmp(instr->parametro2, "") != 0) {
-        free(instr->parametro2);
-    }
-    free(instr);
+void liberar_instruccion(t_instruccion *instr)
+{
+	if (strcmp(instr->parametro1, "") != 0)
+	{
+		free(instr->parametro1);
+	}
+	if (strcmp(instr->parametro2, "") != 0)
+	{
+		free(instr->parametro2);
+	}
+	free(instr);
 }
 
-void liberar_lista_instrucciones(t_list* instrucciones) {
-    list_destroy_and_destroy_elements(instrucciones, (void (*)(void *))liberar_instruccion);
+void liberar_lista_instrucciones(t_list *instrucciones)
+{
+	list_destroy_and_destroy_elements(instrucciones, (void (*)(void *))liberar_instruccion);
 }
 
 void enviar_op(int socket, op_code code, int entero)

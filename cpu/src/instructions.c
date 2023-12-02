@@ -91,6 +91,8 @@ void _mov_in(char *registro, char* direc_logica)
         *(regis) = valor;
     }
 
+    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Valor: %d", contexto_actual->pid, valor);
+
     contexto_actual->codigo_ultima_instru = MOV_IN;
     //free(regis);
 }

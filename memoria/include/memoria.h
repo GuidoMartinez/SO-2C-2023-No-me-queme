@@ -6,6 +6,7 @@
 t_log *logger_memoria_info;
 t_config *config;
 t_list *procesos_totales, *tablas_de_paginas, *marcos;
+t_list *paginas_utilizadas;
 t_proceso_memoria *proceso_memoria;
 
 op_code resp_code_fs;
@@ -21,6 +22,7 @@ pthread_mutex_t mutex_procesos;
 pthread_mutex_t mutex_contador_LRU;
 pthread_mutex_t mutex_memoria_usuario;
 pthread_mutex_t mutex_marcos;
+pthread_mutex_t mutex_fifo;
 
 typedef struct
 { // Configuracion de la memoria
@@ -67,6 +69,18 @@ t_algoritmo obtener_algoritmo();
 
 void actualizar_LRU(t_entrada_tabla_pag *);
 
+void recibir_pf_kernel(int, int *, int *);
+t_entrada_tabla_pag *obtenerPaginaFIFO();
+t_entrada_tabla_pag *obtenerPaginaLRU();
+t_entrada_tabla_pag *paginaAReemplazar();
+bool son_iguales(t_entrada_tabla_pag *, t_entrada_tabla_pag *);
+t_entrada_tabla_pag *obtener_entrada_menor_tiempo_lru(t_list *);
+void agregar_pagina_fifo(t_entrada_tabla_pag *);
+
+t_list *obtener_total_pags_en_memoria(t_list *);
+void escribirPagEnMemoria(void *, int);
+void pedido_lectura_swap(int,int, t_entrada_tabla_pag *);
+
 double marcosTotales();
 void inicializar_marcos();
 t_list *obtener_marcos_pid(uint32_t);
@@ -89,8 +103,8 @@ void enviar_marco_cpu(int, int, op_code);
 
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
-void pedido_inicio_swap(int, int);
-void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
+void pedido_inicio_swap(int, int,int);
+void asignar_id_bloque_swap(t_list_pid*);
 
 void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
 void escribir_memoria(uint32_t, uint32_t);
@@ -101,7 +115,7 @@ void enviar_valor_mov_in_cpu(uint32_t, int);
 
 void limpiar_swap(t_proceso_memoria *);
 t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso);
-void enviar_bloques_swap_a_liberar(t_list *, int);
+void enviar_bloques_swap_a_liberar(int,t_list *, int);
 
 void eliminar_proceso_memoria(t_proceso_memoria *);
 
