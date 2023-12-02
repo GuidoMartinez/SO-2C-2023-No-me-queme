@@ -913,18 +913,21 @@ t_paquete *crear_paquete_con_respuesta(t_resp_file *estado_file)
 void comunicacion_kernel() {
     int exit_status = 0;
     while (exit_status == 0) {
-        t_paquete *paquete = crear_paquete_con_codigo_de_operacion(HANDSHAKE_FILESYSTEM);
-        paquete->buffer = malloc(sizeof(t_buffer));
         nombre_instruccion codigo_op = recibir_operacion(socket_kernel);
 
         switch (codigo_op) {
-            case 1: {
+            case OP_FILESYSTEM: {
                 t_instruccion_fs *nueva_instruccion = deserializar_instruccion_fs(socket_kernel);
                 uint32_t pid = nueva_instruccion->pid;
                 t_resp_file estado_file = F_ERROR;
 
                 switch (nueva_instruccion->estado) {
                     case F_OPEN:
+                        /*pthread hilo_fopen;
+                        pthread_create(&hilo_fopen, NULL, realizar_f_open, nueva_instruccion);
+                        pthread_detach(hilo_fopen);*/
+
+                        //Funcion
                         if (buscar_fcb(nueva_instruccion->param1) != -1) {
                             log_info(filesystem_logger_info, "PID: %d - F_OPEN: %s", nueva_instruccion->pid, nueva_instruccion->param1);
                             log_info(filesystem_logger_info, "Abrir Archivo: %s", nueva_instruccion->param1);
