@@ -259,7 +259,7 @@ typedef struct
     int bit_presencia;
     int bit_modificado;
     int id_bloque_swap;
-    double tiempo_lru;
+    int tiempo_lru;
 
 } t_entrada_tabla_pag;
 
