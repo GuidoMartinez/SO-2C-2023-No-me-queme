@@ -311,7 +311,7 @@ void kf_seek(){
 
     char* nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
     int nueva_ubicacion_puntero = atoi(proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro2);
-
+    log_info(kernel_logger_info, "PID[%d] Actualizar puntero Archivo %s - Puntero %d\n",  proceso_en_ejecucion->pid,nombre_archivo,nueva_ubicacion_puntero);  
     t_list* lista_archivos = proceso_en_ejecucion->archivos_abiertos;
 
     t_archivo_abierto_proceso* archivo_proceso = buscar_archivo_proceso(lista_archivos, nombre_archivo);
@@ -325,6 +325,8 @@ void kf_read(){
 
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1 );
 
+ log_info(kernel_logger_info, "PID[%d] - Leer Archivo %s - Direccion memoria %d \n", proceso_en_ejecucion->pid, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2);
+    
     t_instruccion_fs *inst_f_read_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, archivo_proceso->puntero);
     enviarInstruccionFS(conexion_filesystem, inst_f_read_fs);
     fs_interaction();
@@ -333,6 +335,8 @@ void kf_read(){
 void kf_write(){
     char* nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
 
+  log_info(kernel_logger_info, "PID[%d] - Escribir Archivo %s - Direccion memoria %d \n", proceso_en_ejecucion->pid, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2);
+       
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
 
     if(archivo_global_pedido->lock == 'W'){
