@@ -216,7 +216,7 @@ void ready_pcb(void)
 
             int procesos_activos = procesos_ready + procesos_exec + procesos_bloqueado;
 
-            if (procesos_activos < sem.g_multiprog_ini)
+            if (procesos_activos <= sem.g_multiprog_ini)
             {
 
                 procesos_activos = procesos_activos + 1;
@@ -244,7 +244,8 @@ void ready_pcb(void)
                 // sem_wait(&sem_detener);
                 // log_info(kernel_logger_info,"Me frene");
                 //   }
-            }
+            } 
+            log_info(kernel_logger_info,"Excede grado de multiprogramacion");
         }
     }
 }

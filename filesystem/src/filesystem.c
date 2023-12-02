@@ -74,15 +74,17 @@ int main(int argc, char **argv)
     {
         return -1;
     }
-    if(socket_kernel != -1){
+   /* if(socket_kernel != -1){
         pthread_t hilo_cliente;
         pthread_create(&hilo_cliente, NULL, comunicacion_kernel, (void *)&socket_kernel);
         pthread_detach(hilo_cliente);
         return 1;
     }else {
         log_error(filesystem_logger_info, "Error al escuchar clientes... Finalizando servidor \n"); // log para fallo de comunicaciones
-    }
-    
+    }*/
+    pthread_t hilo_cliente;
+        pthread_create(&hilo_cliente, NULL, comunicacion_kernel, (void *)&socket_kernel);
+        pthread_detach(hilo_cliente);
     while(1);
     abort();
 }
