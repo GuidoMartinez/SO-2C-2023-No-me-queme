@@ -207,6 +207,7 @@ void kf_open()
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     char lock = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
 
+    log_info(kernel_logger_info, "PID[%d] Abrir Archivo %s",pcbelegido->pid,nombre_archivo);
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
 
 if (archivo_global_pedido == NULL)
@@ -259,6 +260,8 @@ void kf_close()
     log_info(kernel_logger_info, "ESTOY EN F_CLOSE");
 
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
+
+    log_info(kernel_logger_info, "PID[%d] Cerrar Archivo %s",pcbelegido->pid,nombre_archivo);
 
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, nombre_archivo);
@@ -346,6 +349,9 @@ void kf_write(){
 
 void kf_truncate(){
 
+    char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
+    int tamanio = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2;
+    log_info(kernel_logger_info, "PID[%d] - Archivo %s - TAMAÑO %d",pcbelegido->pid,nombre_archivo,tamanio);
     t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
 
     enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);

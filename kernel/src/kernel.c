@@ -230,7 +230,7 @@ int main(int argc, char **argv)
         if (!strncmp(linea, "iniciar_planificacion", 21))
         {
 
-            // log_info(kernel_logger_info, "Inicie plani");
+             log_info(kernel_logger_info, "Inicio de planificacion");
             iniciar_planificacion();
 
             //  free(linea);
@@ -241,6 +241,7 @@ int main(int argc, char **argv)
         {
 
             // log_info(kernel_logger_info, "FInalice proceso %s ",palabras[1]);
+            log_info(kernel_logger_info, " PAUSA DE PLANIFICACION ");
             detener_planificacion();
 
             // break;
@@ -250,11 +251,10 @@ int main(int argc, char **argv)
             char **palabras = string_split(linea, " ");
             int grado = atoi(palabras[1]);
 
+            log_info(kernel_logger_info, "Grado anterior: %d - Grado actual", sem.g_multiprog_ini, grado);
             sem.g_multiprog_ini = grado;
 
             //    int valor =sem.g_multiprog_ini;
-
-            log_info(kernel_logger_info, " Modifique %d ", grado);
             //  free(linea);
             // break;
         }
