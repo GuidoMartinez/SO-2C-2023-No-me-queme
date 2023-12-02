@@ -74,11 +74,15 @@ int main(int argc, char **argv)
     {
         return -1;
     }
-    pthread_t thread_kernel;
-    pthread_create(&thread_kernel, NULL, (void *)comunicacion_kernel, (void *)socket_kernel);
-    pthread_join(thread_kernel, NULL);
-    //eliminar_paquete(respuesta);
-
+    if(socket_kernel != -1){
+        pthread_t hilo_cliente;
+        pthread_create(&hilo_cliente, NULL, comunicacion_kernel, (void *)&socket_kernel);
+        pthread_detach(hilo_cliente);
+        return 1;
+    }else {
+        log_error(filesystem_logger_info, "Error al escuchar clientes... Finalizando servidor \n"); // log para fallo de comunicaciones
+    }
+    
     while(1);
     abort();
 }
@@ -910,6 +914,43 @@ t_paquete *crear_paquete_con_respuesta(t_resp_file *estado_file)
 		eliminar_paquete(paq_respuesta);
 }
 
+t_instruccion_fs *deserializar_instruccion_file(int socket_cliente)
+{
+	int size;
+	void *buffer;
+
+	buffer = recibir_buffer(&size, socket_cliente);
+	printf("Size del stream a deserializar: %d \n", size);
+
+	t_instruccion_fs *instruccion = malloc(sizeof(t_instruccion_fs));
+
+	int offset = 0;
+
+	memcpy(&(instruccion->estado), buffer + offset, sizeof(nombre_instruccion));
+	offset += sizeof(nombre_instruccion);
+
+	memcpy(&(instruccion->pid), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	memcpy(&(instruccion->param1_length), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	instruccion->param1 = malloc(instruccion->param1_length);
+	memcpy(instruccion->param1, buffer + offset, instruccion->param1_length);
+	offset += instruccion->param1_length;
+
+	memcpy(&(instruccion->param2_length), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	instruccion->param2 = malloc(instruccion->param2_length);
+	memcpy(instruccion->param2, buffer + offset, instruccion->param2_length);
+	offset += instruccion->param2_length;
+
+	memcpy(&(instruccion->puntero), buffer + offset, sizeof(uint32_t));
+
+	return instruccion;
+}
+
 void comunicacion_kernel() {
     int exit_status = 0;
     while (exit_status == 0) {
@@ -923,11 +964,6 @@ void comunicacion_kernel() {
 
                 switch (nueva_instruccion->estado) {
                     case F_OPEN:
-                        /*pthread hilo_fopen;
-                        pthread_create(&hilo_fopen, NULL, realizar_f_open, nueva_instruccion);
-                        pthread_detach(hilo_fopen);*/
-
-                        //Funcion
                         if (buscar_fcb(nueva_instruccion->param1) != -1) {
                             log_info(filesystem_logger_info, "PID: %d - F_OPEN: %s", nueva_instruccion->pid, nueva_instruccion->param1);
                             log_info(filesystem_logger_info, "Abrir Archivo: %s", nueva_instruccion->param1);
@@ -988,7 +1024,6 @@ void comunicacion_kernel() {
                 exit_status = 1;
                 break;
         }
-        eliminar_paquete(paquete);
     }
 }
 
@@ -1006,12 +1041,17 @@ void iniciar_swap(uint32_t cantidad_bloques) {
     enviar_op_con_int(socket_memoria, LISTA_BLOQUES_SWAP, bloques_reservados);
 }
 
-int reservar_bloques_swap(int cantidad_bloques, int *bloques_reservados) {
+int reservar_bloques_swap(int cantidad_bloques) {
     int bloques_reservados_count = 0;
     for (int i = 0; i < cantidad_bloques; i++) {
+        if(cantidad_bloques > bloques_swap){
+            log_error(filesystem_logger_info, "La cantidad de bloques seleccionados exede al numero de bloques en swap");
+            bloques_reservados_count = -1;
+            return bloques_reservados_count;
+        }
         if (!swap[i].utilizado) {
             swap[i].utilizado = true;
-            bloques_reservados[bloques_reservados_count++] = i;
+            bloques_reservados_count+= i;
         } else {
             log_error(filesystem_logger_info, "Bloque %d ya está en uso en la swap", i);
         }
@@ -1052,16 +1092,73 @@ void escribir_bloque_swap(int id_bloque, uint32_t valor) {
     }
 }
 
-void enviar_escritura_bloque_ok(int socket, int resultado) {
-    enviar_op_con_int(socket, ESCRITURA_BLOQUE_OK, resultado);
+void enviar_escritura_bloque_ok(int resultado) {
+    enviar_op_con_int(socket_memoria, ESCRITURA_BLOQUE_OK, resultado);
 }
 
 void obtener_estado_swap(int cantidad_bloques) {
     for (int i = 0; i < cantidad_bloques; i++) {
-        log_error(filesystem_logger_info, "Bloque %d: %s\n", i, swap[i].utilizado ? "Ocupado" : "Libre");
+        log_error(filesystem_logger_info, "Bloque %d: %s", i, swap[i].utilizado ? "Ocupado" : "Libre");
     }
 }
 
 void liberar_swap() {
     free(swap);
 }
+/*
+void enviar_lista_bloques_swap(uint32_t cantidad_bloques) {
+    int bloques_reservados[cantidad_bloques];
+    int bloques_reservados_count = reservar_bloques_swap(cantidad_bloques, bloques_reservados);
+
+    if (bloques_reservados_count > 0 || bloques_reservados_count > bloques_swap) {
+        enviar_op_con_int_array(socket_memoria, LISTA_BLOQUES_SWAP, bloques_reservados, bloques_reservados_count);
+    } else {
+        log_error(filesystem_logger_info, "No hay bloques disponibles en la swap");
+        enviar_op_con_int(socket_memoria, LISTA_BLOQUES_SWAP, 0); // Envía un valor de 0 para indicar que no hay bloques disponibles
+    }
+}
+
+void enviar_lista_bloques_swap(t_list *lista_bloques) {
+    int cantidad_bloques = list_size(lista_bloques);
+    if (send(socket_memoria, &cantidad_bloques, sizeof(int), 0) == -1) {
+        log_error(filesystem_logger_info, "Error al enviar la cantidad de bloques al socket");
+        return;
+    }
+    for (int i = 0; i < cantidad_bloques; i++) {
+        int *bloque_swap = list_get(lista_bloques, i);
+
+        if (send(socket_memoria, bloque_swap, sizeof(int), 0) == -1) {
+            log_error(filesystem_logger_info, "Error al enviar el bloque %d al socket", i);
+            return;
+        }
+    }
+}
+
+void comunicacion_memoria() {
+    int exit_status = 0;
+    inicializar_swap(bloques_swap);
+    while (exit_status == 0) {
+        t_paquete *paquete = crear_paquete_con_codigo_de_operacion(HANDSHAKE_MEMORIA);
+        nombre_instruccion codigo_op = recibir_operacion(socket_kernel);
+
+        switch (codigo_op) {
+            case INICIO_SWAP:
+                iniciar_swap(cantidad_bloques);
+                break;
+            case LISTA_BLOQUES_SWAP:
+                enviar_lista_bloques_swap(cantidad_bloques);
+                break;
+            case SWAP_A_LIBERAR:
+
+                break;
+            case LEER_BLOQUE:
+                break;
+            case VALOR_BLOQUE:
+                break;
+            case ESCRIBIR_BLOQUE:
+                break;
+            case ESCRITURA_BLOQUE_OK:
+                break;
+        }
+
+        */
