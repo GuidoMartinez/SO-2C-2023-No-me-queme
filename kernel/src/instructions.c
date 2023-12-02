@@ -90,7 +90,7 @@ void kwait()
 
             log_info(kernel_logger_info, "ANÁLISIS DE DETECCIÓN DE DEADLOCK");
             if(recurso_kernel->colabloqueado > 1){
-                hay_deadlock(char* pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
+            hay_deadlock(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
             }
 
             proceso_en_ejecucion = NULL;
