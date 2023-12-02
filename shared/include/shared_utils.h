@@ -321,6 +321,7 @@ void ask_instruccion_pid_pc(int, int, int);
 void pedido_instruccion(uint32_t *, uint32_t *, int);
 void enviar_instruccion(int, t_instruccion *);
 void serializar_instruccion(t_paquete *, t_instruccion *);
+void serializar_instruccion_fs(t_paquete*,  t_instruccion_fs*);
 t_instruccion *deserializar_instruccion(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
 

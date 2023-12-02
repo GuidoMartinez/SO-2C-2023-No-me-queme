@@ -637,6 +637,42 @@ void deserializar_instruccion_fs(t_instruccion_fs *instruccion, t_buffer *buffer
 	memcpy(&(instruccion->puntero), stream, sizeof(uint32_t));
 
 }
+void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs* instruccion)
+{
+	paquete->buffer->size = sizeof(nombre_instruccion) +
+							sizeof(uint32_t) * 4 +
+							instruccion->param1_length +
+							instruccion->param2_length;
+ 
+	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+	int desplazamiento = 0;
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->estado), sizeof(nombre_instruccion));
+	desplazamiento += sizeof(nombre_instruccion);
+
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->pid), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->param1_length), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->param2_length), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(paquete->buffer->stream + desplazamiento, instruccion->param1, instruccion->param1_length);
+	desplazamiento += instruccion->param1_length;
+
+	memcpy(paquete->buffer->stream + desplazamiento, instruccion->param2, instruccion->param2_length);
+	desplazamiento += instruccion->param2_length;
+
+	memcpy(paquete->buffer->stream + desplazamiento, &(instruccion->puntero), sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+}
+
 
 // en la lista debo guardar los punteros de int ya que las listas manejan punteros a estructuras. @ TOMAS
 void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
