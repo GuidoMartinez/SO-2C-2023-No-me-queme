@@ -274,7 +274,6 @@ void exec_pcb()
         }
         enviar_contexto(conexion_cpu_dispatch, pcbelegido->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcbelegido->pid, pcbelegido->contexto_ejecucion->program_counter);
-        // proceso_en_ejecucion = pcbelegido;
 
         // TODO: Liberar contexto desactualizado (0 prioritario)
         codigo_operacion = recibir_operacion(conexion_cpu_dispatch);
@@ -304,7 +303,6 @@ void exec_pcb()
         log_info(kernel_logger_info, "Volvio PID %d con codigo inst %d ", ultimo_contexto->pid, pcbelegido->contexto_ejecucion->codigo_ultima_instru);
 
         proceso_en_ejecucion = pcbelegido;
-        // TODO: Guardar pcb en una lista segun el tipo de desalojo (poner dentro de los switches)
         switch (codigo_instruccion)
         {
         case EXIT:

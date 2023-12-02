@@ -133,4 +133,7 @@ void enviarInstruccionFS(int, t_instruccion_fs*);
 t_paquete* crear_paquete_con_codigo_de_operacion_fs(t_instruccion_fs* inst_fs);
 t_pcb *buscarProcesoBloqueado(int );
 
+void enviar_pf(int, op_code, int, int);
+void hay_deadlock(char* recurso_deadlock);
+
 #endif

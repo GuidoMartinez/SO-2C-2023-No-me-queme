@@ -614,6 +614,8 @@ void liberar_recursos(t_pcb *pcb)
     recurso_instancia *recurso_en_kernel = (recurso_instancia *)malloc(sizeof(recurso_instancia));
     t_pcb *pcb_bloqueado;
 
+    enviar_op_con_int(conexion_memoria, FINALIZAR_PROCESO, pcb->pid);
+
     for (int i = 0; i < list_size(lista_recursos_liberar); i++)
     {
 
@@ -845,18 +847,22 @@ void* manejar_pf(){
     /*1.- Mover al proceso al estado Bloqueado. Este estado bloqueado será independiente de todos los
     demás ya que solo afecta al proceso y no compromete recursos compartidos.*/
 
+    int nro_pf = proceso_en_ejecucion->contexto_ejecucion->nro_pf;
+    int pid = proceso_en_ejecucion->pid;
+
     //todo AGREGAR SEMAFORO
     set_pcb_block(proceso_en_ejecucion);
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", proceso_en_ejecucion->pid, "EXEC", "BLOCKED"); 
-        
-    safe_pcb_remove(cola_exec, &mutex_cola_exec);
+    log_info(kernel_logger_info, "PID[%d]-Bloqueado por: PAGE_FAULT  \n", proceso_en_ejecucion->pid);    
 
-    int nro_pf = proceso_en_ejecucion->contexto_ejecucion->nro_pf;
+    proceso_en_ejecucion = NULL;
+
+    safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
     /*2.- Solicitar al módulo memoria que se cargue en memoria principal la página correspondiente, la
     misma será obtenida desde el mensaje recibido de la CPU.*/
 
-    enviar_op_con_int(conexion_memoria, PAGE_FAULT_KERNEL, nro_pf);
+    enviar_pf(conexion_memoria, PAGE_FAULT_KERNEL, nro_pf, pid);
 
     /*3.- Esperar la respuesta del módulo memoria.*/
 
@@ -866,14 +872,14 @@ void* manejar_pf(){
         return NULL;
     }
 
-    int* pid = malloc(sizeof(int));
+    int* pid_memoria = malloc(sizeof(int));
 
-    recibir_pid(conexion_memoria, pid);
+    recibir_pid(conexion_memoria, pid_memoria);
 
     /*4.- Al recibir la respuesta del módulo memoria, desbloquear el proceso y colocarlo en la cola de
     ready.*/
 
-    t_pcb* pcb_bloqueado = buscarProceso(*(pid));
+    t_pcb* pcb_bloqueado = buscarProceso(*(pid_memoria));
     remove_blocked(pcb_bloqueado->pid);
     set_pcb_ready(pcb_bloqueado);
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY"); 
@@ -882,6 +888,22 @@ void* manejar_pf(){
     sem_post(&sem_exec);
 
     return NULL;
+}
+
+void enviar_pf(int socket, op_code code, int num_pag, int pid)
+{
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(code);
+	paquete->buffer->size += sizeof(int) * 2;
+	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete->buffer->stream + offset, &(num_pag), sizeof(int));
+    offset += sizeof(int);
+    memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
+
+	enviar_paquete(paquete, socket);
+	eliminar_paquete(paquete);
 }
 
 t_instruccion_fs* inicializar_instruccion_fs(t_instruccion* instr, uint32_t ptr) {
@@ -924,7 +946,7 @@ t_resp_file esperar_respuesta_file()
     return respuesta;
 }
 
-bool hay_deadlock(char* recurso_deadlock){
+void hay_deadlock(char* recurso_deadlock){
     t_list* nombres_recursos = proceso_en_ejecucion->recursos_asignados;
 
     log_info(kernel_logger_info, "Deadlock detectado: %d - Recursos en posesión: ", proceso_en_ejecucion->pid);

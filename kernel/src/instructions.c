@@ -89,7 +89,7 @@ void kwait()
             log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, recurso_kernel->nombre);
 
             log_info(kernel_logger_info, "ANÁLISIS DE DETECCIÓN DE DEADLOCK");
-            if(recurso_kernel->colabloqueado > 1){
+            if(queue_size(recurso_kernel->colabloqueado) > 1){
             hay_deadlock(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
             }
 
