@@ -256,13 +256,15 @@ void *manejo_conexion_kernel(void *arg)
 				entrada_proceso->marco = marco_asignado;
 				entrada_proceso->bit_presencia = 1;
 				entrada_proceso->bit_modificado = 0;
-				pedido_lectura_swap(socket_fs_int, entrada_proceso);
+				pedido_lectura_swap(socket_fs_int, proceso_pf->pid, entrada_proceso);
 				// GONZA?? DUDA - ATENDER LA RESPUESTA POR UNA CONEXION NUEVA O POR EL HILO QUE MANEJA LAS RESPUESTAS DE FS.
 				// RECIBO EL VOID* de bloques y lo guardo en memoria
 				// escribirPagEnMemoria(respuestaFS,marco_asignado);
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
 			{
+				t_entrada_tabla_pag *entrada_a_swapear = paginaAReemplazar();
+				int nro_marco = entrada_a_swapear->marco;
 			}
 			break;
 		default:
@@ -296,6 +298,12 @@ void *manejo_conexion_filesystem_archivos(void *arg)
 
 			break;
 		case F_READ_FS:
+
+			break;
+		case LISTA_BLOQUES_SWAP:
+
+			break;
+		case LEER_BLOQUE:
 
 			break;
 		default:
@@ -615,13 +623,20 @@ void escribirPagEnMemoria(void *valor, int numMarco)
 	pthread_mutex_unlock(&mutex_memoria_usuario);
 }
 
-void pedido_lectura_swap(int socket, t_entrada_tabla_pag *entrada)
+void pedido_lectura_swap(int socket, int pid, t_entrada_tabla_pag *entrada)
 {
 	int index_bloque = entrada->id_bloque_swap;
 	t_paquete *paquete_pagina = crear_paquete_con_codigo_de_operacion(LEER_BLOQUE);
-	paquete_pagina->buffer->size += sizeof(int);
-	paquete_pagina->buffer->stream = realloc(paquete_pagina->buffer->stream, paquete_pagina->buffer->size);
-	memcpy(paquete_pagina->buffer->stream, &(index_bloque), sizeof(int));
+	paquete_pagina->buffer->size += sizeof(int) * 2;
+	paquete_pagina->buffer->stream = malloc(paquete_pagina->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete_pagina->buffer->stream + offset, &(pid), sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(paquete_pagina->buffer->stream + offset, &(index_bloque), sizeof(int));
+
 	enviar_paquete(paquete_pagina, socket);
 	eliminar_paquete(paquete_pagina);
 }
@@ -856,7 +871,7 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
-	pedido_inicio_swap(q_pags, socket_fs_int);
+	pedido_inicio_swap(proceso_nuevo->pid, q_pags, socket_fs_int);
 
 	/* TODO -- GUIDO -- PASO ESTO A LA CONEXION DE SWAP PARA MANEJAR TODO EN ESE HILO
 
@@ -914,13 +929,20 @@ void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_b
 	log_warning(logger_memoria_info, "Se asignaron OK los id de los bloques SWAP para el PID [%d]", proceso_nuevo->pid);
 }
 
-void pedido_inicio_swap(int cant_pags, int socket)
+void pedido_inicio_swap(int pid, int cant_pags, int socket)
 {
 
 	t_paquete *paquete_pedido_swap = crear_paquete_con_codigo_de_operacion(INICIO_SWAP);
-	paquete_pedido_swap->buffer->size += sizeof(uint32_t);
-	paquete_pedido_swap->buffer->stream = realloc(paquete_pedido_swap->buffer->stream, paquete_pedido_swap->buffer->size);
-	memcpy(paquete_pedido_swap->buffer->stream, &(cant_pags), sizeof(uint32_t));
+	paquete_pedido_swap->buffer->size += sizeof(int) * 2;
+	paquete_pedido_swap->buffer->stream = malloc(paquete_pedido_swap->buffer->size);
+
+	int offset = 0;
+
+	memcpy(paquete_pedido_swap->buffer->stream + offset, &(pid), sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(paquete_pedido_swap->buffer->stream + offset, &(cant_pags), sizeof(int));
+
 	enviar_paquete(paquete_pedido_swap, socket);
 	eliminar_paquete(paquete_pedido_swap);
 }
