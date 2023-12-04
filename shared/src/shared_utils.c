@@ -617,25 +617,43 @@ void deserializar_header(t_paquete *paquete, int socket_cliente)
 	recv(socket_cliente, paquete->buffer->stream, paquete->buffer->size, MSG_WAITALL);
 }
 
-void deserializar_instruccion_fs(t_instruccion_fs *instruccion, t_buffer *buffer, int lineas)
+t_instruccion_fs* deserializar_instruccion_fs(int socket)
 {
-	void *stream = buffer->stream;
-	memcpy(&(instruccion->estado), stream, sizeof(nombre_instruccion));
-	stream += sizeof(nombre_instruccion);
-	memcpy(&(instruccion->pid), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
-	memcpy(&(instruccion->param1_length), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
+	int size;
+	void *buffer;
+
+	buffer = recibir_buffer(&size, socket);
+	printf("Size del stream a deserializar: %d \n", size);
+
+	t_instruccion_fs *instruccion= malloc(sizeof(t_instruccion_fs));
+
+	int offset = 0;
+
+	memcpy(&(instruccion->estado), buffer + offset, sizeof(nombre_instruccion));
+	offset += sizeof(nombre_instruccion);
+
+	memcpy(&(instruccion->pid), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	memcpy(&(instruccion->param1_length), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
 	instruccion->param1 = realloc(instruccion->param1, instruccion->param1_length);
-	memcpy(instruccion->param1, stream, instruccion->param1_length);
-	stream += instruccion->param1_length;
-	memcpy(&(instruccion->param2_length), stream, sizeof(uint32_t));
-	stream += sizeof(uint32_t);
+	memcpy(instruccion->param1, buffer + offset, instruccion->param1_length);
+	offset += instruccion->param1_length;
+
+	memcpy(&(instruccion->param2_length), buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
 	instruccion->param2 = realloc(instruccion->param2, instruccion->param2_length);
-	memcpy(instruccion->param2, stream, instruccion->param2_length);
-	stream += instruccion->param2_length;
-	memcpy(&(instruccion->puntero), stream, sizeof(uint32_t));
+	memcpy(instruccion->param2, buffer + offset, instruccion->param2_length);
+	offset += instruccion->param2_length;
+	
+	memcpy(&(instruccion->puntero), buffer + offset, sizeof(uint32_t));
+
+	return instruccion;
 }
+
 void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs *instruccion)
 {
 	paquete->buffer->size = sizeof(nombre_instruccion) +

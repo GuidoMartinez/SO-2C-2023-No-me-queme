@@ -89,8 +89,9 @@ void kwait()
             log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, recurso_kernel->nombre);
 
             log_info(kernel_logger_info, "ANÁLISIS DE DETECCIÓN DE DEADLOCK");
-            if(queue_size(recurso_kernel->colabloqueado) > 1){
-            hay_deadlock(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
+            if (queue_size(recurso_kernel->colabloqueado) > 1)
+            {
+                hay_deadlock(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
             }
 
             proceso_en_ejecucion = NULL;
@@ -207,52 +208,49 @@ void kf_open()
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     char lock = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
 
-    log_info(kernel_logger_info, "PID[%d] Abrir Archivo %s",pcbelegido->pid,nombre_archivo);
+    log_info(kernel_logger_info, "PID[%d] Abrir Archivo %s", pcbelegido->pid, nombre_archivo);
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
 
-if (archivo_global_pedido == NULL)
-        {
-    //Mnadar a filesystem si existe el archivo
-    t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
+    if (archivo_global_pedido == NULL)
+    {
+        // Mnadar a filesystem si existe el archivo
+        t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
 
-    enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
+        enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
 
-    sem_post(&sem_hilo_FS);
-    sem_wait(&reanudaar_exec);
-    open_file(nombre_archivo, lock);
-        }
-       
-            if (archivo_global_pedido->lock == 'W' || lock == 'W')
-            {
+        sem_post(&sem_hilo_FS);
+        sem_wait(&reanudaar_exec);
+        open_file(nombre_archivo, lock);
+    }
 
-                queue_push(archivo_global_pedido->colabloqueado, pcbelegido);
-                exec_block_fs();
+    if (archivo_global_pedido->lock == 'W' || lock == 'W')
+    {
 
-                pthread_mutex_lock(&mutex_cola_block);
-                pcbelegido->motivo_block = ARCHIVO_BLOCK;
-                pthread_mutex_unlock(&mutex_cola_block);
+        queue_push(archivo_global_pedido->colabloqueado, pcbelegido);
+        exec_block_fs();
 
-                log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_global_pedido->nombreArchivo);
-                sem_post(&sem_ready);
-                // if (list_size(lista_ready) > 0) PARA DETENER PLANI
-                sem_post(&sem_exec);
-            }
-            else if (lock == 'R')
-            {
-                archivo_global_pedido->contador++;
-            }
-             else
+        pthread_mutex_lock(&mutex_cola_block);
+        pcbelegido->motivo_block = ARCHIVO_BLOCK;
+        pthread_mutex_unlock(&mutex_cola_block);
+
+        log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_global_pedido->nombreArchivo);
+        sem_post(&sem_ready);
+        // if (list_size(lista_ready) > 0) PARA DETENER PLANI
+        sem_post(&sem_exec);
+    }
+    else if (lock == 'R')
+    {
+        archivo_global_pedido->contador++;
+    }
+    else
     {
         crear_archivo_global(nombre_archivo, lock);
-     
-       
     }
-        
-   
+
     sem_post(&sem_ready);
     // if (list_size(lista_ready) > 0) PARA DETENER PLANI
     sem_post(&sem_exec);
-    }
+}
 
 void kf_close()
 {
@@ -261,7 +259,7 @@ void kf_close()
 
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
 
-    log_info(kernel_logger_info, "PID[%d] Cerrar Archivo %s",pcbelegido->pid,nombre_archivo);
+    log_info(kernel_logger_info, "PID[%d] Cerrar Archivo %s", pcbelegido->pid, nombre_archivo);
 
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, nombre_archivo);
@@ -288,15 +286,16 @@ void kf_close()
         log_info(kernel_logger_info, "El archivo no estaba abierto");
     }
 
-    //NO sacar la lista de archivos abiertos
-    //list_remove_element(proceso_en_ejecucion->archivos_abiertos, archivo_proceso);
-    //Mutex! capaz no? solo un proceso en ejecucion...
+    // NO sacar la lista de archivos abiertos
+    // list_remove_element(proceso_en_ejecucion->archivos_abiertos, archivo_proceso);
+    // Mutex! capaz no? solo un proceso en ejecucion...
     list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
 
-    if(archivo_global_pedido->lock=='N' && queue_size(archivo_global_pedido->colabloqueado) > 0){
+    if (archivo_global_pedido->lock == 'N' && queue_size(archivo_global_pedido->colabloqueado) > 0)
+    {
         t_pcb *pcb_desbloqueado = queue_pop(archivo_global_pedido->colabloqueado);
 
-        //Se abre el archivo para ese proceso
+        // Se abre el archivo para ese proceso
         crear_archivo_proceso(nombre_archivo, pcb_desbloqueado);
         open_file(nombre_archivo, pcb_desbloqueado->contexto_ejecucion->instruccion_ejecutada->parametro2[0]);
 
@@ -307,55 +306,61 @@ void kf_close()
     sem_post(&sem_exec);
 };
 
-void kf_seek(){
+void kf_seek()
+{
 
-    char* nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
+    char *nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
     int nueva_ubicacion_puntero = atoi(proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro2);
-    log_info(kernel_logger_info, "PID[%d] Actualizar puntero Archivo %s - Puntero %d\n",  proceso_en_ejecucion->pid,nombre_archivo,nueva_ubicacion_puntero);  
-    t_list* lista_archivos = proceso_en_ejecucion->archivos_abiertos;
+    log_info(kernel_logger_info, "PID[%d] Actualizar puntero Archivo %s - Puntero %d\n", proceso_en_ejecucion->pid, nombre_archivo, nueva_ubicacion_puntero);
+    t_list *lista_archivos = proceso_en_ejecucion->archivos_abiertos;
 
-    t_archivo_abierto_proceso* archivo_proceso = buscar_archivo_proceso(lista_archivos, nombre_archivo);
+    t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(lista_archivos, nombre_archivo);
     archivo_proceso->puntero = nueva_ubicacion_puntero;
 
     sem_post(&sem_ready);
     sem_post(&sem_exec);
 };
 
-void kf_read(){
+void kf_read()
+{
 
-    t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos,pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1 );
+    t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
 
- log_info(kernel_logger_info, "PID[%d] - Leer Archivo %s - Direccion memoria %d \n", proceso_en_ejecucion->pid, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2);
-    
+    log_info(kernel_logger_info, "PID[%d] - Leer Archivo %s - Direccion memoria %d \n", proceso_en_ejecucion->pid, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2);
+
     t_instruccion_fs *inst_f_read_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, archivo_proceso->puntero);
     enviarInstruccionFS(conexion_filesystem, inst_f_read_fs);
     fs_interaction();
 };
 
-void kf_write(){
-    char* nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
+void kf_write()
+{
+    char *nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
 
-  log_info(kernel_logger_info, "PID[%d] - Escribir Archivo %s - Direccion memoria %d \n", proceso_en_ejecucion->pid, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2);
-       
+    log_info(kernel_logger_info, "PID[%d] - Escribir Archivo %s - Direccion memoria %d \n", proceso_en_ejecucion->pid, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2);
+
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
 
-    if(archivo_global_pedido->lock == 'W'){
+    if (archivo_global_pedido->lock == 'W')
+    {
 
         t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
         enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
         fs_interaction();
-    }else{
+    }
+    else
+    {
         finalizar_proceso_en_ejecucion();
-            log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
-        
+        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
     }
 };
 
-void kf_truncate(){
+void kf_truncate()
+{
 
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     int tamanio = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2;
-    log_info(kernel_logger_info, "PID[%d] - Archivo %s - TAMAÑO %d",pcbelegido->pid,nombre_archivo,tamanio);
+    log_info(kernel_logger_info, "PID[%d] - Archivo %s - TAMAÑO %d", pcbelegido->pid, nombre_archivo, tamanio);
     t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, 1);
 
     enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);

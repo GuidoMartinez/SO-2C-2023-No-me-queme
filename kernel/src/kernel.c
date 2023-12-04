@@ -793,7 +793,6 @@ void *recibir_op_FS()
         t_pcb *pcb_bloqueado;
         sem_wait(&sem_hilo_FS);
 
-        // HAy que cambiar por una estructura que tenga el PID
         t_resp_file op = recibir_operacion(conexion_filesystem);
         int *pid= malloc(sizeof(int));
         recibir_pid(conexion_filesystem,pid);

@@ -311,6 +311,7 @@ int crear_socket_escucha(char *);
 int recibir_operacion(int);
 void *recibir_buffer(int *, int);
 void *recibir_mensaje(int, t_log *);
+void *recibir_mensaje_sin_log(int);
 t_list *recibir_paquete(int);
 
 void realizar_handshake(int, op_code, t_log *);
@@ -328,6 +329,7 @@ void enviar_instruccion(int, t_instruccion *);
 void serializar_instruccion(t_paquete *, t_instruccion *);
 void serializar_instruccion_fs(t_paquete*,  t_instruccion_fs*);
 t_instruccion *deserializar_instruccion(int);
+t_instruccion_fs* deserializar_instruccion_fs(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
 
 void enviar_pid(int, int, op_code);

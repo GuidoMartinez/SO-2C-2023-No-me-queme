@@ -93,9 +93,16 @@ void asignar_bloques(int , int);
 void desasignar_bloques(int , int );
 void realizar_f_read(t_instruccion_fs *);
 int borrar_fcb(int);
-t_paquete *crear_paquete_con_respuesta(t_resp_file*);
-void comunicacion_kernel();
+void *enviar_respuesta_kernel(t_resp_file*);
+void* comunicacion_kernel();
 bloque_t *inicializar_bloque_de_datos(const char *, int );
+void crear_paquete_con_respuesta(t_resp_file);
+void* hilo_f_open(void*);
+void *hilo_f_create(void*);
+void *hilo_f_close(void*);
+void *hilo_f_truncate(void*);
+void *hilo_f_write(void*);
+void *hilo_f_read(void*);
 
 t_log *filesystem_logger_info;
 t_config *config;

@@ -160,7 +160,7 @@ void __exit()
     contexto_actual->codigo_ultima_instru = EXIT;
 }
 
-void traducir_dl_fs(char* dl){
+void traducir_dl_fs(char* dl, nombre_instruccion instruccion){
     int df = traducir_dl(str_to_uint32(dl));
     if(df == -1){
         log_error(cpu_logger_info, "Page fault: %s", dl);
