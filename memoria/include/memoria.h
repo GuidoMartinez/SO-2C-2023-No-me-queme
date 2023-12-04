@@ -79,7 +79,8 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *);
 
 t_list *obtener_total_pags_en_memoria(t_list *);
 void escribirPagEnMemoria(void *, int);
-void pedido_lectura_swap(int,int, t_entrada_tabla_pag *);
+void pedido_lectura_swap(int, t_entrada_tabla_pag *);
+void *recibir_bloque_swap(int);
 
 double marcosTotales();
 void inicializar_marcos();
@@ -104,7 +105,7 @@ void enviar_marco_cpu(int, int, op_code);
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
 void pedido_inicio_swap(int, int,int);
-void asignar_id_bloque_swap(t_list_pid*);
+void asignar_id_bloque_swap(t_proceso_memoria*, t_list*);
 
 void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
 void escribir_memoria(uint32_t, uint32_t);

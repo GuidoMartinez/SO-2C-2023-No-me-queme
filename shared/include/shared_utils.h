@@ -44,6 +44,7 @@ typedef enum
     INICIO_SWAP,
     LISTA_BLOQUES_SWAP,
     SWAP_A_LIBERAR,
+    SWAP_LIBERADA,
     LEER_BLOQUE,
     VALOR_BLOQUE,
     ESCRIBIR_BLOQUE,
@@ -202,11 +203,6 @@ typedef struct
     int cantidad_paginas;
 } t_tabla_paginas;
 
-typedef struct {
-    int pid;
-    t_list* lista;
-} t_list_pid;
-
 typedef struct
 {
     uint32_t pid;
@@ -338,8 +334,8 @@ void recibir_pid(int, int *);
 void enviar_interrupcion(int, t_interrupcion *);
 t_interrupcion *recibir_interrupcion(int);
 
-void serializar_lista_swap(int, t_list *, t_paquete *); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
-t_list_pid *recibir_listado_id_bloques(int);
+void serializar_lista_swap(t_list *, t_paquete *); // serializa en el paquete la lista de ids de bloque a recibir en memoria desde FS
+t_list *recibir_listado_id_bloques(int);
 
 void enviar_pedido_marco(int, int, int);
 int recibir_marco(int);

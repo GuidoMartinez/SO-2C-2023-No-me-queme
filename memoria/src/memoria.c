@@ -226,9 +226,20 @@ void *manejo_conexion_kernel(void *arg)
 		case INICIALIZAR_PROCESO:
 			log_info(logger_memoria_info, " Inicializando estructuras para nuevo proceso");
 			proceso_memoria = recibir_proceso_nuevo(socket_kernel_int);
-			proceso_memoria = iniciar_proceso_path(proceso_memoria); // inicio en memoria y en swap
-			log_info(logger_memoria_info, "Se creo correctamente el proceso PID [%d]", proceso_memoria->pid);
+			proceso_memoria = iniciar_proceso_path(proceso_memoria); // inicio en memoria y pido listado de bloques a FS
 
+			codigo_operacion = recibir_operacion(socket_fs_int);
+
+			if (codigo_operacion == LISTA_BLOQUES_SWAP)
+			{
+				t_list *bloques_reservados = recibir_listado_id_bloques(socket_fs_int);
+				asignar_id_bloque_swap(proceso_memoria, bloques_reservados);
+				log_info(logger_memoria_info, "Se creo correctamente el proceso PID [%d]", proceso_memoria->pid);
+			}
+			else
+			{
+				log_error(logger_memoria_info, "No se recibio OK la lista de bloques swap iniciales");
+			}
 			// TODO -- RESPONDERLE AL KERNEL QUE SE CREO OK.
 			break;
 		case FINALIZAR_PROCESO:
@@ -236,9 +247,19 @@ void *manejo_conexion_kernel(void *arg)
 			int pid_a_finalizar;
 			recibir_pid(socket_kernel_int, &pid_a_finalizar);
 			t_proceso_memoria *proceso_a_eliminar = obtener_proceso_pid(pid_a_finalizar);
-			liberar_marcos_proceso(pid_a_finalizar); // libero marcos ocupados por el proceso
 
-			limpiar_swap(proceso_a_eliminar);			  // listo los bloques swap y se los envio a FS para que los marque como libre
+			limpiar_swap(proceso_a_eliminar); // listo los bloques swap y se los envio a FS para que los marque como libre
+
+			if (codigo_operacion == SWAP_LIBERADA)
+			{
+				t_list *bloques_reservados = recibir_listado_id_bloques(socket_fs_int);
+				asignar_id_bloque_swap(proceso_memoria, bloques_reservados);
+				log_info(logger_memoria_info, "Se liberaron los bloques SWAP correspondientes al proceso PID [%d]", proceso_memoria->pid);
+			}
+			else
+			{
+				log_error(logger_memoria_info, "No se recibio OK la liberacion de bloques para el PID [%d]", proceso_a_eliminar->pid);
+			}
 			eliminar_proceso_memoria(proceso_a_eliminar); // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos --
 
 			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso.
@@ -256,10 +277,21 @@ void *manejo_conexion_kernel(void *arg)
 				entrada_proceso->marco = marco_asignado;
 				entrada_proceso->bit_presencia = 1;
 				entrada_proceso->bit_modificado = 0;
-				pedido_lectura_swap(socket_fs_int, proceso_pf->pid, entrada_proceso);
-				// GONZA?? DUDA - ATENDER LA RESPUESTA POR UNA CONEXION NUEVA O POR EL HILO QUE MANEJA LAS RESPUESTAS DE FS.
-				// RECIBO EL VOID* de bloques y lo guardo en memoria
-				// escribirPagEnMemoria(respuestaFS,marco_asignado);
+
+				pedido_lectura_swap(socket_fs_int, entrada_proceso);
+
+				if (codigo_operacion == VALOR_BLOQUE)
+				{
+					void *pagina_SWAP = recibir_bloque_swap(socket_fs_int);
+					escribirPagEnMemoria(pagina_SWAP,marco_asignado);
+					enviar_op_con_int(socket_kernel_int,PAGINA_CARGADA,pid_pf);
+					log_info(logger_memoria_info, "SWAP IN -  PID: [%d] - Marco: [%d] - Page In: [%d] -[%d]", proceso_memoria->pid,marco_asignado,proceso_memoria->pid,entrada_proceso->indice);
+				}
+				else
+				{
+					log_error(logger_memoria_info, "No se recibio OK la liberacion de bloques para el PID [%d]", proceso_a_eliminar->pid);
+				}
+
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
 			{
@@ -300,23 +332,11 @@ void *manejo_conexion_filesystem_archivos(void *arg)
 		case F_READ_FS:
 
 			break;
-		case LISTA_BLOQUES_SWAP:
-			// TODO -- GUIDO -- PASO ESTO A LA CONEXION DE SWAP PARA MANEJAR TODO EN ESE HILO
-
-			t_list_pid *lista_id_bloques = recibir_listado_id_bloques(socket_fs_int);
-			asignar_id_bloque_swap(lista_id_bloques);
-			//list_destroy_and_destroy_elements(lista_id_bloques->lista, free);
-		
-			log_error(logger_memoria_info, "Se recibio un codigo de operacion de FS distinto a LISTA_BLOQUES_SWAP al pedido de inicio de SWAP para el proceso PID [%d]", lista_id_bloques->pid);
-		break;
-	case LEER_BLOQUE:
-
-		break;
-	default:
-		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
-		abort();
-		// finalizar_memoria();
-		break;
+		default:
+			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
+			abort();
+			// finalizar_memoria();
+			break;
 		}
 	}
 	return NULL;
@@ -469,7 +489,9 @@ t_proceso_memoria *iniciar_proceso_path(t_proceso_memoria *proceso_nuevo)
 {
 	proceso_nuevo->instrucciones = parsear_instrucciones(proceso_nuevo->path);
 	log_info(logger_memoria_info, "Instrucciones parseadas OK para el proceso %d", proceso_nuevo->pid);
+	pthread_mutex_lock(&mutex_procesos);
 	list_add(procesos_totales, proceso_nuevo);
+	pthread_mutex_unlock(&mutex_procesos);
 	inicializar_nuevo_proceso(proceso_nuevo);
 
 	return proceso_nuevo;
@@ -629,22 +651,28 @@ void escribirPagEnMemoria(void *valor, int numMarco)
 	pthread_mutex_unlock(&mutex_memoria_usuario);
 }
 
-void pedido_lectura_swap(int socket, int pid, t_entrada_tabla_pag *entrada)
+void pedido_lectura_swap(int socket, t_entrada_tabla_pag *entrada)
 {
 	int index_bloque = entrada->id_bloque_swap;
 	t_paquete *paquete_pagina = crear_paquete_con_codigo_de_operacion(LEER_BLOQUE);
-	paquete_pagina->buffer->size += sizeof(int) * 2;
+	paquete_pagina->buffer->size += sizeof(int);
 	paquete_pagina->buffer->stream = malloc(paquete_pagina->buffer->size);
 
 	int offset = 0;
-
-	memcpy(paquete_pagina->buffer->stream + offset, &(pid), sizeof(int));
-	offset += sizeof(int);
 
 	memcpy(paquete_pagina->buffer->stream + offset, &(index_bloque), sizeof(int));
 
 	enviar_paquete(paquete_pagina, socket);
 	eliminar_paquete(paquete_pagina);
+}
+
+void *recibir_bloque_swap(int socket)
+{
+
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	log_warning(logger_memoria_info, "El tamano del void* de la pagina traida de swap es de %d y el tamano de pagina en memoria es de %d", size, config_valores_memoria.tamanio_pagina);
+	return buffer;
 }
 
 t_list *obtener_total_pags_en_memoria(t_list *lista_procesos)
@@ -908,15 +936,14 @@ int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *proceso_nue
 	return cantidad_pags;
 }
 
-void asignar_id_bloque_swap(t_list_pid *lista_id_bloques)
+void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_bloques)
 {
-	t_proceso_memoria *proceso_nuevo = obtener_proceso_pid(lista_id_bloques->pid);
 	int cant_bloques = list_size(proceso_nuevo->tabla_paginas->entradas_tabla);
 
 	for (int i = 0; i < cant_bloques; i++)
 	{
 		t_entrada_tabla_pag *entrada = list_get(proceso_nuevo->tabla_paginas->entradas_tabla, i);
-		int *id_bloque = list_get(lista_id_bloques->lista, i);
+		int *id_bloque = list_get(lista_id_bloques, i);
 		entrada->id_bloque_swap = *id_bloque;
 	}
 	log_warning(logger_memoria_info, "Se asignaron OK los id de los bloques SWAP para el PID [%d]", proceso_nuevo->pid);
@@ -1051,7 +1078,7 @@ void limpiar_swap(t_proceso_memoria *proceso_a_eliminar) // listo los bloques sw
 {
 	t_list *ids_bloques_swap = obtener_lista_id_bloque_swap(proceso_a_eliminar);
 	enviar_bloques_swap_a_liberar(proceso_a_eliminar->pid, ids_bloques_swap, socket_fs_int);
-	list_destroy_and_destroy_elements(ids_bloques_swap, free);
+	// list_destroy_and_destroy_elements(ids_bloques_swap, free); // TODO CHEQUEAR SI HAY QUE LIBERAR
 }
 
 t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
@@ -1074,7 +1101,7 @@ t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
 void enviar_bloques_swap_a_liberar(int pid, t_list *lista_bloques, int socket)
 {
 	t_paquete *paquete_swap_a_borrar = crear_paquete_con_codigo_de_operacion(SWAP_A_LIBERAR);
-	serializar_lista_swap(pid, lista_bloques, paquete_swap_a_borrar);
+	serializar_lista_swap(lista_bloques, paquete_swap_a_borrar);
 	enviar_paquete(paquete_swap_a_borrar, socket);
 	eliminar_paquete(paquete_swap_a_borrar);
 }

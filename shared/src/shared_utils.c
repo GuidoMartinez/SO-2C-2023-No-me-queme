@@ -689,11 +689,9 @@ void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs *instruccion
 }
 
 // en la lista debo guardar los punteros de int ya que las listas manejan punteros a estructuras. @ TOMAS
-void serializar_lista_swap(int pid, t_list *bloques_swap, t_paquete *paquete)
+void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
 {
 	int offset = paquete->buffer->size;
-	memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
-	offset += sizeof(int);
 
 	for (int i = 0; i < list_size(bloques_swap); i++)
 	{
@@ -728,7 +726,7 @@ void recibir_pid(int socket, int *pid)
 
 // MEMORIA - FS
 
-t_list_pid *recibir_listado_id_bloques(int socket)
+t_list *recibir_listado_id_bloques(int socket)
 {
 
 	int size;
@@ -737,24 +735,22 @@ t_list_pid *recibir_listado_id_bloques(int socket)
 	buffer = recibir_buffer(&size, socket);
 	printf("Size del stream a deserializar: %d \n", size);
 
-	t_list_pid *lista_pid = malloc(sizeof(t_list_pid));
-	lista_pid->lista = list_create();
+
+	t_list* lista  = list_create();
 
 	int offset = 0;
-	memcpy(&(lista_pid->pid),buffer + offset, sizeof(int));
-	offset += sizeof(int);
 
 	while (offset < size)
 	{
 		int *bloque_swap = malloc(sizeof(int));
 		memcpy(bloque_swap, buffer + offset, sizeof(int));
 		offset += sizeof(int);
-		list_add(lista_pid->lista, bloque_swap);
+		list_add(lista, bloque_swap);
 	}
 
 	free(buffer);
 
-	return lista_pid;
+	return lista;
 }
 
 void enviar_pedido_marco(int socket, int pid, int pagina)
