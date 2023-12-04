@@ -294,11 +294,11 @@ t_instruccion *fetch(int pid, int pc)
 // Ejecuta instrucciones
 void decode(t_instruccion *instruccion)
 {
-    char* param1 = "";
-    char* param2 = "";
-    if(instruccion->parametro1 != NULL) strcpy(param1, instruccion->parametro1);
-    if(instruccion->parametro1 != NULL) strcpy(param2, instruccion->parametro2);
-    log_info(cpu_logger_info, "PID: %d - DECODE - Instruccion: %s - %s", contexto_actual->pid, instruccion->codigo, param1, param2);
+    char* param1 = string_new();
+    char* param2 = string_new();
+    if(instruccion->parametro1 != NULL) {strcpy(param1, instruccion->parametro1);}
+    if(instruccion->parametro2 != NULL) {strcpy(param2, instruccion->parametro2);}
+    log_info(cpu_logger_info, "PID: %d - DECODE - Instruccion: %s - %s - %s", contexto_actual->pid, cod_inst_to_str(instruccion->codigo), param1, param2);
 
     switch (instruccion->codigo)
     {

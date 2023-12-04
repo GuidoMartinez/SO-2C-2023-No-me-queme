@@ -251,7 +251,7 @@ int main(int argc, char **argv)
             char **palabras = string_split(linea, " ");
             int grado = atoi(palabras[1]);
 
-            log_info(kernel_logger_info, "Grado anterior: %d - Grado actual", sem.g_multiprog_ini, grado);
+            log_info(kernel_logger_info, "Grado anterior: %d - Grado actual: %d", sem.g_multiprog_ini, grado);
             sem.g_multiprog_ini = grado;
 
             //    int valor =sem.g_multiprog_ini;

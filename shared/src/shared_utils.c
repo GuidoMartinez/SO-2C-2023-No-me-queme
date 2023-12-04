@@ -534,6 +534,45 @@ t_instruccion *deserializar_instruccion(int socket)
 	return instruccion_recibida;
 }
 
+char* cod_inst_to_str(nombre_instruccion nomb){
+	switch(nomb){
+		case SET:
+			return "SET";
+		case SUM:
+			return "SUM";
+		case SUB:
+			return "SUB";
+		case JNZ:
+			return "JNZ";
+		case SLEEP:
+			return "SLEEP";
+		case WAIT:
+			return "WAIT";
+		case SIGNAL:
+			return "SIGNAL";
+		case MOV_IN:
+			return "MOV_IN";
+		case MOV_OUT:
+			return "MOV_OUT";
+		case F_OPEN:
+			return "F_OPEN";
+		case F_CLOSE:
+			return "F_CLOSE";
+		case F_SEEK:
+			return "F_SEEK";
+		case F_READ:
+			return "F_READ";
+		case F_WRITE:
+			return "F_WRITE";
+		case F_TRUNCATE:
+			return "F_TRUNCATE";
+		case EXIT:
+			return "EXIT";
+		default:
+			return "ERROR";
+	}
+}
+
 // pedido de CPU a MEMORIA para la instruccion segun PC y PID
 void ask_instruccion_pid_pc(int pid, int pc, int socket)
 {
