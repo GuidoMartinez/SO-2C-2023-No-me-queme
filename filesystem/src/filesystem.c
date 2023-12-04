@@ -24,8 +24,8 @@ int main(int argc, char **argv)
     path_fcb = config_valores_filesystem.path_fcb;
     path_bloques = config_valores_filesystem.path_bloques;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
-    fat[tamanio_fat] = malloc(tamanio_fat);
-    swap[bloques_swap] = malloc(bloques_swap);
+    fat = malloc(tamanio_fat);
+    swap = malloc(bloques_swap);
     bloques = inicializar_bloque_de_datos(path_bloques, cant_bloques);
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
@@ -75,19 +75,10 @@ int main(int argc, char **argv)
     {
         return -1;
     }
-    /* if(socket_kernel != -1){
-         pthread_t hilo_cliente;
-         pthread_create(&hilo_cliente, NULL, comunicacion_kernel, (void *)&socket_kernel);
-         pthread_detach(hilo_cliente);
-         return 1;
-     }else {
-         log_error(filesystem_logger_info, "Error al escuchar clientes... Finalizando servidor \n"); // log para fallo de comunicaciones
-     }*/
     pthread_t hilo_cliente;
     pthread_create(&hilo_cliente, NULL, comunicacion_kernel, NULL);
     pthread_detach(hilo_cliente);
-    while (1)
-        ;
+    while (1);
     abort();
 }
 
@@ -120,6 +111,9 @@ void finalizar_filesystem()
     config_destroy(config);
     close(socket_memoria);
     close(socket_kernel);
+    free(fat);
+    free(swap);
+    free(bloques);
 }
 
 bloque_t crear_bloque_vacio(int tamanio_bloque)
@@ -244,8 +238,8 @@ int inicializar_swap()
 
     return 0;
 }
-
-void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat)
+/*
+void guardarFAT(const char *nombreArchivo, int tamanio_fat)
 {
     int file_descriptor = open(nombreArchivo, O_CREAT | O_RDWR, 0644);
     if (file_descriptor < 0)
@@ -271,38 +265,7 @@ void guardarFAT(const char *nombreArchivo, bloque *fat, int tamanio_fat)
     munmap(archivo_mapeado, tamanio_fat * sizeof(bloque));
     close(file_descriptor);
 }
-
-bloque *cargarFAT(const char *nombreArchivo)
-{
-    FILE *archivo = fopen(nombreArchivo, "rb");
-
-    if (archivo)
-    {
-        if (fat == NULL)
-        {
-            fclose(archivo);
-            log_error(filesystem_logger_info, "Error al asignar memoria para cargar la FAT");
-            return NULL;
-        }
-
-        if (fread(fat, sizeof(bloque), tamanio_fat, archivo) != tamanio_fat)
-        {
-            fclose(archivo);
-            free(fat);
-            log_error(filesystem_logger_info, "Error al leer la FAT desde el archivo");
-            return NULL;
-        }
-
-        fclose(archivo);
-        return fat;
-    }
-    else
-    {
-        log_error(filesystem_logger_info, "No se pudo abrir el archivo '%s' para lectura", nombreArchivo);
-        return NULL;
-    }
-}
-
+*/
 void liberarMemoriaFAT()
 {
     free(fat);
@@ -324,7 +287,7 @@ void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
         char *nombre_completo = string_new();
         string_append(&nombre_completo, directorio);
         string_append(&nombre_completo, dir_entry->d_name);
-        bloque *bloque_existente = (bloque *)malloc(sizeof(bloque));
+        bloque_t *bloque_existente = malloc(sizeof(bloque_t));
         if (bloque_existente != NULL)
         {
             list_add(fat, bloque_existente);
@@ -413,20 +376,50 @@ int crear_fcb(char *nombre_fcb)
     return nuevo_fcb->id;
 }
 
-uint32_t buscar_fcb(char *nombre_fcb)
+uint32_t conseguir_id_fcb(char *nombre_fcb)
 {
     uint32_t resultado = -1;
-    for (int i = 0; i < tamanio_fat; i++)
+    int size = list_size(lista_fcb);
+    for (int i = 0; i < size; i++)
     {
-        fcb_t *fcb = &(fat[i]);
-
+        fcb_t *fcb = list_get(lista_fcb, i);
         if (strcmp(fcb->nombre_archivo, nombre_fcb) == 0)
         {
-            resultado = fcb->id;
+            resultado = buscar_fcb_id(fcb->id);
             break;
         }
     }
-    log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
+    if (resultado == -1)
+    {
+        log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
+    }
+    return resultado;
+}
+
+uint32_t buscar_fcb(char *nombre_fcb)
+{
+    uint32_t resultado = -1;
+    uint32_t id_fcb = conseguir_id_fcb(nombre_fcb);
+    uint32_t bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
+
+    if (bloque_inicial != -1)
+    {
+        while (bloque_inicial != -1)
+        {
+            fcb_t *fcb = &(fat[bloque_inicial]);
+
+            if (strcmp(fcb->nombre_archivo, nombre_fcb) == 0)
+            {
+                resultado = fcb->id;
+                break;
+            }
+            bloque_inicial = fat[bloque_inicial];
+        }
+    }
+    if (resultado == -1)
+    {
+        log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
+    }
     return resultado;
 }
 
@@ -556,108 +549,55 @@ int modificar_fcb(int id, fcb_prop_t llave, uint32_t valor)
     return -1;
 }
 
-void escribir_int(uint32_t dato, bloque *fat, int indice)
-{
-    int offset = indice * sizeof(bloque);
-    memcpy(fat + indice, &dato, sizeof(uint32_t));
-    msync(fat, tamanio_fat * sizeof(bloque), MS_SYNC);
-    sleep(config_valores_filesystem.retardo_acceso_bloque);
-}
-
-void escribir_bloques(int indice_inicial, int size)
-{
-    for (int i = indice_inicial; i < size; i++)
-    {
-        bloque *bloque = &fat[i];
-        escribir_int(bloque->id, fat, i);
-    }
-    sleep(config_valores_filesystem.retardo_acceso_bloque);
-}
-
-uint32_t leer_int(bloque *fat, int indice)
-{
-    uint32_t dato = 0;
-    int offset = indice * sizeof(bloque);
-    memcpy(&dato, fat + indice, sizeof(uint32_t));
-    msync(fat, tamanio_fat * sizeof(bloque), MS_SYNC);
-    sleep(config_valores_filesystem.retardo_acceso_bloque);
-    return dato;
-}
-
-t_list *obtener_lista_total_de_bloques(int id_fcb, FILE *file)
-{
-    t_list *lista_de_bloques = list_create();
-    int tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
-    if (tamanio_archivo == 0)
-        return lista_de_bloques;
-    int cant_bloques_fcb = obtener_cantidad_de_bloques(id_fcb);
-    int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
-    for (int i = 0; i < cant_bloques_fcb; i++)
-    {
-        offset_fcb_t *bloque = malloc(sizeof(offset_fcb_t));
-        bloque->id_bloque = bloque_inicial + i;
-        bloque->offset = (long)bloque->id_bloque * sizeof(bloque);
-        list_add(lista_de_bloques, bloque);
-    }
-    return lista_de_bloques;
-}
-
 void asignar_bloques(int id_fcb, int nuevo_tamanio)
 {
     int cant_bloques_a_asignar = ceil((double)nuevo_tamanio / tamanio_bloque);
     int cant_bloques_actual = obtener_cantidad_de_bloques(id_fcb);
+    int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
+
+    if (bloque_inicial == -1)
+    {
+        bloque_inicial = obtener_primer_bloque_libre();
+        if (bloque_inicial == -1)
+        {
+            log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
+            return;
+        }
+        modificar_fcb(id_fcb, BLOQUE_INICIAL, bloque_inicial);
+    }
+
+    int bloque_actual = bloque_inicial;
 
     for (int i = cant_bloques_actual; i < cant_bloques_a_asignar; i++)
     {
-        offset_fcb_t *bloque = malloc(sizeof(offset_fcb_t));
-        if (bloque == NULL)
-        {
-            log_error(filesystem_logger_info, "Error al asignar memoria para offset_fcb_t");
-            break;
-        }
-        bloque->id_bloque = obtener_primer_bloque_libre(fat);
-        if (bloque->id_bloque == -1)
+        if (bloque_actual == -1)
         {
             log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
-            free(bloque);
             break;
         }
-        bloque->offset = (uint32_t)bloque->id_bloque * tamanio_bloque;
-        bloque->tamanio = tamanio_bloque;
 
-        fat[bloque->id_bloque] = id_fcb;
-        modificar_fcb(id_fcb, BLOQUE_INICIAL, fat[bloque->id_bloque]);
-
-        free(bloque);
+        fat[bloque_actual] = obtener_primer_bloque_libre();
+        bloque_actual = obtener_primer_bloque_libre();
     }
-}
-
-void *list_pop(t_list *list)
-{
-    int last_element_index = (list->elements_count - 1);
-    return list_remove(list, last_element_index);
 }
 
 void desasignar_bloques(int id_fcb, int nuevo_tamanio)
 {
-    /*
-    int cant_bloques_a_desasignar = ceil((double)nuevo_tamanio / tamanio_bloque);
-    int cant_bloques_actual = obtener_cantidad_de_bloques(id_fcb);
-
-    for (int i = cant_bloques_actual - 1; i >= cant_bloques_a_desasignar; i--) {
-        offset_fcb_t *bloque_info = obtener_bloque_info_por_indice(id_fcb, i);  // todo
-        if (bloque_info == NULL) {
-            log_error(filesystem_logger_info, "Error al obtener información del bloque a desasignar");
-            break;
-        }
-
-        int bloque_id = bloque_info->id_bloque;
-        liberar_bloque(bloque_id);  // todo
-        fat[bloque_id] = -1;
-
-        free(bloque_info);
+    uint32_t tamanio_bloque = config_valores_filesystem.tam_bloque;
+    int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
+    if (bloque_inicial == -1)
+    {
+        return;
     }
-    */
+    uint32_t tamanio_actual = 0;
+    while (bloque_inicial != -1 && tamanio_actual < nuevo_tamanio)
+    {
+        int siguiente_bloque = fat[bloque_inicial];
+        fat[bloque_inicial] = -1;
+        modificar_fcb(id_fcb, BLOQUE_INICIAL, siguiente_bloque);
+        bloque_inicial = siguiente_bloque;
+        tamanio_actual += tamanio_bloque;
+    }
 }
 
 int truncar_fcb(char *nombre_fcb, uint32_t nuevo_tamanio)
@@ -675,6 +615,7 @@ int truncar_fcb(char *nombre_fcb, uint32_t nuevo_tamanio)
         {
             desasignar_bloques(id_fcb, nuevo_tamanio);
         }
+        modificar_fcb(id_fcb, TAMANIO_ARCHIVO, nuevo_tamanio);
         resultado = 0;
     }
     return resultado;
@@ -704,71 +645,80 @@ void escribir_dato(void *dato, uint32_t offset, uint32_t size)
     }
 }
 
-void escribir_datos(void *datos, int cant_bloques, int id_fcb)
+void escribir_datos(void *datos, int cant_bloques, fcb_t id_fcb)
 {
-    uint32_t bloque_actual = 1; // obtener_bloque_inicial(id_fcb);
+    uint32_t bloque_actual = id_fcb.bloque_inicial;
     uint32_t bloque_siguiente;
 
     for (int i = 0; i < cant_bloques; i++)
     {
         offset_fcb_t *bloque_info = &(bloques[i].datos);
-        int bloque_id = bloque_info->id_bloque;
+        uint32_t bloque_id = bloque_info->id_bloque;
         log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
 
         if (fat[bloque_id] == -1)
         {
-            asignar_bloques(id_fcb, bloque_info->tamanio);
+            asignar_bloques(id_fcb.id, bloque_info->tamanio);
             bloque_siguiente = UINT32_MAX;
         }
         else
         {
             bloque_siguiente = fat[bloque_id];
         }
+
         escribir_dato(datos + bloque_info->offset, bloque_info->offset, bloque_info->tamanio);
         fat[bloque_id] = bloque_siguiente;
+
         if (bloque_siguiente == UINT32_MAX)
         {
             break;
         }
+
         bloque_actual = bloque_siguiente;
     }
 }
 
-t_list *obtener_lista_de_bloques(int id_fcb, int p_seek, int tam_a_leer, t_list *lista_fcb, t_log *logger)
+void *leer_bloque(uint32_t id_bloque)
 {
-    t_list *lista_bloques = list_create();
-    int tamanio_bloque = config_valores_filesystem.tam_bloque;
+    if (id_bloque < 0 || id_bloque >= config_valores_filesystem.cant_bloques_total)
+    {
+        return NULL;
+    }
+
+    void *bloque = malloc(config_valores_filesystem.tam_bloque);
+    if (bloque == NULL)
+    {
+        return NULL;
+    }
+
+    memcpy(bloque, bloques[id_bloque].datos, config_valores_filesystem.tam_bloque);
+
+    sleep(retardo_acceso_bloque);
+    return bloque;
+}
+
+bloque_t* obtener_lista_de_bloques(int id_fcb, int p_seek, int tam_a_leer, t_list* lista_fcb, t_log* logger)
+{
+    int max_bloques = ceil((double)tam_a_leer / tamanio_bloque);
+    bloque_t* lista_bloques = malloc(max_bloques * sizeof(bloque_t));
+    if (lista_bloques == NULL)
+    {
+        log_error(logger, "Error de asignación de memoria para lista_bloques");
+        return NULL;
+    }
     int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
-    int bloque_apuntado = ceil((double)(p_seek + 1) / tamanio_bloque);
-    if (bloque_inicial == -1)
-    {
-        log_error(logger, "El FCB no tiene bloque inicial asignado");
-        return NULL;
-    }
-    if (tam_a_leer <= 0)
-    {
-        log_error(logger, "El tamaño a leer es inválido");
-        return NULL;
-    }
     int bloque_actual = bloque_inicial;
     int tam_leido = 0;
+    int idx_bloque = 0;
     while (tam_leido < tam_a_leer)
     {
         int offset_bloque = bloque_actual * tamanio_bloque;
         int tam_restante = tam_a_leer - tam_leido;
         int bytes_leer = (tam_restante < tamanio_bloque) ? tam_restante : tamanio_bloque;
-        offset_fcb_t *bloque_info = malloc(sizeof(offset_fcb_t));
-        if (bloque_info == NULL)
-        {
-            log_error(logger, "Error de asignación de memoria para bloque_info");
-            break;
-        }
-        bloque_info->id_bloque = bloque_actual;
-        bloque_info->offset = offset_bloque;
-        bloque_info->tamanio = bytes_leer;
-        list_add(lista_bloques, bloque_info);
+        lista_bloques[idx_bloque].datos = leer_bloque(bloque_actual);
         tam_leido += bytes_leer;
-        bloque_actual = leer_int(fat, bloque_actual);
+        idx_bloque++;
+        bloque_actual = fat[bloque_actual];
         if (bloque_actual < 0 || bloque_actual >= tamanio_fat)
         {
             log_error(logger, "Error: El bloque apuntado está fuera de rango");
@@ -783,68 +733,16 @@ t_list *obtener_lista_de_bloques(int id_fcb, int p_seek, int tam_a_leer, t_list 
     }
     if (tam_leido != tam_a_leer)
     {
-        list_destroy_and_destroy_elements(lista_bloques, free);
+        for (int i = 0; i < idx_bloque; i++)
+        {
+            free(lista_bloques[i].datos);
+        }
+        free(lista_bloques);
+        log_error(logger, "Error tamanio leido es distinto al tamanio a leer");
         return NULL;
     }
+
     return lista_bloques;
-}
-
-t_list *armar_lista_offsets(int id_fcb, int tam_a_leer, int p_seek)
-{
-    t_list *lista_offsets = list_create();
-    int bloque_apuntado = ceil((double)(p_seek + 1) / tamanio_bloque);
-    int nro_bloque = 0;
-    t_list *lista_bloques = obtener_lista_de_bloques(id_fcb, p_seek, tam_a_leer, lista_fcb, filesystem_logger_info);
-    if (lista_bloques != NULL)
-    {
-        int cant_bloques = list_size(lista_bloques);
-        while (nro_bloque < cant_bloques)
-        {
-            offset_fcb_t *nuevo_offset = malloc(sizeof(offset_fcb_t));
-
-            if (nuevo_offset != NULL)
-            {
-                offset_fcb_t *bloque = list_get(lista_bloques, nro_bloque);
-
-                nuevo_offset->offset = bloque->id_bloque * tamanio_bloque;
-                nuevo_offset->id_bloque = bloque->id_bloque;
-                nuevo_offset->tamanio = tamanio_bloque;
-
-                if (tam_a_leer < tamanio_bloque)
-                {
-                    nuevo_offset->offset = nuevo_offset->offset + (p_seek - ((bloque_apuntado - 1) * tamanio_bloque));
-                    nuevo_offset->tamanio = tam_a_leer;
-                }
-                else if (nro_bloque + 1 == cant_bloques)
-                {
-                    nuevo_offset->tamanio = (p_seek + tam_a_leer) - ((bloque_apuntado - 1) * tamanio_bloque);
-                }
-                else if (nro_bloque == 0)
-                {
-                    nuevo_offset->offset = nuevo_offset->offset + (p_seek - ((bloque_apuntado - 1) * tamanio_bloque));
-                    nuevo_offset->tamanio = (bloque_apuntado * tamanio_bloque) - p_seek;
-                }
-
-                nro_bloque++;
-                bloque_apuntado = ceil(((double)(p_seek + 1) + (tamanio_bloque * nro_bloque)) / tamanio_bloque);
-
-                list_add(lista_offsets, nuevo_offset);
-            }
-            else
-            {
-                log_error(filesystem_logger_info, "Error: No se pudo asignar memoria para nuevo_offset.");
-                break;
-            }
-        }
-
-        list_destroy_and_destroy_elements(lista_bloques, free);
-    }
-    else
-    {
-        log_error(filesystem_logger_info, "Error: No se pudieron obtener los bloques necesarios.");
-    }
-
-    return lista_offsets;
 }
 
 void realizar_f_write(t_instruccion_fs *instruccion_file)
@@ -852,6 +750,7 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
     uint32_t pid = instruccion_file->pid;
     uint32_t direccion_fisica = instruccion_file->param1_length;
     int tamanio = instruccion_file->param2_length;
+    int cantidad_bloques = (int)ceil((double)tamanio / tamanio_bloque);
     int puntero_archivo = instruccion_file->puntero;
     t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_WRITE);
     agregar_a_paquete(paquete, &pid, sizeof(uint32_t));
@@ -867,67 +766,26 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
         {
             char *valor_recibido = instruccion_file->param1;
             uint32_t id_fcb = buscar_fcb(instruccion_file->param1);
-            t_list *lista_offsets = armar_lista_offsets(id_fcb, tamanio, direccion_fisica);
-            if (lista_offsets != NULL)
+            bloque_t *lista_bloques = obtener_lista_de_bloques(id_fcb, direccion_fisica, tamanio, lista_fcb, filesystem_logger_info);
+            if (lista_bloques != NULL)
             {
-                int cant_bloques = list_size(lista_offsets);
-                for (int i = 0; i < cant_bloques; i++)
+                for (int i = 0; i < cantidad_bloques; i++)
                 {
-                    offset_fcb_t *bloque_info = list_get(lista_offsets, i);
+                    offset_fcb_t *bloque_info = &(lista_bloques[i].datos);
                     int bloque_id = bloque_info->id_bloque;
                     log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
-
                     if (fat[bloque_id] == -1)
                     {
                         asignar_bloques(id_fcb, bloque_info->tamanio);
                         fat[bloque_id] = id_fcb;
                     }
-
                     escribir_dato(valor_recibido + bloque_info->offset, bloque_info->offset, bloque_info->tamanio);
                 }
-                list_destroy_and_destroy_elements(lista_offsets, free);
+                free(lista_bloques);
             }
             list_destroy_and_destroy_elements(paquete_recibido, free);
         }
     }
-}
-
-void *leer_bloque(uint32_t id_bloque)
-{
-    if (id_bloque < 0 || id_bloque >= tam_memoria_file_system / tamanio_bloque)
-    {
-        return NULL;
-    }
-
-    void *bloque = malloc(tamanio_bloque);
-    if (bloque == NULL)
-    {
-        return NULL;
-    }
-    long offset = tamanio_bloque * id_bloque;
-    int archivo_bloques = open(path_bloques, O_RDONLY);
-    if (archivo_bloques == -1)
-    {
-        free(bloque);
-        return NULL;
-    }
-    void *memoria_mapeada = mmap(NULL, tam_memoria_file_system, PROT_READ, MAP_SHARED, archivo_bloques, 0);
-    if (memoria_mapeada == MAP_FAILED)
-    {
-        close(archivo_bloques);
-        free(bloque);
-        return NULL;
-    }
-
-    memcpy(bloque, memoria_mapeada + offset, tamanio_bloque);
-    msync(memoria_mapeada, tam_memoria_file_system, MS_SYNC);
-
-    sleep(retardo_acceso_bloque);
-    munmap(memoria_mapeada, tam_memoria_file_system);
-
-    close(archivo_bloques);
-
-    return bloque;
 }
 
 void realizar_f_read(t_instruccion_fs *instruccion_file)
@@ -936,20 +794,29 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
     int puntero_archivo = instruccion_file->puntero;
     int id_fcb = buscar_fcb(instruccion_file->param1);
     log_info(filesystem_logger_info, "Entro a realizar f read");
-    uint32_t id_bloque = (uint32_t)ceil((double)direccion_fisica / tamanio_bloque);
-    void *datos = leer_bloque(id_bloque);
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_READ_FS);
-    agregar_a_paquete(paquete, &(instruccion_file->pid), sizeof(uint32_t));
-    agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
-    agregar_a_paquete(paquete, &tamanio_bloque, sizeof(uint32_t));
-    agregar_a_paquete(paquete, datos, tamanio_bloque);
-    enviar_paquete(paquete, socket_memoria);
-    eliminar_paquete(paquete);
-    op_code respuesta = recibir_operacion(socket_memoria);
-    if (respuesta == MENSAJE)
+    uint32_t id_bloque_inicial = (uint32_t)ceil((double)direccion_fisica / tamanio_bloque);
+    int offset_inicial = direccion_fisica % tamanio_bloque;
+    int tamanio_restante = atoi(instruccion_file->param1);
+    for (uint32_t id_bloque = id_bloque_inicial; tamanio_restante > 0; fat[id_bloque])
     {
-        char *mensaje = recibir_mensaje_sin_log(socket_memoria);
-        free(mensaje);
+        void *datos = leer_bloque(id_bloque);
+        int bytes_leer = (tamanio_restante < tamanio_bloque) ? tamanio_restante : tamanio_bloque;
+
+        t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_READ_FS);
+        agregar_a_paquete(paquete, &(instruccion_file->pid), sizeof(uint32_t));
+        agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
+        agregar_a_paquete(paquete, &bytes_leer, sizeof(uint32_t));
+        agregar_a_paquete(paquete, datos + offset_inicial, bytes_leer); 
+        enviar_paquete(paquete, socket_memoria);
+        eliminar_paquete(paquete);
+        op_code respuesta = recibir_operacion(socket_memoria);
+        if (respuesta == MENSAJE)
+        {
+            char *mensaje = recibir_mensaje_sin_log(socket_memoria);
+            free(mensaje);
+        }
+        tamanio_restante -= bytes_leer;
+        offset_inicial = 0;
     }
 }
 

@@ -59,29 +59,22 @@ typedef struct
     void* datos;
 } bloque_t;
 
-typedef struct
-{
-    uint32_t next_block;
-    uint32_t tamanio;
-    uint32_t id;
-    bool utilizado;
-} bloque;
-
-
 void finalizar_filesystem();
 void sighandler(int);
 void cargar_configuracion(char *);
+bloque_t crear_bloque_vacio(int);
+bloque_t *inicializar_bloque_de_datos(const char *, int);
 void inicializar_datos_memoria(int , void *);
+int obtener_cantidad_de_bloques(int);
 uint32_t obtener_primer_bloque_libre();
 bool bloque_esta_ocupado(uint32_t*, int);
 int crear_fat(char *);
 int inicializar_swap();
-void guardarFAT(const char *, bloque*, int);
-bloque * cargarFAT(const char *);
+//void guardarFAT(const char *, bloque*, int);
 void liberarMemoriaFAT();
 void inicializarFATDesdeDirectorio(char *, t_log *);
-int crearFCB(char *, t_log *, bloque *);
-int crearFAT(char *, t_log *);
+int crear_fcb(char *);
+uint32_t conseguir_id_fcb(char *);
 uint32_t buscar_fcb(char *);
 uint32_t buscar_fcb_id(int);
 fcb_t *inicializar_fcb();
@@ -89,11 +82,21 @@ fcb_t *_get_fcb_id(int);
 fcb_t *_get_fcb(char *);
 uint32_t valor_para_fcb(fcb_t *, fcb_prop_t);
 uint32_t valor_fcb(int, fcb_prop_t);
+int _modificar_fcb(fcb_t *, fcb_prop_t , uint32_t);
+int modificar_fcb(int , fcb_prop_t , uint32_t);
 void asignar_bloques(int , int);
 void desasignar_bloques(int , int );
+int truncar_fcb(char *, uint32_t);
+void escribir_dato(void *, uint32_t , uint32_t);
+void escribir_datos(void *, int , fcb_t); //No se usa
+void *leer_bloque(uint32_t );
+bloque_t* obtener_lista_de_bloques(int, int, int, t_list*, t_log*);
+void realizar_f_write(t_instruccion_fs *);
 void realizar_f_read(t_instruccion_fs *);
 int borrar_fcb(int);
-void *enviar_respuesta_kernel(t_resp_file*);
+void destroy_instruccion_file(t_instruccion_fs *);
+void crear_paquete_con_respuesta(t_resp_file );
+t_instruccion_fs *deserializar_instruccion_file(int);
 void* comunicacion_kernel();
 bloque_t *inicializar_bloque_de_datos(const char *, int );
 void crear_paquete_con_respuesta(t_resp_file);
