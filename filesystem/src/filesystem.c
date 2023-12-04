@@ -565,9 +565,7 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
         }
         modificar_fcb(id_fcb, BLOQUE_INICIAL, bloque_inicial);
     }
-
     int bloque_actual = bloque_inicial;
-
     for (int i = cant_bloques_actual; i < cant_bloques_a_asignar; i++)
     {
         if (bloque_actual == -1)
@@ -577,7 +575,7 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
         }
 
         fat[bloque_actual] = obtener_primer_bloque_libre();
-        bloque_actual = obtener_primer_bloque_libre();
+        bloque_actual = fat[bloque_actual];
     }
 }
 
