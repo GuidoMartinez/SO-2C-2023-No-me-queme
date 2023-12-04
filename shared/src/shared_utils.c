@@ -617,7 +617,7 @@ void deserializar_header(t_paquete *paquete, int socket_cliente)
 	recv(socket_cliente, paquete->buffer->stream, paquete->buffer->size, MSG_WAITALL);
 }
 
-t_instruccion_fs* deserializar_instruccion_fs(int socket)
+t_instruccion_fs *deserializar_instruccion_fs(int socket)
 {
 	int size;
 	void *buffer;
@@ -625,7 +625,7 @@ t_instruccion_fs* deserializar_instruccion_fs(int socket)
 	buffer = recibir_buffer(&size, socket);
 	printf("Size del stream a deserializar: %d \n", size);
 
-	t_instruccion_fs *instruccion= malloc(sizeof(t_instruccion_fs));
+	t_instruccion_fs *instruccion = malloc(sizeof(t_instruccion_fs));
 
 	int offset = 0;
 
@@ -648,7 +648,7 @@ t_instruccion_fs* deserializar_instruccion_fs(int socket)
 	instruccion->param2 = realloc(instruccion->param2, instruccion->param2_length);
 	memcpy(instruccion->param2, buffer + offset, instruccion->param2_length);
 	offset += instruccion->param2_length;
-	
+
 	memcpy(&(instruccion->puntero), buffer + offset, sizeof(uint32_t));
 
 	return instruccion;
@@ -735,8 +735,7 @@ t_list *recibir_listado_id_bloques(int socket)
 	buffer = recibir_buffer(&size, socket);
 	printf("Size del stream a deserializar: %d \n", size);
 
-
-	t_list* lista  = list_create();
+	t_list *lista = list_create();
 
 	int offset = 0;
 
@@ -801,6 +800,19 @@ void enviar_op_con_int(int socket, op_code code, int entero)
 
 	enviar_paquete(paquete, socket);
 	eliminar_paquete(paquete);
+}
+
+int recibir_int(int socket)
+{
+	int size;
+	void *buffer;
+	buffer = recibir_buffer(&size, socket);
+	
+	int entero;
+	memcpy(&(entero), buffer, sizeof(int));
+	return entero;
+
+	free(buffer);
 }
 
 uint32_t recibir_valor_memoria(int socket)

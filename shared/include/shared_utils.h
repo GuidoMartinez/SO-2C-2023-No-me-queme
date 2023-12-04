@@ -323,9 +323,9 @@ void ask_instruccion_pid_pc(int, int, int);
 void pedido_instruccion(uint32_t *, uint32_t *, int);
 void enviar_instruccion(int, t_instruccion *);
 void serializar_instruccion(t_paquete *, t_instruccion *);
-void serializar_instruccion_fs(t_paquete*,  t_instruccion_fs*);
+void serializar_instruccion_fs(t_paquete *, t_instruccion_fs *);
 t_instruccion *deserializar_instruccion(int);
-t_instruccion_fs* deserializar_instruccion_fs(int);
+t_instruccion_fs *deserializar_instruccion_fs(int);
 t_instruccion *deserializar_instruccion_viejo(t_buffer *);
 
 void enviar_pid(int, int, op_code);
@@ -341,6 +341,7 @@ void enviar_pedido_marco(int, int, int);
 int recibir_marco(int);
 
 void enviar_op_con_int(int, op_code, int);
+int recibir_int(int);
 uint32_t recibir_valor_memoria(int);
 
 uint32_t str_to_uint32(char *);

@@ -192,7 +192,7 @@ void *manejo_conexion_cpu(void *arg)
 		case MOV_IN_CPU: // Lee el valor del marco y lo devuelve para guardarlo en el registro (se pide la direccion) - recibo direccion fisica
 
 			int df;
-			recibir_mov_in_cpu(&df, socket_cpu_int); // TODO
+			recibir_mov_in_cpu(&df, socket_cpu_int); 
 			uint32_t valor_leido = leer_memoria(df);
 
 			enviar_valor_mov_in_cpu(valor_leido, socket_cpu_int); // MOV_IN_CPU
@@ -250,6 +250,7 @@ void *manejo_conexion_kernel(void *arg)
 
 			limpiar_swap(proceso_a_eliminar); // listo los bloques swap y se los envio a FS para que los marque como libre
 
+			codigo_operacion = recibir_operacion(socket_fs_int);
 			if (codigo_operacion == SWAP_LIBERADA)
 			{
 				t_list *bloques_reservados = recibir_listado_id_bloques(socket_fs_int);
@@ -262,41 +263,63 @@ void *manejo_conexion_kernel(void *arg)
 			}
 			eliminar_proceso_memoria(proceso_a_eliminar); // Libero las entradas de la tabla de pagina y lo elimino de la lista de procesos --
 
-			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso.
+			// TODO -- RESPONDERLE al kernel que finalizo OK el proceso??
 			break;
 		case PAGE_FAULT_KERNEL:
 
 			int pid_pf, nro_pag_pf;
 			recibir_pf_kernel(socket_kernel_int, &pid_pf, &nro_pag_pf);
+			t_proceso_memoria *proceso_pf = obtener_proceso_pid(pid_pf);
+			t_entrada_tabla_pag *entrada_a_traer = list_get(proceso_pf->tabla_paginas->entradas_tabla, nro_pag_pf);
+			entrada_a_traer->bit_presencia = 1;
+			entrada_a_traer->bit_modificado = 0;
+			int marco_a_asignar;
 
 			if (hay_marcos_libres())
 			{
-				int marco_asignado = asignar_marco_libre(pid_pf);
-				t_proceso_memoria *proceso_pf = obtener_proceso_pid(pid_pf);
-				t_entrada_tabla_pag *entrada_proceso = list_get(proceso_pf->tabla_paginas->entradas_tabla, nro_pag_pf);
-				entrada_proceso->marco = marco_asignado;
-				entrada_proceso->bit_presencia = 1;
-				entrada_proceso->bit_modificado = 0;
-
-				pedido_lectura_swap(socket_fs_int, entrada_proceso);
-
-				if (codigo_operacion == VALOR_BLOQUE)
-				{
-					void *pagina_SWAP = recibir_bloque_swap(socket_fs_int);
-					escribirPagEnMemoria(pagina_SWAP,marco_asignado);
-					enviar_op_con_int(socket_kernel_int,PAGINA_CARGADA,pid_pf);
-					log_info(logger_memoria_info, "SWAP IN -  PID: [%d] - Marco: [%d] - Page In: [%d] -[%d]", proceso_memoria->pid,marco_asignado,proceso_memoria->pid,entrada_proceso->indice);
-				}
-				else
-				{
-					log_error(logger_memoria_info, "No se recibio OK la liberacion de bloques para el PID [%d]", proceso_a_eliminar->pid);
-				}
+				marco_a_asignar = asignar_marco_libre(pid_pf);
+				entrada_a_traer->marco = marco_a_asignar;
 
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
 			{
 				t_entrada_tabla_pag *entrada_a_swapear = paginaAReemplazar();
-				int nro_marco = entrada_a_swapear->marco;
+				marco_a_asignar = entrada_a_swapear->marco;
+
+				t_marco *marco_real = list_get(marcos, marco_a_asignar);
+				t_proceso_memoria *proceso_swapeado = obtener_proceso_pid(marco_real->pid);
+
+				log_info(logger_memoria_info, "REEMPLAZO - Marco: [%d] - Page Out: [%d] - [%d] - Page In: [%d] - [%d]", marco_a_asignar, proceso_swapeado->pid, entrada_a_swapear->indice,
+																																		pid_pf, nro_pag_pf); // LOG OBLIGATORIO
+
+				if (entrada_a_swapear->bit_modificado == 1) // SI ESTA MODIFICADO LO ESCRIBO EN SWAP
+				{
+					pedido_escritura_swap(socket_fs_int, entrada_a_swapear);
+
+					codigo_operacion = recibir_operacion(socket_fs_int);
+					if (codigo_operacion == ESCRITURA_BLOQUE_OK)
+					{
+						int valor = recibir_int(socket_fs_int);
+						valor +=1; // asi no tira unnused
+						log_info(logger_memoria_info, "SWAP OUT -  PID: [%d] - Marco: [%d] - Page Out: [%d]- [%d]", proceso_swapeado->pid, marco_a_asignar, proceso_swapeado->pid, entrada_a_swapear->indice); // LOG OBLIGATORIO
+					}
+					else
+					{
+						log_error(logger_memoria_info, "No se recibio OK la escritura en el bloque SWAP para el PID[%d]", proceso_swapeado->pid);
+					}
+				}
+
+				liberar_presencia_pagina(entrada_a_swapear);
+
+				// CARGO LA PAGINA -- REPITO LOGICA SI HAY MARCO LIBRE, REFACTOR LLEVARLO A UNA FUNCION
+
+				pedido_lectura_swap(socket_fs_int, entrada_a_traer);
+
+				cargar_pagina_swap_en_memoria(socket_fs_int, marco_a_asignar, pid_pf);
+
+				enviar_op_con_int(socket_kernel_int, PAGINA_CARGADA, pid_pf);
+				log_info(logger_memoria_info, "SWAP IN -  PID: [%d] - Marco: [%d] - Page In: [%d] -[%d]", proceso_memoria->pid, marco_a_asignar, proceso_memoria->pid, entrada_a_traer->indice); // LOG OBLIGATORIO
+
 			}
 			break;
 		default:
@@ -527,7 +550,7 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 
 // PAGINAS
 
-void actualizar_LRU(t_entrada_tabla_pag *entrada)
+void actualizo_entrada_para_futuro_reemplazo(t_entrada_tabla_pag *entrada)
 {
 
 	pthread_mutex_lock(&mutex_contador_LRU);
@@ -561,6 +584,14 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *entrada)
 bool son_iguales(t_entrada_tabla_pag *entrada1, t_entrada_tabla_pag *entrada2)
 {
 	return entrada1->indice == entrada2->indice && entrada1->marco == entrada2->marco && entrada1->id_bloque_swap == entrada2->id_bloque_swap;
+}
+
+void liberar_presencia_pagina(t_entrada_tabla_pag *pagina)
+{
+
+	pagina->marco = -1;
+	pagina->bit_presencia = 0;
+	pagina->bit_modificado = 0;
 }
 
 // MANEJO PF
@@ -664,6 +695,41 @@ void pedido_lectura_swap(int socket, t_entrada_tabla_pag *entrada)
 
 	enviar_paquete(paquete_pagina, socket);
 	eliminar_paquete(paquete_pagina);
+}
+
+void cargar_pagina_swap_en_memoria(int socket, int marco_asignar, int pid_pfs)
+{
+
+	op_code codigo_operacion = recibir_operacion(socket);
+
+	if (codigo_operacion == VALOR_BLOQUE)
+	{
+		void *pagina_SWAP = recibir_bloque_swap(socket);
+		escribirPagEnMemoria(pagina_SWAP, marco_asignar);
+	}
+	else
+	{
+		log_error(logger_memoria_info, "No se recibio correctamente el bloque swap para traerlo a memoria del PID [%d]", pid_pfs);
+	}
+}
+
+void pedido_escritura_swap(int socket, t_entrada_tabla_pag *entrada)
+{
+	void *datos_a_swapear = leer_pagina_para_swapear(entrada->marco);
+
+	t_paquete *pagina_a_swapear = crear_paquete_con_codigo_de_operacion(ESCRIBIR_BLOQUE);
+	pagina_a_swapear->buffer->size += sizeof(int) + config_valores_memoria.tamanio_pagina;
+	pagina_a_swapear->buffer->stream = realloc(pagina_a_swapear->buffer->stream, pagina_a_swapear->buffer->size);
+
+	int offset = 0;
+
+	memcpy(pagina_a_swapear->buffer->stream + offset, &(entrada->id_bloque_swap), sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(pagina_a_swapear->buffer->stream + offset, datos_a_swapear, config_valores_memoria.tamanio_pagina);
+
+	enviar_paquete(pagina_a_swapear, socket);
+	eliminar_paquete(pagina_a_swapear);
 }
 
 void *recibir_bloque_swap(int socket)
@@ -813,7 +879,7 @@ void marcar_pag_modificada(int pid_mod, int marco_mod)
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco_mod);
 	cambiar_bit_modificado(proceso, pagina_modificada->indice, 1);
-	actualizar_LRU(pagina_modificada);
+	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 }
 
 void cambiar_bit_modificado(t_proceso_memoria *proceso, int index_entrada, int valor)
@@ -834,18 +900,31 @@ t_list *obtener_entradas_con_bit_presencia_1(t_proceso_memoria *proceso)
 	return lista_filtrada;
 }
 
-t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *entradas, int marco)
+t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *entradas, int marco_pedido)
 {
 
-	bool pagConMismoMarco(t_entrada_tabla_pag * pagina)
+	/*bool pagConMismoMarco(t_entrada_tabla_pag * pagina)
 	{
 
 		return pagina->marco == marco;
 	}
 
 	t_entrada_tabla_pag *paginaM = (t_entrada_tabla_pag *)list_find(entradas, pagConMismoMarco);
-	return paginaM;
+	return paginaM;*/
+
+		bool _pag_mismo_marco(void *elemento)
+	{
+		return ((t_entrada_tabla_pag *)elemento)->marco == marco_pedido;
+	}
+
+	t_entrada_tabla_pag *entrada_elegida;
+	pthread_mutex_lock(&mutex_procesos);
+	entrada_elegida = list_find(entradas, _pag_mismo_marco);
+	pthread_mutex_unlock(&mutex_procesos);
+	return entrada_elegida;
+
 }
+
 
 void enviar_marco_cpu(int marco, int socket, op_code codigo)
 {
@@ -1064,12 +1143,22 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)marco->pid);
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
-	actualizar_LRU(pagina_modificada);
+	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 
 	sleep(config_valores_memoria.retardo_respuesta / 1000);
 	log_info(logger_memoria_info, "ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica);
 
 	return valor_leido;
+}
+
+void *leer_pagina_para_swapear(int marco)
+{
+	void *pagina_leida = malloc(sizeof(config_valores_memoria.tamanio_pagina));
+	pthread_mutex_lock(&mutex_memoria_usuario);
+	memcpy(pagina_leida, memoria_usuario + marco * config_valores_memoria.tamanio_pagina, config_valores_memoria.tamanio_pagina);
+	pthread_mutex_unlock(&mutex_memoria_usuario);
+
+	return pagina_leida;
 }
 
 // FINALIZAR PROCESO

@@ -67,7 +67,7 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t, uint32_t);
 t_proceso_memoria *recibir_proceso_nuevo(int);
 t_algoritmo obtener_algoritmo();
 
-void actualizar_LRU(t_entrada_tabla_pag *);
+void actualizo_entrada_para_futuro_reemplazo(t_entrada_tabla_pag *);
 
 void recibir_pf_kernel(int, int *, int *);
 t_entrada_tabla_pag *obtenerPaginaFIFO();
@@ -80,6 +80,8 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *);
 t_list *obtener_total_pags_en_memoria(t_list *);
 void escribirPagEnMemoria(void *, int);
 void pedido_lectura_swap(int, t_entrada_tabla_pag *);
+void pedido_escritura_swap(int,t_entrada_tabla_pag *);
+void *leer_pagina_para_swapear(int);
 void *recibir_bloque_swap(int);
 
 double marcosTotales();
@@ -93,6 +95,7 @@ void recibir_pedido_marco(int *, int *, int);
 int obtener_marco_pid(int, int);
 t_marco *marco_desde_df(int);
 void marcar_pag_modificada(int, int);
+void liberar_presencia_pagina(t_entrada_tabla_pag *);
 bool tiene_bit_presencia_igual_a_1(void *);
 t_list *obtener_entradas_con_bit_presencia_1(t_proceso_memoria *);
 t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *, int);
@@ -102,10 +105,9 @@ bool es_marco_libre(void *);
 bool hay_marcos_libres();
 void enviar_marco_cpu(int, int, op_code);
 
-void inicializar_nuevo_proceso(t_proceso_memoria *);
-int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
-void pedido_inicio_swap(int, int,int);
-void asignar_id_bloque_swap(t_proceso_memoria*, t_list*);
+void cargar_pagina_swap_en_memoria(int, int, int);
+void pedido_inicio_swap(int, int, int);
+void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
 void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
 void escribir_memoria(uint32_t, uint32_t);
@@ -116,8 +118,10 @@ void enviar_valor_mov_in_cpu(uint32_t, int);
 
 void limpiar_swap(t_proceso_memoria *);
 t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso);
-void enviar_bloques_swap_a_liberar(int,t_list *, int);
+void enviar_bloques_swap_a_liberar(int, t_list *, int);
 
+void inicializar_nuevo_proceso(t_proceso_memoria *);
+int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
 void eliminar_proceso_memoria(t_proceso_memoria *);
 
 void finalizar_memoria();
