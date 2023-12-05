@@ -53,6 +53,11 @@ typedef struct
     uint32_t tamanio;
 } offset_fcb_t;
 
+typedef struct {
+    int id_bloque;
+    bloque_t bloque;
+} bloque_con_id_t;
+
 void *manejo_conexion_memoria_swap(void *);
 void finalizar_filesystem();
 void sighandler(int);
@@ -125,5 +130,6 @@ uint32_t *fat;
 uint32_t *swap;
 bloque_t bloque_fs;
 bloque_t *bloques;
+pthread_mutex_t mutex_fat;
 
 #endif

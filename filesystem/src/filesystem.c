@@ -28,6 +28,7 @@ int main(int argc, char **argv)
     swap = malloc(bloques_swap);
     bloques = inicializar_bloque_de_datos(path_bloques, cant_bloques);
     lista_fcb = list_create();
+    pthread_mutex_init(&mutex_fat, NULL);
 
     socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
@@ -104,12 +105,34 @@ void *leer_bloque_swap(uint32_t id_bloque)
         return NULL;
     }
 
-    memcpy(bloque, swap[id_bloque].datos, tamanio_bloque);
+    memcpy(bloque, bloques[id_bloque].datos, tamanio_bloque);
 
     sleep(retardo_acceso_bloque);
     return bloque;
 }
 
+void escribir_bloque_swap(uint32_t id_bloque, void *datos)
+{
+    if (id_bloque < 0 || id_bloque >= bloques_swap)
+    {
+        log_info(filesystem_logger_info, "ID de bloque inválido: %d", id_bloque);
+        return;
+    }
+    id_bloque += tamanio_fat;
+
+    if (bloques[id_bloque].datos == NULL)
+    {
+        bloques[id_bloque].datos = malloc(tamanio_bloque);
+        if (bloques[id_bloque].datos == NULL)
+        {
+            log_info(filesystem_logger_info, "Error al asignar memoria para el bloque de swap");
+            return;
+        }
+    }
+    memcpy(bloques[id_bloque].datos, datos, tamanio_bloque);
+
+    sleep(retardo_acceso_bloque);
+}
 
 uint32_t obtener_primer_bloque_libre_swap()
 {
@@ -135,7 +158,7 @@ void liberar_bloques_swap(t_list *lista_bloques_a_liberar)
         }
         else
         {
-            log_warning("Número de bloque inválido en la lista: %d", nro_bloque);
+            log_info(filesystem_logger_info, "Número de bloque inválido en la lista: %d", nro_bloque);
         }
     }
 }
@@ -151,7 +174,7 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
 
         if (bloque_libre == -1)
         {
-            log_warning("No hay bloques libres disponibles en la tabla SWAP");
+            log_info(filesystem_logger_info, "No hay bloques libres disponibles en la tabla SWAP");
             break;
         }
         swap[bloque_libre] = 1;
@@ -159,6 +182,27 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
         bloques_asignados++;
     }
     return lista;
+}
+
+bloque_con_id_t recibir_escritura_swap(int socket)
+{
+    bloque_con_id_t bloque_con_id;
+    t_paquete *paquete = recibir_paquete(socket);
+    int id_bloque;
+    void *datos;
+    int offset = 0;
+
+    memcpy(&id_bloque, paquete->buffer->stream + offset, sizeof(int));
+    offset += sizeof(int);
+
+    datos = malloc(tamanio_bloque);
+    memcpy(datos, paquete->buffer->stream + offset, tamanio_bloque);
+
+    bloque_con_id.id_bloque = id_bloque;
+    bloque_con_id.bloque.datos = datos;
+
+    eliminar_paquete(paquete);
+    return bloque_con_id;
 }
 
 void *manejo_conexion_memoria_swap(void *arg)
@@ -212,11 +256,19 @@ void *manejo_conexion_memoria_swap(void *arg)
             break;
 
         case ESCRIBIR_BLOQUE:
-            // me llega un id_bloque y un void* (con tamano de bloque de archivo de config)
+            bloque_con_id_t bloque_id = recibir_escritura_swap(socket);
+            uint32_t id_bloque_a_escribir = (uint32_t)bloque_id.id_bloque;
+            void* datos_a_escribir = bloque_id.bloque.datos;
+            escribir_bloque_swap(id_bloque_a_escribir, datos_a_escribir);
 
-            // ACA guardar en el id de bloque el void*
+            t_paquete *paquete_respuesta = crear_paquete_con_codigo_de_operacion(ESCRITURA_BLOQUE_OK);
+            int respuesta = 1;
+            agregar_a_paquete(paquete_respuesta, &respuesta, sizeof(int));
+            enviar_paquete(paquete_respuesta, socket_memoria);
+            eliminar_paquete(paquete_respuesta);
+            break;
 
-            // DEVOLVES un paquete con codigo de operacion ESCRITURA_BLOQUE_OK y un int (el que sea, es para que no quede bugeado el socket).
+        default:
             break;
         }
     }
