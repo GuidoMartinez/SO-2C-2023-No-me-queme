@@ -290,6 +290,11 @@ typedef struct
     t_queue *colabloqueado;
 } t_archivo_global;
 
+typedef struct
+{
+    void *datos;
+} bloque_t;
+
 void enviar_mensaje(char *, int);
 void *serializar_paquete(t_paquete *, int);
 void crear_buffer(t_paquete *);
