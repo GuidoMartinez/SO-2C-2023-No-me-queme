@@ -219,7 +219,7 @@ void ready_pcb(void)
             if (procesos_activos <= sem.g_multiprog_ini)
             {
 
-                procesos_activos = procesos_activos + 1;
+                //procesos_activos = procesos_activos + 1;
                 pthread_mutex_unlock(&leer_grado);
                 set_pcb_ready(pcb);
                 if (ALGORITMO_PLANIFICACION == PRIORIDADES)
@@ -244,8 +244,8 @@ void ready_pcb(void)
                 // sem_wait(&sem_detener);
                 // log_info(kernel_logger_info,"Me frene");
                 //   }
-            } 
-            log_info(kernel_logger_info,"Excede grado de multiprogramacion");
+            } else {
+            log_info(kernel_logger_info,"Excede grado de multiprogramacion"); }
         }
     }
 }
