@@ -253,8 +253,7 @@ void *manejo_conexion_kernel(void *arg)
 			codigo_operacion = recibir_operacion(socket_fs_int);
 			if (codigo_operacion == SWAP_LIBERADA)
 			{
-				t_list *bloques_reservados = recibir_listado_id_bloques(socket_fs_int);
-				asignar_id_bloque_swap(proceso_memoria, bloques_reservados);
+				int prueba = recibir_int(socket_fs_int);
 				log_info(logger_memoria_info, "Se liberaron los bloques SWAP correspondientes al proceso PID [%d]", proceso_memoria->pid);
 			}
 			else
@@ -984,7 +983,7 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
-	pedido_inicio_swap(proceso_nuevo->pid, q_pags, socket_fs_int);
+	pedido_inicio_swap(q_pags, socket_fs_int);
 }
 
 // Inicializo la tabla de paginas y devuelvo la cantidad de paginas para inicializar el swap en fs.
@@ -1028,17 +1027,14 @@ void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_b
 	log_warning(logger_memoria_info, "Se asignaron OK los id de los bloques SWAP para el PID [%d]", proceso_nuevo->pid);
 }
 
-void pedido_inicio_swap(int pid, int cant_pags, int socket)
+void pedido_inicio_swap(int cant_pags, int socket)
 {
 
 	t_paquete *paquete_pedido_swap = crear_paquete_con_codigo_de_operacion(INICIO_SWAP);
-	paquete_pedido_swap->buffer->size += sizeof(int) * 2;
+	paquete_pedido_swap->buffer->size += sizeof(int);
 	paquete_pedido_swap->buffer->stream = malloc(paquete_pedido_swap->buffer->size);
 
 	int offset = 0;
-
-	memcpy(paquete_pedido_swap->buffer->stream + offset, &(pid), sizeof(int));
-	offset += sizeof(int);
 
 	memcpy(paquete_pedido_swap->buffer->stream + offset, &(cant_pags), sizeof(int));
 
@@ -1166,7 +1162,7 @@ void *leer_pagina_para_swapear(int marco)
 void limpiar_swap(t_proceso_memoria *proceso_a_eliminar) // listo los bloques swap y se los envio a FS para que los marque como libre
 {
 	t_list *ids_bloques_swap = obtener_lista_id_bloque_swap(proceso_a_eliminar);
-	enviar_bloques_swap_a_liberar(proceso_a_eliminar->pid, ids_bloques_swap, socket_fs_int);
+	enviar_bloques_swap_a_liberar(ids_bloques_swap, socket_fs_int);
 	// list_destroy_and_destroy_elements(ids_bloques_swap, free); // TODO CHEQUEAR SI HAY QUE LIBERAR
 }
 
@@ -1187,7 +1183,7 @@ t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
 	return lista_id_bloques_swap;
 }
 
-void enviar_bloques_swap_a_liberar(int pid, t_list *lista_bloques, int socket)
+void enviar_bloques_swap_a_liberar(t_list *lista_bloques, int socket)
 {
 	t_paquete *paquete_swap_a_borrar = crear_paquete_con_codigo_de_operacion(SWAP_A_LIBERAR);
 	serializar_lista_swap(lista_bloques, paquete_swap_a_borrar);

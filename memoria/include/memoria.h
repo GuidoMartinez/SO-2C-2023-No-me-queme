@@ -106,7 +106,7 @@ bool hay_marcos_libres();
 void enviar_marco_cpu(int, int, op_code);
 
 void cargar_pagina_swap_en_memoria(int, int, int);
-void pedido_inicio_swap(int, int, int);
+void pedido_inicio_swap(int, int);
 void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
 void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
@@ -118,7 +118,7 @@ void enviar_valor_mov_in_cpu(uint32_t, int);
 
 void limpiar_swap(t_proceso_memoria *);
 t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso);
-void enviar_bloques_swap_a_liberar(int, t_list *, int);
+void enviar_bloques_swap_a_liberar(t_list *, int);
 
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
