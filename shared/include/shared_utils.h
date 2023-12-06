@@ -147,7 +147,8 @@ typedef enum
     INTERRUPT_FIN_PROCESO,
     INTERRUPT_NUEVO_PROCESO,
     SYSCALL,
-    PAGE_FAULT
+    PAGE_FAULT,
+    PAGE_FAULT_RESUELTO
 } motivo_desalojo;
 
 typedef struct
@@ -356,6 +357,6 @@ char *cod_inst_to_str(nombre_instruccion);
 void liberar_instruccion(t_instruccion *);
 void liberar_lista_instrucciones(t_list *);
 
-void enviar_bloque(int, bloque_t);
+void enviar_bloque(int, bloque_t,int);
 
 #endif

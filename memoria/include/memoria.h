@@ -111,7 +111,7 @@ void cargar_pagina_swap_en_memoria(int, int, int);
 void pedido_inicio_swap(int, int);
 void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
-void recibir_mov_out_cpu(uint32_t *, uint32_t *, int);
+void recibir_mov_out_cpu(uint32_t *, int *, int);
 void escribir_memoria(uint32_t, uint32_t);
 
 void recibir_mov_in_cpu(int *, int);

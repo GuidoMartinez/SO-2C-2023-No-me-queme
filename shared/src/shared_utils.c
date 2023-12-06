@@ -912,15 +912,15 @@ void enviar_op(int socket, op_code code, int entero)
 	eliminar_paquete(paquete);
 }
 
-void enviar_bloque(int socket, bloque_t bloque)
+void enviar_bloque(int socket, bloque_t bloque,int tamano_bloque)
 {
     t_paquete *paquete = crear_paquete_con_codigo_de_operacion(VALOR_BLOQUE);
-    paquete->buffer->size += sizeof(bloque_t);
+    paquete->buffer->size += tamano_bloque;
     paquete->buffer->stream = malloc(paquete->buffer->size);
 
     int offset = 0;
 
-    memcpy(paquete->buffer->stream + offset, &(bloque), sizeof(bloque_t));
+    memcpy(paquete->buffer->stream + offset, bloque.datos, tamano_bloque);
 
     enviar_paquete(paquete, socket);
     eliminar_paquete(paquete);

@@ -102,7 +102,7 @@ void *leer_bloque_swap(uint32_t id_bloque)
 
     memcpy(bloque, bloques[id_bloque].datos, tamanio_bloque);
 
-    sleep(retardo_acceso_bloque);
+    sleep(retardo_acceso_bloque / 1000);
     return bloque;
 }
 
@@ -239,11 +239,13 @@ void *manejo_conexion_memoria_swap(void *arg)
 
         case LEER_BLOQUE:
             int bloque_a_leer = recibir_int(socket_memoria_swap);
+
+            log_info(filesystem_logger_info, "Pedido de lectura de bloque %d", bloque_a_leer);
             if (bloque_a_leer < bloques_swap)
             {
                 bloque_t bloque;
                 bloque.datos = leer_bloque_swap(bloque_a_leer);
-                enviar_bloque(socket_memoria_swap, bloque);
+                enviar_bloque(socket_memoria_swap, bloque, tamanio_bloque);
             }
             else
             {

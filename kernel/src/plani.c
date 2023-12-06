@@ -288,6 +288,8 @@ void exec_pcb()
         ultimo_contexto = recibir_contexto(conexion_cpu_dispatch);
         pcbelegido->contexto_ejecucion = ultimo_contexto;
 
+        proceso_en_ejecucion = pcbelegido; // TODO -- CHEQUEAR QUE NO ROMPA EN OTRO LADO GONZA
+
         if(pcbelegido->contexto_ejecucion->motivo_desalojado == PAGE_FAULT){
             log_info(kernel_logger_info, "El proceso %d fue desalojado por PAGE FAULT", proceso_en_ejecucion->pid);
             pthread_t hilo_page_fault;

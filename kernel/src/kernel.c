@@ -838,6 +838,10 @@ void *recibir_op_FS()
         enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
         sem_post(&sem_hilo_FS);
             break;
+        default: 
+            log_info(kernel_logger_info, "Me llego un codigo de operacion de FS que no reconozco");
+            finalizar_kernel();
+            break;
         }
     }
 }
@@ -865,6 +869,7 @@ void* manejar_pf(){
 
     /*3.- Esperar la respuesta del módulo memoria.*/
 
+    // TODO - GONZA - SUMAR MUTEX PARA EL SOCKET DE MEMORIA PARA ASEGURARSE QUE ESE HILO RECIBA PRIMERO LA RESPUESTA DEL PG.
     op_code op = recibir_operacion(conexion_memoria);
     if(op != PAGINA_CARGADA) {
         log_error(kernel_logger_info,"No se puedo cargar la pagina.");
@@ -879,6 +884,8 @@ void* manejar_pf(){
     ready.*/
 
     t_pcb* pcb_bloqueado = buscarProceso(*(pid_memoria));
+    pcb_bloqueado->contexto_ejecucion->motivo_desalojado = PAGE_FAULT_RESUELTO;
+
     remove_blocked(pcb_bloqueado->pid);
     set_pcb_ready(pcb_bloqueado);
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY"); 
@@ -897,9 +904,9 @@ void enviar_pf(int socket, op_code code, int num_pag, int pid)
 
 	int offset = 0;
 
-	memcpy(paquete->buffer->stream + offset, &(num_pag), sizeof(int));
+	memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
     offset += sizeof(int);
-    memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
+    memcpy(paquete->buffer->stream + offset, &(num_pag), sizeof(int));
 
 	enviar_paquete(paquete, socket);
 	eliminar_paquete(paquete);

@@ -203,8 +203,12 @@ void *manejo_conexion_cpu(void *arg)
 			}
 			break;
 		case MOV_OUT_CPU: // me pasa por parametro un uint32_t y tengo que guardarlo en el marco que me dice
-			uint32_t valor, dir_fisica;
+			log_info(logger_memoria_info,"Me llego un MOV OUT DESDE CPU");
+			uint32_t valor;
+			int dir_fisica;
 			recibir_mov_out_cpu(&valor, &dir_fisica, socket_cpu_int);
+
+			log_info(logger_memoria_info,"VALOR %d , DIRECCION FISICA %d",valor,dir_fisica);
 			escribir_memoria(dir_fisica, valor);
 
 			// TODO -- VER SI DEVUELVO OK.
@@ -293,16 +297,21 @@ void *manejo_conexion_kernel(void *arg)
 
 			int pid_pf, nro_pag_pf;
 			recibir_pf_kernel(socket_kernel_int, &pid_pf, &nro_pag_pf);
+
+			log_info(logger_memoria_info," Me llego PF para PID %d , NUM DE PAG %d",pid_pf, nro_pag_pf);
 			t_proceso_memoria *proceso_pf = obtener_proceso_pid(pid_pf);
 			t_entrada_tabla_pag *entrada_a_traer = list_get(proceso_pf->tabla_paginas->entradas_tabla, nro_pag_pf);
+			log_info(logger_memoria_info,"El nro de pagina de de PF es %d y el indice de la entrada es %d",nro_pag_pf,entrada_a_traer->indice);
 			entrada_a_traer->bit_presencia = 1;
 			entrada_a_traer->bit_modificado = 0;
 			int marco_a_asignar;
 
 			if (hay_marcos_libres())
 			{
+				log_info(logger_memoria_info, "HAY MARCOS LIBRES");
 				marco_a_asignar = asignar_marco_libre(pid_pf);
 				entrada_a_traer->marco = marco_a_asignar;
+				log_info(logger_memoria_info, "el marco a asignar es el %d", marco_a_asignar);
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
 			{
@@ -335,14 +344,18 @@ void *manejo_conexion_kernel(void *arg)
 				liberar_presencia_pagina(entrada_a_swapear);
 
 				// CARGO LA PAGINA -- REPITO LOGICA SI HAY MARCO LIBRE, REFACTOR LLEVARLO A UNA FUNCION
-
+			}
 				pedido_lectura_swap(socket_fs_int, entrada_a_traer);
+
+				log_info(logger_memoria_info,"Se pidio pagina a SWAP con id bloque %d",entrada_a_traer->id_bloque_swap);
 
 				cargar_pagina_swap_en_memoria(socket_fs_int, marco_a_asignar, pid_pf);
 
+				log_info(logger_memoria_info,"Se cargo en memoria la pagina indicada");
+
 				enviar_op_con_int(socket_kernel_int, PAGINA_CARGADA, pid_pf);
 				log_info(logger_memoria_info, "SWAP IN -  PID: [%d] - Marco: [%d] - Page In: [%d] -[%d]", proceso_memoria->pid, marco_a_asignar, proceso_memoria->pid, entrada_a_traer->indice); // LOG OBLIGATORIO
-			}
+			
 			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion con KERNEL. Abortando");
@@ -757,10 +770,12 @@ void cargar_pagina_swap_en_memoria(int socket, int marco_asignar, int pid_pfs)
 {
 
 	op_code codigo_operacion = recibir_operacion(socket);
+	log_info(logger_memoria_info,"Me llego un codigo de operacion de FS - SWAP");
 
 	if (codigo_operacion == VALOR_BLOQUE)
 	{
 		void *pagina_SWAP = recibir_bloque_swap(socket);
+		log_info(logger_memoria_info, "Recibi el SWAP de la pagina %d para cargar en memoria", marco_asignar);
 		escribirPagEnMemoria(pagina_SWAP, marco_asignar);
 	}
 	else
@@ -1137,16 +1152,16 @@ void inicializar_marcos()
 
 // INSTRUCCIONES CPU
 
-void recibir_mov_out_cpu(uint32_t *valor, uint32_t *marco, int socket)
+void recibir_mov_out_cpu(uint32_t *valor, int *marco, int socket)
 {
 	int size;
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
-	printf("size del stream a deserializar \n%d", size);
-	memcpy(valor, buffer + offset, sizeof(uint32_t));
+	printf("size del stream a deserializar %d \n", size);
+	memcpy(valor, buffer + offset, sizeof(int));
 	offset += sizeof(uint32_t);
-	memcpy(marco, buffer + offset, sizeof(uint32_t));
+	memcpy(marco, buffer + offset, sizeof(int));
 
 	free(buffer);
 }

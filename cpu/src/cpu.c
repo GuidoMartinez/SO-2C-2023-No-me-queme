@@ -182,6 +182,7 @@ void limpiar_interrupciones()
     interrupciones[INTERRUPT_FIN_QUANTUM] = 0;
     interrupciones[INTERRUPT_FIN_PROCESO] = 0;
     interrupciones[INTERRUPT_NUEVO_PROCESO] = 0;
+    page_fault = false;
 }
 
 void conectar_memoria()
@@ -395,8 +396,10 @@ uint32_t obtener_valor_dir(uint32_t dl){
     return valor;
 } 
 
-void escribir_memoria(uint32_t dl, int valor){
+void escribir_memoria(uint32_t dl, uint32_t valor){
     int df = traducir_dl(dl);
+
+    log_info(cpu_logger_info, "El valor a enviar por MOV_OUT ES %d",valor);
 
     if(df != -1) {enviar_mov_out(df, valor);}
     else {log_info(cpu_logger_info, "Hubo page fault");}
@@ -408,6 +411,8 @@ void enviar_mov_out(int df, uint32_t valor)
 	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MOV_OUT_CPU);
 	paquete->buffer->size += sizeof(int) + sizeof(uint32_t);
 	paquete->buffer->stream = malloc(paquete->buffer->size);
+
+    log_info(cpu_logger_info,"El size del paquete mov out es %d", paquete->buffer->size);
 
 	int offset = 0;
 

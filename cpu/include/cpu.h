@@ -60,7 +60,7 @@ t_instruccion* fetch(int,int);
 void decode(t_instruccion* instruccion);
 bool es_syscall();
 
-void escribir_memoria(uint32_t, int);
+void escribir_memoria(uint32_t, uint32_t);
 int traducir_dl(uint32_t );
 void enviar_mov_out(int, uint32_t);
 uint32_t obtener_valor_dir(uint32_t);
