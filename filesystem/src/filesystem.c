@@ -29,6 +29,7 @@ int main(int argc, char **argv)
     bloques = inicializar_bloque_de_datos(path_bloques, cant_bloques);
     lista_fcb = list_create();
     pthread_mutex_init(&mutex_fat, NULL);
+    inicializar_swap();
 
     // CONEXION MEMORIA SWAP
     socket_memoria_swap = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
@@ -414,18 +415,12 @@ int crear_fat(char *path_fat)
     return 0;
 }
 
-int inicializar_swap()
-{
-    swap = mmap(NULL, bloques_swap, PROT_READ | PROT_WRITE, MAP_SHARED, -1, 0);
-    if (swap == MAP_FAILED)
-    {
-        log_error(filesystem_logger_info, "Error al mapear la partición SWAP en memoria");
-        return -1;
+void inicializar_swap() {
+    swap = malloc(bloques_swap * sizeof(bloque_t));
+
+    for (int i = 0; i < bloques_swap; i++) {
+        swap[i] = -1;
     }
-
-    log_info(filesystem_logger_info, "Partición SWAP inicializada");
-
-    return 0;
 }
 /*
 void guardarFAT(const char *nombreArchivo, int tamanio_fat)
@@ -460,7 +455,6 @@ void liberarMemoriaFAT()
     free(fat);
 }
 
-// ver
 void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
 {
     DIR *dir_fat = opendir(directorio);
@@ -469,21 +463,31 @@ void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
         log_error(logger, "No se pudo abrir directorio: %s", directorio);
         return;
     }
+
     struct dirent *dir_entry;
+    int bloque_id = 1; 
+
     while ((dir_entry = readdir(dir_fat)) != NULL)
     {
         if (strcmp(dir_entry->d_name, ".") == 0 || strcmp(dir_entry->d_name, "..") == 0)
             continue;
-        char *nombre_completo = string_new();
-        string_append(&nombre_completo, directorio);
-        string_append(&nombre_completo, dir_entry->d_name);
-        bloque_t *bloque_existente = malloc(sizeof(bloque_t));
-        if (bloque_existente != NULL)
+
+        if (bloque_id < tamanio_fat)
         {
-            list_add(fat, bloque_existente);
+            bloque_t *bloque_existente = malloc(sizeof(bloque_t));
+            if (bloque_existente != NULL)
+            {
+                fat[bloque_id] = bloque_existente;
+            }
+            bloque_id++;
         }
-        free(nombre_completo);
+        else
+        {
+            log_warning(logger, "La Tabla FAT está llena. No se pueden agregar más bloques.");
+            break;
+        }
     }
+
     log_info(logger, "FAT inicializada correctamente desde el directorio");
     closedir(dir_fat);
 }
