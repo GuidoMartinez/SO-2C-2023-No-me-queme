@@ -345,11 +345,11 @@ void *manejo_conexion_kernel(void *arg)
 				}
 
 				liberar_presencia_pagina(entrada_a_swapear);
+				entrada_a_traer->marco = marco_a_asignar;
 
 				// CARGO LA PAGINA -- REPITO LOGICA SI HAY MARCO LIBRE, REFACTOR LLEVARLO A UNA FUNCION
 			}
 
-			entrada_a_traer->marco = marco_a_asignar;
 			pedido_lectura_swap(socket_fs_int, entrada_a_traer);
 
 			log_info(logger_memoria_info, "Se pidio pagina a SWAP con id bloque %d", entrada_a_traer->id_bloque_swap);
@@ -946,14 +946,25 @@ t_marco *marco_desde_df(int df)
 	pthread_mutex_lock(&mutex_marcos);
 	t_marco *marco_elegido = list_get(marcos, num_marco);
 	pthread_mutex_unlock(&mutex_marcos);
+	log_error(logger_memoria_info, "marco elegido: %d - direccion fisica: %d", marco_elegido->num_de_marco, df);
 	return marco_elegido;
 }
 
 void marcar_pag_modificada(int pid_mod, int marco_mod)
 {
 	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)pid_mod);
+	log_error(logger_memoria_info, "Valor del pid: %d", proceso->pid );
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
+	log_error(logger_memoria_info, "cantidad de paginas: %d - tamaño de la lista total: %d - lista en memoria: %d", proceso->tabla_paginas->cantidad_paginas , list_size(proceso->tabla_paginas->entradas_tabla), list_size(paginas_en_memoria) );
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco_mod);
+	t_entrada_tabla_pag *pagina_log = list_get(paginas_en_memoria,0);
+	log_error(logger_memoria_info, "marco: %d - indice: %d - marco en pagina: %d", marco_mod, pagina_log->indice, pagina_log->marco);
+
+	if(pagina_modificada == NULL)
+	{
+		log_error(logger_memoria_info, "pagina modificada es null");
+	}
+	log_error(logger_memoria_info, "indice: %d", pagina_modificada->indice);
 	cambiar_bit_modificado(proceso, pagina_modificada->indice, 1);
 	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 }
@@ -1233,7 +1244,7 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 
 void *leer_pagina_para_swapear(int marco)
 {
-	void *pagina_leida = malloc(sizeof(config_valores_memoria.tamanio_pagina));
+	void *pagina_leida = malloc(config_valores_memoria.tamanio_pagina);
 	pthread_mutex_lock(&mutex_memoria_usuario);
 	memcpy(pagina_leida, memoria_usuario + marco * config_valores_memoria.tamanio_pagina, config_valores_memoria.tamanio_pagina);
 	pthread_mutex_unlock(&mutex_memoria_usuario);
@@ -1308,5 +1319,5 @@ void finalizar_memoria()
 	close(socket_kernel_int);
 	close(server_memoria);
 	config_destroy(config);
-	// abort();
+	abort();
 }

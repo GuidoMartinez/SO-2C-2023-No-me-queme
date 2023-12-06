@@ -139,12 +139,13 @@ void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado)
 {
     if (pcb->estado != nuevo_estado)
     {
-        char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
-        char *estado_anterior_string = strdup(estado_to_string(pcb->estado));
+        //char* nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
+        //char* estado_anterior_string = strdup(estado_to_string(pcb->estado));
+        //log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, strdup(estado_to_string(pcb->estado)), strdup(estado_to_string(nuevo_estado))); 
         pcb->estado = nuevo_estado;
-        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, estado_anterior_string, nuevo_estado_string); 
-        // free(estado_anterior_string);
-        // free(nuevo_estado_string);
+        //log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, estado_anterior_string, nuevo_estado_string); 
+        //free(estado_anterior_string);
+        //free(nuevo_estado_string);
     }
 }
 
@@ -293,8 +294,13 @@ void exec_pcb()
 
         if(pcbelegido->contexto_ejecucion->motivo_desalojado == PAGE_FAULT){
             log_info(kernel_logger_info, "El proceso %d fue desalojado por PAGE FAULT", proceso_en_ejecucion->pid);
+
+            args_pf* args = malloc(sizeof(args_pf));
+            args->pid = proceso_en_ejecucion->pid;
+            args->num_pf = pcbelegido->contexto_ejecucion->nro_pf;
+
             pthread_t hilo_page_fault;
-            pthread_create(&hilo_page_fault, NULL, (void *)manejar_pf, NULL);
+            pthread_create(&hilo_page_fault, NULL, (void *)manejar_pf, args);
             pthread_detach(hilo_page_fault);
 
             continue;
@@ -303,7 +309,6 @@ void exec_pcb()
         int codigo_instruccion = pcbelegido->contexto_ejecucion->codigo_ultima_instru;
         log_info(kernel_logger_info, "Volvio PID %d con codigo inst %d ", ultimo_contexto->pid, pcbelegido->contexto_ejecucion->codigo_ultima_instru);
 
-        proceso_en_ejecucion = pcbelegido;
         switch (codigo_instruccion)
         {
         case EXIT:

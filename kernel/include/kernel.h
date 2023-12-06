@@ -64,6 +64,11 @@ typedef struct
     int tiempo;
 } args_sleep;
 
+typedef struct{
+    int pid;
+    int num_pf;
+} args_pf;
+
 typedef struct // archivo de configuracion kernel
 {
     char *ip_memoria;

@@ -41,9 +41,9 @@ void _sub(char *registro_destino, char *registro_origen)
 // Si valor del registro != cero, actualiza el IP al número de instrucción pasada por parámetro.
 void _jnz(char *registro, char *instruccion)
 {
-    uint32_t *regis = malloc(sizeof(uint32_t));
-    regis = get_registry(registro);
-    if (*(regis) != 0)
+    uint32_t regis = *(get_registry(registro));
+
+    if (regis != 0)
     {
         contexto_actual->program_counter = str_to_uint32(instruccion);
         contexto_actual->codigo_ultima_instru = JNZ;

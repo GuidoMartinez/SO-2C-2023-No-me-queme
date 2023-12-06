@@ -850,26 +850,29 @@ void *recibir_op_FS()
     }
 }
 
-void* manejar_pf(){
+void* manejar_pf(void* args){
     //sem_wait(&sem_PF);
     /*1.- Mover al proceso al estado Bloqueado. Este estado bloqueado será independiente de todos los
     demás ya que solo afecta al proceso y no compromete recursos compartidos.*/
 
-    int nro_pf = proceso_en_ejecucion->contexto_ejecucion->nro_pf;
-    int pid = proceso_en_ejecucion->pid;
+    args_pf *args_pf = args;
+
+    int pid = args_pf->pid;
+    int nro_pf = args_pf->num_pf;
+
+    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pid, "EXEC", "BLOCKED"); 
+    log_info(kernel_logger_info, "PID[%d]-Bloqueado por: PAGE_FAULT  \n", nro_pf);   
 
     //todo AGREGAR SEMAFORO
-    set_pcb_block(proceso_en_ejecucion);
-    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", proceso_en_ejecucion->pid, "EXEC", "BLOCKED"); 
-    log_info(kernel_logger_info, "PID[%d]-Bloqueado por: PAGE_FAULT  \n", proceso_en_ejecucion->pid);    
-
-    proceso_en_ejecucion = NULL;
+    t_pcb* pcb = buscarProceso(pid);
+    set_pcb_block(pcb);
+    proceso_en_ejecucion = NULL; 
 
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
-     sem_post(&sem_ready);
+    sem_post(&sem_ready);
 
-    if(lista_ready > 0){
+    if(list_size(lista_ready) > 0){
     sem_post(&sem_exec);
     }
 
@@ -888,14 +891,15 @@ void* manejar_pf(){
         return NULL;
     }
 
-    int* pid_memoria = malloc(sizeof(int));
+    int pid_memoria;
 
-    recibir_pid(conexion_memoria, pid_memoria);
+    recibir_pid(conexion_memoria, &pid_memoria);
     pthread_mutex_unlock(&mutex_PF);
     /*4.- Al recibir la respuesta del módulo memoria, desbloquear el proceso y colocarlo en la cola de
     ready.*/
 
-    t_pcb* pcb_bloqueado = buscarProceso(*(pid_memoria));
+    t_pcb* pcb_bloqueado = buscarProceso(pid_memoria);
+
     pcb_bloqueado->contexto_ejecucion->motivo_desalojado = PAGE_FAULT_RESUELTO;
 
     remove_blocked(pcb_bloqueado->pid);
