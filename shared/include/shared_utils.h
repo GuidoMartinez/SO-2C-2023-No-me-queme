@@ -356,4 +356,6 @@ char *cod_inst_to_str(nombre_instruccion);
 void liberar_instruccion(t_instruccion *);
 void liberar_lista_instrucciones(t_list *);
 
+void enviar_bloque(int, bloque_t);
+
 #endif

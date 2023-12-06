@@ -167,11 +167,6 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
     {
         uint32_t bloque_libre = obtener_primer_bloque_libre_swap();
 
-        if (bloque_libre == -1)
-        {
-            log_warning(filesystem_logger_info, "No hay bloques libres disponibles en la tabla SWAP");
-            break;
-        }
         swap[bloque_libre] = 1;
         list_add(lista, bloque_libre);
         bloques_asignados++;
@@ -245,7 +240,7 @@ void *manejo_conexion_memoria_swap(void *arg)
             }
             else
             {
-                log_warning("Número de bloque inválido: %d", bloque_a_leer);
+                log_warning(filesystem_logger_info, "Número de bloque inválido: %d", bloque_a_leer);
             }
 
             break;
@@ -752,11 +747,6 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
     if (bloque_inicial == -1)
     {
         bloque_inicial = obtener_primer_bloque_libre();
-        if (bloque_inicial == -1)
-        {
-            log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
-            return;
-        }
         modificar_fcb(id_fcb, BLOQUE_INICIAL, bloque_inicial);
     }
     int bloque_actual = bloque_inicial;

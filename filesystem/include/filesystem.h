@@ -69,7 +69,7 @@ int obtener_cantidad_de_bloques(int);
 uint32_t obtener_primer_bloque_libre();
 bool bloque_esta_ocupado(uint32_t *, int);
 int crear_fat(char *);
-int inicializar_swap();
+void inicializar_swap();
 // void guardarFAT(const char *, bloque*, int);
 void liberarMemoriaFAT();
 void inicializarFATDesdeDirectorio(char *, t_log *);
