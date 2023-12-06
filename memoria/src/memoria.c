@@ -359,7 +359,7 @@ void *manejo_conexion_kernel(void *arg)
 			log_info(logger_memoria_info, "Se cargo en memoria la pagina indicada");
 
 			enviar_op_con_int(socket_kernel_int, PAGINA_CARGADA, pid_pf);
-			log_info(logger_memoria_info, "***** SWAP IN -  PID: [%d] - Marco: [%d] - Page In: PID [%d] -PAG [%d]", proceso_memoria->pid, marco_a_asignar, proceso_memoria->pid, entrada_a_traer->indice); // LOG OBLIGATORIO
+			log_info(logger_memoria_info, "***** SWAP IN -  PID: [%d] - Marco: [%d] - Page In: PID [%d] -PAG [%d]", proceso_pf->pid, marco_a_asignar, proceso_pf->pid, entrada_a_traer->indice); // LOG OBLIGATORIO
 
 			break;
 		default:
@@ -910,7 +910,7 @@ void recibir_pedido_marco(int *pid_tr, int *index, int socket)
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
-	printf("size del stream a deserializar %d \n ", size);
+	//printf("size del stream a deserializar %d \n ", size);
 	memcpy(pid_tr, buffer + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(index, buffer + offset, sizeof(int));

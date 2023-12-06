@@ -294,6 +294,7 @@ void exec_pcb()
             log_info(kernel_logger_info, "El proceso %d fue desalojado por PAGE FAULT", proceso_en_ejecucion->pid);
             pthread_t hilo_page_fault;
             pthread_create(&hilo_page_fault, NULL, (void *)manejar_pf, NULL);
+            pthread_detach(hilo_page_fault);
 
             sem_post(&sem_ready);
             if(lista_ready > 0){

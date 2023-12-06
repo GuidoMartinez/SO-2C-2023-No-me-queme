@@ -2,6 +2,6 @@
 FILE=filesystem
 make $FILE
 if test -f "./$FILE"; then
-    S1="./cfg/estres"
+    S1="./cfg/integral"
     ./$FILE $S1
 fi
