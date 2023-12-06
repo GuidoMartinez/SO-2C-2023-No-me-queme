@@ -102,13 +102,9 @@ void _mov_in(char *registro, char *direc_logica)
 // física de memoria obtenida a partir de la Dirección Lógica.
 void _mov_out(char *direc_logica, char *registro)
 {
-    uint32_t *regis = malloc(sizeof(uint32_t));
-    regis = get_registry(registro);
+    uint32_t regis = *(get_registry(registro));
 
-    escribir_memoria(str_to_uint32(direc_logica), *(regis));
-
-    // uint32_t valor = 1; // BORRAR GUIDO
-    // escribir_memoria(str_to_uint32(direc_logica), valor); // BORRAR GUIDO
+    escribir_memoria(str_to_uint32(direc_logica), regis);
 
     // TODO: solo cambiar si no es page fault
     contexto_actual->codigo_ultima_instru = MOV_OUT;

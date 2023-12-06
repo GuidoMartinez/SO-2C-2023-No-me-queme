@@ -113,8 +113,9 @@ int crear_conexion(char *ip, char *puerto)
 	getaddrinfo(ip, puerto, &hints, &server_info);
 
 	int socket_cliente = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
+	setsockopt(socket_cliente, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
 
-	if (connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1)
+		if (connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1)
 	{
 		printf("error al conectar a algun modulo"); // TODO // eliminar
 		// freeaddrinfo(server_info); // TODO -- VER SI TIENE QUE ESTAR
@@ -375,7 +376,7 @@ void serializar_contexto(t_paquete *paquete, t_contexto_ejecucion *ctx)
 	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->program_counter), sizeof(int));
 	desplazamiento += sizeof(int);
 
-	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->registros), sizeof(t_registros));
+	memcpy(paquete->buffer->stream + desplazamiento, ctx->registros, sizeof(t_registros));
 	desplazamiento += sizeof(t_registros);
 
 	memcpy(paquete->buffer->stream + desplazamiento, &(ctx->numero_marco), sizeof(int));
@@ -481,7 +482,7 @@ void serializar_instruccion(t_paquete *paquete, t_instruccion *instruccion)
 							sizeof(uint32_t) * 2 +
 							instruccion->longitud_parametro1 +
 							instruccion->longitud_parametro2;
-	//printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+	// printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
 	paquete->buffer->stream = malloc(paquete->buffer->size);
 
 	int desplazamiento = 0;
@@ -534,42 +535,44 @@ t_instruccion *deserializar_instruccion(int socket)
 	return instruccion_recibida;
 }
 
-char* cod_inst_to_str(nombre_instruccion nomb){
-	switch(nomb){
-		case SET:
-			return "SET";
-		case SUM:
-			return "SUM";
-		case SUB:
-			return "SUB";
-		case JNZ:
-			return "JNZ";
-		case SLEEP:
-			return "SLEEP";
-		case WAIT:
-			return "WAIT";
-		case SIGNAL:
-			return "SIGNAL";
-		case MOV_IN:
-			return "MOV_IN";
-		case MOV_OUT:
-			return "MOV_OUT";
-		case F_OPEN:
-			return "F_OPEN";
-		case F_CLOSE:
-			return "F_CLOSE";
-		case F_SEEK:
-			return "F_SEEK";
-		case F_READ:
-			return "F_READ";
-		case F_WRITE:
-			return "F_WRITE";
-		case F_TRUNCATE:
-			return "F_TRUNCATE";
-		case EXIT:
-			return "EXIT";
-		default:
-			return "ERROR";
+char *cod_inst_to_str(nombre_instruccion nomb)
+{
+	switch (nomb)
+	{
+	case SET:
+		return "SET";
+	case SUM:
+		return "SUM";
+	case SUB:
+		return "SUB";
+	case JNZ:
+		return "JNZ";
+	case SLEEP:
+		return "SLEEP";
+	case WAIT:
+		return "WAIT";
+	case SIGNAL:
+		return "SIGNAL";
+	case MOV_IN:
+		return "MOV_IN";
+	case MOV_OUT:
+		return "MOV_OUT";
+	case F_OPEN:
+		return "F_OPEN";
+	case F_CLOSE:
+		return "F_CLOSE";
+	case F_SEEK:
+		return "F_SEEK";
+	case F_READ:
+		return "F_READ";
+	case F_WRITE:
+		return "F_WRITE";
+	case F_TRUNCATE:
+		return "F_TRUNCATE";
+	case EXIT:
+		return "EXIT";
+	default:
+		return "ERROR";
 	}
 }
 
@@ -593,7 +596,7 @@ void pedido_instruccion(uint32_t *pid, uint32_t *pc, int socket)
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
-	//printf("size del stream a deserializar \n%d", size);
+	// printf("size del stream a deserializar \n%d", size);
 	memcpy(pid, buffer + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(pc, buffer + offset, sizeof(int));
@@ -734,11 +737,10 @@ void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
 
 	for (int i = 0; i < list_size(bloques_swap); i++)
 	{
-		//int *ptr_bloque = list_get(bloques_swap, i);
+		// int *ptr_bloque = list_get(bloques_swap, i);
 		int id_bloque = list_get(bloques_swap, i);
 
-
-		//int id_bloque = *ptr_bloque;
+		// int id_bloque = *ptr_bloque;
 
 		paquete->buffer->size += sizeof(int);
 		paquete->buffer->stream = realloc(paquete->buffer->stream, paquete->buffer->size);
@@ -775,7 +777,7 @@ t_list *recibir_listado_id_bloques(int socket)
 	void *buffer;
 
 	buffer = recibir_buffer(&size, socket);
-	//printf("Size del stream a deserializar: %d \n", size);
+	// printf("Size del stream a deserializar: %d \n", size);
 
 	t_list *lista = list_create();
 
@@ -791,9 +793,9 @@ t_list *recibir_listado_id_bloques(int socket)
 
 	// TODO - BORRAR
 
-	//for(int i = 0; i < list_size(lista); i++) {
-    //    printf("El bloque en la posicion %d tiene el valor de %d \n", i, list_get(lista,i));
-   // }
+	// for(int i = 0; i < list_size(lista); i++) {
+	//     printf("El bloque en la posicion %d tiene el valor de %d \n", i, list_get(lista,i));
+	// }
 
 	free(buffer);
 
@@ -855,7 +857,7 @@ int recibir_int(int socket)
 	int size;
 	void *buffer;
 	buffer = recibir_buffer(&size, socket);
-	
+
 	int entero;
 	memcpy(&(entero), buffer, sizeof(int));
 	return entero;
@@ -912,16 +914,16 @@ void enviar_op(int socket, op_code code, int entero)
 	eliminar_paquete(paquete);
 }
 
-void enviar_bloque(int socket, bloque_t bloque,int tamano_bloque)
+void enviar_bloque(int socket, bloque_t bloque, int tamano_bloque)
 {
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(VALOR_BLOQUE);
-    paquete->buffer->size += tamano_bloque;
-    paquete->buffer->stream = malloc(paquete->buffer->size);
+	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(VALOR_BLOQUE);
+	paquete->buffer->size += tamano_bloque;
+	paquete->buffer->stream = malloc(paquete->buffer->size);
 
-    int offset = 0;
+	int offset = 0;
 
-    memcpy(paquete->buffer->stream + offset, bloque.datos, tamano_bloque);
+	memcpy(paquete->buffer->stream + offset, bloque.datos, tamano_bloque);
 
-    enviar_paquete(paquete, socket);
-    eliminar_paquete(paquete);
+	enviar_paquete(paquete, socket);
+	eliminar_paquete(paquete);
 }
