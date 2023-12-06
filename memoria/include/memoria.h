@@ -112,7 +112,7 @@ void pedido_inicio_swap(int, int);
 void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
 void recibir_mov_out_cpu(uint32_t *, int *, int);
-void escribir_memoria(uint32_t, uint32_t);
+void escribir_memoria(int, uint32_t);
 
 void recibir_mov_in_cpu(int *, int);
 uint32_t leer_memoria(uint32_t);

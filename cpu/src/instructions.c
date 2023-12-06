@@ -2,7 +2,7 @@
 #include "cpu.h"
 
 // Asigna al registro el valor pasado como parámetro.
-void _set(char *registro, char* valor)
+void _set(char *registro, char *valor)
 {
     *(get_registry(registro)) = str_to_uint32(valor);
     contexto_actual->codigo_ultima_instru = SET;
@@ -19,8 +19,8 @@ void _sum(char *registro_destino, char *registro_origen)
     *(destino) = *(destino) + *(origen);
 
     contexto_actual->codigo_ultima_instru = SUM;
-    //free(destino);
-    //free(origen);
+    // free(destino);
+    // free(origen);
 }
 
 // Resta al registro el valor pasado como parámetro.
@@ -34,12 +34,12 @@ void _sub(char *registro_destino, char *registro_origen)
     *(destino) = *(destino) - *(origen);
 
     contexto_actual->codigo_ultima_instru = SUB;
-    //free(destino);
-    //free(origen);
+    // free(destino);
+    // free(origen);
 }
 
 // Si valor del registro != cero, actualiza el IP al número de instrucción pasada por parámetro.
-void _jnz(char *registro, char* instruccion)
+void _jnz(char *registro, char *instruccion)
 {
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
@@ -50,10 +50,10 @@ void _jnz(char *registro, char* instruccion)
     }
     else
     {
-        //log_warning(cpu_logger_info, "El registro %s es igual a cero, no se actualiza el IP", registro);
+        // log_warning(cpu_logger_info, "El registro %s es igual a cero, no se actualiza el IP", registro);
     }
 
-    //free(regis);
+    // free(regis);
 }
 
 // Syscall bloqueante. Devuelve el contexto_actual de Ejecución actualizado al Kernel
@@ -67,7 +67,7 @@ void _sleep()
 // Esta instrucción solicita al Kernel que se asigne una instancia del recurso indicado por parámetro.
 void _wait()
 {
-    //solicitar al kernel asignar recurso
+    // solicitar al kernel asignar recurso
     contexto_actual->codigo_ultima_instru = WAIT;
     contexto_actual->motivo_desalojado = SYSCALL;
 }
@@ -75,40 +75,44 @@ void _wait()
 //  Esta instrucción solicita al Kernel que se libere una instancia del recurso indicado por parámetro.
 void _signal()
 {
-    //solicitar al kernel liberar recurso
+    // solicitar al kernel liberar recurso
     contexto_actual->codigo_ultima_instru = SIGNAL;
     contexto_actual->motivo_desalojado = SYSCALL;
 }
 
 // Lee el valor de memoria correspondiente a la Dirección Lógica y lo almacena en el Registro.
-void _mov_in(char *registro, char* direc_logica)
+void _mov_in(char *registro, char *direc_logica)
 {
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
 
     uint32_t valor = obtener_valor_dir(str_to_uint32(direc_logica));
-    if(valor != -1) {
+    if (valor != -1)
+    {
         *(regis) = valor;
     }
 
     log_info(cpu_logger_info, "PID: %d - Acción: LEER - Valor: %d", contexto_actual->pid, valor);
 
     contexto_actual->codigo_ultima_instru = MOV_IN;
-    //free(regis);
+    // free(regis);
 }
 
 // Lee el valor del Registro y lo escribe en la dirección
 // física de memoria obtenida a partir de la Dirección Lógica.
-void _mov_out(char* direc_logica, char *registro)
+void _mov_out(char *direc_logica, char *registro)
 {
     uint32_t *regis = malloc(sizeof(uint32_t));
     regis = get_registry(registro);
 
     escribir_memoria(str_to_uint32(direc_logica), *(regis));
 
-    //TODO: solo cambiar si no es page fault
+    // uint32_t valor = 1; // BORRAR GUIDO
+    // escribir_memoria(str_to_uint32(direc_logica), valor); // BORRAR GUIDO
+
+    // TODO: solo cambiar si no es page fault
     contexto_actual->codigo_ultima_instru = MOV_OUT;
-    //free(regis);
+    // free(regis);
 }
 
 // Solicita al kernel que abra el archivo pasado por parámetro con el modo de apertura indicado.
@@ -124,14 +128,14 @@ void _f_close(char *nombre_archivo)
 }
 
 // Solicita al kernel actualizar el puntero del archivo a la posición pasada por parámetro.
-void _f_seek(char *nombre_archivo, char* posicion)
+void _f_seek(char *nombre_archivo, char *posicion)
 {
     contexto_actual->codigo_ultima_instru = F_SEEK;
 }
 
 // Solicita al Kernel que se lea del archivo indicado y
 // se escriba en la dirección física de Memoria la información leída
-void _f_read(char *nombre_archivo, char* direc_logica)
+void _f_read(char *nombre_archivo, char *direc_logica)
 {
     traducir_dl_fs(direc_logica);
 
@@ -140,7 +144,7 @@ void _f_read(char *nombre_archivo, char* direc_logica)
 
 // Solicita al Kernel que se escriba en el archivo indicado l
 // la información que es obtenida a partir de la dirección física de Memoria.
-void _f_write(char *nombre_archivo, char* direc_logica)
+void _f_write(char *nombre_archivo, char *direc_logica)
 {
     traducir_dl_fs(direc_logica);
 
@@ -148,7 +152,7 @@ void _f_write(char *nombre_archivo, char* direc_logica)
 }
 
 //  Solicita al Kernel que se modifique el tamaño del archivo al indicado por parámetro.
-void _f_truncate(char *nombre_archivo, char* tamanio)
+void _f_truncate(char *nombre_archivo, char *tamanio)
 {
     contexto_actual->codigo_ultima_instru = F_TRUNCATE;
 }
@@ -160,12 +164,16 @@ void __exit()
     contexto_actual->codigo_ultima_instru = EXIT;
 }
 
-void traducir_dl_fs(char* dl){
+void traducir_dl_fs(char *dl)
+{
     int df = traducir_dl(str_to_uint32(dl));
-    if(df == -1){
+    if (df == -1)
+    {
         log_error(cpu_logger_info, "Page fault: %s", dl);
-    }else{
-        char* df_string = string_itoa(df);
+    }
+    else
+    {
+        char *df_string = string_itoa(df);
         contexto_actual->instruccion_ejecutada->longitud_parametro2 = strlen(df_string) + 1;
         contexto_actual->instruccion_ejecutada->parametro2 = strdup(df_string);
     }

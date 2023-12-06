@@ -775,7 +775,7 @@ t_list *recibir_listado_id_bloques(int socket)
 	void *buffer;
 
 	buffer = recibir_buffer(&size, socket);
-	printf("Size del stream a deserializar: %d \n", size);
+	//printf("Size del stream a deserializar: %d \n", size);
 
 	t_list *lista = list_create();
 
@@ -800,7 +800,7 @@ t_list *recibir_listado_id_bloques(int socket)
 	return lista;
 }
 
-void enviar_pedido_marco(int socket, int pid, int pagina)
+void enviar_pedido_marco(int socket, int pagina, int pid)
 {
 	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MARCO);
 	paquete->buffer->size += sizeof(int) * 2;

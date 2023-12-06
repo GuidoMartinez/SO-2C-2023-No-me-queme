@@ -11,7 +11,7 @@
             "request": "launch",
             "preLaunchTask": "Make",
             "program": "${workspaceFolder}/memoria",
-            "args": ["./cfg/memoria.cfg"],
+            "args": ["./cfg/memoria-FIFO"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

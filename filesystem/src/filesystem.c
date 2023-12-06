@@ -126,7 +126,7 @@ void escribir_bloque_swap(uint32_t id_bloque, void *datos)
     }
     memcpy(bloques[id_bloque].datos, datos, tamanio_bloque);
 
-    sleep(retardo_acceso_bloque);
+    sleep(retardo_acceso_bloque / 1000);
 }
 
 uint32_t obtener_primer_bloque_libre_swap()
@@ -177,22 +177,26 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
 
 bloque_con_id_t recibir_escritura_swap(int socket)
 {
+
     bloque_con_id_t bloque_con_id;
-    t_paquete *paquete = recibir_paquete(socket);
+
     int id_bloque;
     void *datos;
+
+    int size;
+    void *buffer = recibir_buffer(&size, socket);
     int offset = 0;
 
-    memcpy(&id_bloque, paquete->buffer->stream + offset, sizeof(int));
+    printf("size del stream a deserializar %d \n ", size);
+    memcpy(&id_bloque, buffer + offset, sizeof(int));
     offset += sizeof(int);
-
     datos = malloc(tamanio_bloque);
-    memcpy(datos, paquete->buffer->stream + offset, tamanio_bloque);
+    memcpy(datos, buffer + offset, tamanio_bloque);
 
     bloque_con_id.id_bloque = id_bloque;
     bloque_con_id.bloque.datos = datos;
 
-    eliminar_paquete(paquete);
+    free(buffer);
     return bloque_con_id;
 }
 
@@ -828,7 +832,7 @@ void escribir_dato(void *dato, uint32_t offset, uint32_t size)
         memcpy(memoria_file_system + (bloque_actual * tamanio_bloque) + offset_bloque, dato + bytes_escritos, bytes_a_escribir);
 
         msync(memoria_file_system, tam_memoria_file_system, MS_SYNC);
-        sleep(retardo_acceso_bloque);
+        sleep(retardo_acceso_bloque / 1000);
 
         bytes_restantes -= bytes_a_escribir;
         bytes_escritos += bytes_a_escribir;
@@ -886,7 +890,7 @@ void *leer_bloque(uint32_t id_bloque)
 
     memcpy(bloque, bloques[id_bloque].datos, tamanio_bloque);
 
-    sleep(retardo_acceso_bloque);
+    sleep(retardo_acceso_bloque / 1000);
     return bloque;
 }
 
