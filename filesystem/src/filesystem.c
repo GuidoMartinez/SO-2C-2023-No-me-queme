@@ -1007,7 +1007,7 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
                 for (int i = 0; i < cantidad_bloques; i++)
                 {
                     bloque_t bloque_info = lista_bloques[i];
-                    void* datos_a_escribir = datos_a_escribir + bloque_info.datos;
+                    void* datos_a_escribir = bloque_info.datos;
                     uint32_t bloque_id = valor_fcb(id_fcb, BLOQUE_INICIAL);
                     uint32_t tamanio_a_escribir = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
                     log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
