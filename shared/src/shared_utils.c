@@ -734,8 +734,11 @@ void serializar_lista_swap(t_list *bloques_swap, t_paquete *paquete)
 
 	for (int i = 0; i < list_size(bloques_swap); i++)
 	{
-		int *ptr_bloque = list_get(bloques_swap, i);
-		int id_bloque = *ptr_bloque;
+		//int *ptr_bloque = list_get(bloques_swap, i);
+		int id_bloque = list_get(bloques_swap, i);
+
+
+		//int id_bloque = *ptr_bloque;
 
 		paquete->buffer->size += sizeof(int);
 		paquete->buffer->stream = realloc(paquete->buffer->stream, paquete->buffer->size);
@@ -780,11 +783,17 @@ t_list *recibir_listado_id_bloques(int socket)
 
 	while (offset < size)
 	{
-		int *bloque_swap = malloc(sizeof(int));
-		memcpy(bloque_swap, buffer + offset, sizeof(int));
+		int bloque_swap;
+		memcpy(&bloque_swap, buffer + offset, sizeof(int));
 		offset += sizeof(int);
 		list_add(lista, bloque_swap);
 	}
+
+	// TODO - BORRAR
+
+	//for(int i = 0; i < list_size(lista); i++) {
+    //    printf("El bloque en la posicion %d tiene el valor de %d \n", i, list_get(lista,i));
+   // }
 
 	free(buffer);
 

@@ -1,0 +1,7 @@
+#!/bin/bash
+FILE=filesystem
+make $FILE
+if test -f "./$FILE"; then
+    S1="./cfg/memoria"
+    ./$FILE $S1
+fi

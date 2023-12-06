@@ -39,12 +39,12 @@ int main(int argc, char **argv)
     pthread_create(&conexion_memoria_swap, NULL, manejo_conexion_memoria_swap, NULL);
     pthread_detach(conexion_memoria_swap);
 
-/*
-    // CONEXION CON MEMORIA PARA F_READ Y F_WRITE
+    /*
+        // CONEXION CON MEMORIA PARA F_READ Y F_WRITE
 
-    socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
-    realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM_ARCHIVOS, filesystem_logger_info);
-*/
+        socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
+        realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM_ARCHIVOS, filesystem_logger_info);
+    */
     // CONEXION CON KERNEL
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
     socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);
@@ -163,7 +163,8 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
     t_list *lista = list_create();
     int bloques_asignados = 0;
 
-    while (bloques_asignados < cantidad_bloques_deseada || cantidad_bloques_deseada <= bloques_swap)
+    // while (bloques_asignados < cantidad_bloques_deseada && cantidad_bloques_deseada <= bloques_swap)
+    while (bloques_asignados < cantidad_bloques_deseada)
     {
         uint32_t bloque_libre = obtener_primer_bloque_libre_swap();
 
@@ -218,15 +219,21 @@ void *manejo_conexion_memoria_swap(void *arg)
             t_paquete *paquete_bloques_swap = crear_paquete_con_codigo_de_operacion(LISTA_BLOQUES_SWAP);
             serializar_lista_swap(lista_bloques_swap, paquete_bloques_swap);
 
+            log_info(filesystem_logger_info, "Se reservaron %d bloques para el proceso pedido", cantidad_bloques);
+
             enviar_paquete(paquete_bloques_swap, socket_memoria_swap);
             eliminar_paquete(paquete_bloques_swap);
 
-            list_destroy_and_destroy_elements(lista_bloques_swap, free);
+            // list_destroy_and_destroy_elements(lista_bloques_swap, free);
+
             break;
 
         case SWAP_A_LIBERAR:
             t_list *bloques_a_liberar = recibir_listado_id_bloques(socket_memoria_swap);
+            log_info(filesystem_logger_info, "PEDIDO para liberar %d bloques", list_size(bloques_a_liberar));
             liberar_bloques_swap(bloques_a_liberar);
+            log_info(filesystem_logger_info, "BLOQUES LIBERADOS");
+
             enviar_op_con_int(socket_memoria_swap, SWAP_LIBERADA, 1);
             break;
 
@@ -410,10 +417,12 @@ int crear_fat(char *path_fat)
     return 0;
 }
 
-void inicializar_swap() {
+void inicializar_swap()
+{
     swap = malloc(bloques_swap * sizeof(bloque_t));
 
-    for (int i = 0; i < bloques_swap; i++) {
+    for (int i = 0; i < bloques_swap; i++)
+    {
         swap[i] = -1;
     }
 }
@@ -460,7 +469,7 @@ void inicializarFATDesdeDirectorio(char *directorio, t_log *logger)
     }
 
     struct dirent *dir_entry;
-    int bloque_id = 1; 
+    int bloque_id = 1;
 
     while ((dir_entry = readdir(dir_fat)) != NULL)
     {

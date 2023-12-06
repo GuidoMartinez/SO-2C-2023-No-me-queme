@@ -19,9 +19,10 @@ int main(int argc, char **argv)
 
 	server_memoria = iniciar_servidor(logger_memoria_info, config_valores_memoria.ip_escucha, config_valores_memoria.puerto_escucha);
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
- 
+
 	atender_clientes_memoria();
-	while (1); // TODO -- BORRAR ESPERA ACTIVA
+	while (1)
+		; // TODO -- BORRAR ESPERA ACTIVA
 	return EXIT_SUCCESS;
 }
 
@@ -74,7 +75,7 @@ void atender_clientes_memoria()
 {
 	atender_cliente_cpu();
 	atender_cliente_fs_swap();
-	//atender_cliente_fs_archivos();
+	// atender_cliente_fs_archivos();
 	atender_cliente_kernel();
 }
 
@@ -169,7 +170,7 @@ void *manejo_conexion_cpu(void *arg)
 	{
 		op_code codigo_operacion = recibir_operacion(socket_cpu_int);
 
-		log_info(logger_memoria_info, "Se recibio una operacion de CPU: %d", codigo_operacion);
+		// log_info(logger_memoria_info, "Se recibio una operacion de CPU: %d", codigo_operacion);
 		switch (codigo_operacion)
 		{
 		case HANDSHAKE_CPU:
@@ -184,7 +185,7 @@ void *manejo_conexion_cpu(void *arg)
 			uint32_t pid, pc;
 			pedido_instruccion(&pid, &pc, socket_cpu_int);
 			t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
-			printf("Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
+			// printf("Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
 			enviar_instruccion(socket_cpu_int, instruccion_pedida);
 			break;
 		case MARCO:
@@ -253,6 +254,7 @@ void *manejo_conexion_kernel(void *arg)
 			if (codigo_operacion == LISTA_BLOQUES_SWAP)
 			{
 				t_list *bloques_reservados = recibir_listado_id_bloques(socket_fs_int);
+				log_info(logger_memoria_info, "el size de la lista de bloques es de %d", list_size(bloques_reservados));
 				asignar_id_bloque_swap(proceso_memoria, bloques_reservados);
 				log_info(logger_memoria_info, "Se creo correctamente el proceso PID [%d]", proceso_memoria->pid);
 			}
@@ -269,13 +271,15 @@ void *manejo_conexion_kernel(void *arg)
 			recibir_pid(socket_kernel_int, &pid_a_finalizar);
 			t_proceso_memoria *proceso_a_eliminar = obtener_proceso_pid(pid_a_finalizar);
 
+			log_info(logger_memoria_info, "Me llego el pedido de finalizar el PID %d - obtengo el pid en mi lista de procesos %d", pid_a_finalizar, proceso_a_eliminar->pid);
+
 			limpiar_swap(proceso_a_eliminar); // listo los bloques swap y se los envio a FS para que los marque como libre
 
 			codigo_operacion = recibir_operacion(socket_fs_int);
 			if (codigo_operacion == SWAP_LIBERADA)
 			{
 				int prueba = recibir_int(socket_fs_int);
-				log_info(logger_memoria_info, "Se liberaron los bloques SWAP correspondientes al proceso PID [%d]", proceso_memoria->pid);
+				log_info(logger_memoria_info, "Se liberaron los bloques SWAP correspondientes al proceso PID [%d]", proceso_a_eliminar->pid);
 			}
 			else
 			{
@@ -555,7 +559,7 @@ t_instruccion *armar_estructura_instruccion(nombre_instruccion id, char *paramet
 	estructura->parametro2 = (parametro2[0] != '\0') ? strdup(parametro2) : parametro2;
 	estructura->longitud_parametro1 = strlen(estructura->parametro1) + 1;
 	estructura->longitud_parametro2 = strlen(estructura->parametro2) + 1;
-	printf("%s - %s - %s \n", obtener_nombre_instruccion(estructura->codigo), estructura->parametro1, estructura->parametro2);
+	// printf("%s - %s - %s \n", obtener_nombre_instruccion(estructura->codigo), estructura->parametro1, estructura->parametro2); // PRINT INSTRUCCIONES
 
 	return estructura;
 }
@@ -1026,7 +1030,7 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 	proceso_nuevo->path = malloc(long_path);
 	memcpy(proceso_nuevo->path, buffer + offset, long_path);
 
-	printf("mi path recibido es %s \n", proceso_nuevo->path); // TODO - BORRAR
+	//printf("mi path recibido es %s \n", proceso_nuevo->path); // TODO - BORRAR
 
 	return proceso_nuevo;
 }
@@ -1059,9 +1063,10 @@ int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *proceso_nue
 		entrada->bit_modificado = 0;
 		entrada->id_bloque_swap = 0;
 		entrada->tiempo_lru = MAX_LRU;
+		list_add(proceso_nuevo->tabla_paginas->entradas_tabla, entrada);
 	}
 
-	log_info(logger_memoria_info, "CREACION DE TABLA DE PAGINAS - PID [%d] - Tamano: [%d]", proceso_nuevo->pid, proceso_nuevo->tabla_paginas->cantidad_paginas);
+	log_info(logger_memoria_info, "CREACION DE TABLA DE PAGINAS - PID [%d] - Tamano: [%d] - PAGINAS [%d]", proceso_nuevo->pid, proceso_nuevo->tabla_paginas->cantidad_paginas, list_size(proceso_nuevo->tabla_paginas->entradas_tabla));
 
 	return cantidad_pags;
 }
@@ -1073,8 +1078,13 @@ void asignar_id_bloque_swap(t_proceso_memoria *proceso_nuevo, t_list *lista_id_b
 	for (int i = 0; i < cant_bloques; i++)
 	{
 		t_entrada_tabla_pag *entrada = list_get(proceso_nuevo->tabla_paginas->entradas_tabla, i);
-		int *id_bloque = list_get(lista_id_bloques, i);
-		entrada->id_bloque_swap = *id_bloque;
+
+		int id_bloque = (int)list_get(lista_id_bloques, i);
+		printf("el valor del bloque a cargar en la entrada es de %d, y el nro de entrada es de %d", id_bloque, entrada->indice);
+		entrada->id_bloque_swap = id_bloque;
+
+		// int *id_bloque = list_get(lista_id_bloques, i);
+		// entrada->id_bloque_swap = *id_bloque;
 	}
 	log_warning(logger_memoria_info, "Se asignaron OK los id de los bloques SWAP para el PID [%d]", proceso_nuevo->pid);
 }
@@ -1214,6 +1224,7 @@ void *leer_pagina_para_swapear(int marco)
 void limpiar_swap(t_proceso_memoria *proceso_a_eliminar) // listo los bloques swap y se los envio a FS para que los marque como libre
 {
 	t_list *ids_bloques_swap = obtener_lista_id_bloque_swap(proceso_a_eliminar);
+	log_info(logger_memoria_info, " la cantidad de bloques a liberar es de %d", list_size(ids_bloques_swap));
 	enviar_bloques_swap_a_liberar(ids_bloques_swap, socket_fs_int);
 	// list_destroy_and_destroy_elements(ids_bloques_swap, free); // TODO CHEQUEAR SI HAY QUE LIBERAR
 }
@@ -1224,11 +1235,16 @@ t_list *obtener_lista_id_bloque_swap(t_proceso_memoria *proceso)
 
 	int cant_bloques = list_size(proceso->tabla_paginas->entradas_tabla);
 
+	log_info(logger_memoria_info, "La cantidad de bloques que tiene el proceso es %d", cant_bloques);
+
 	for (int i = 0; i < cant_bloques; i++)
 	{
-		t_entrada_tabla_pag *entrada = list_get(proceso->tabla_paginas->entradas_tabla, i);
-		int *id_bloque = malloc(sizeof(int));
-		*id_bloque = entrada->id_bloque_swap;
+		t_entrada_tabla_pag *entrada = (t_entrada_tabla_pag *)list_get(proceso->tabla_paginas->entradas_tabla, i);
+
+		int id_bloque = entrada->id_bloque_swap;
+		//log_error(logger_memoria_info, "el id de bloque para enviar a liberar es %d y en la entrada tiene el id %d", id_bloque, entrada->id_bloque_swap); TODO - BORRAR
+		// int *id_bloque = malloc(sizeof(int));
+		//*id_bloque = entrada->id_bloque_swap;
 		list_add(lista_id_bloques_swap, id_bloque);
 	}
 
@@ -1264,10 +1280,10 @@ void finalizar_memoria()
 {
 	log_info(logger_memoria_info, "Finalizando Memoria");
 	log_destroy(logger_memoria_info);
-	close(server_memoria);
 	close(socket_cpu_int);
-	close(socket_kernel_int);
 	close(socket_fs_int);
+	close(socket_kernel_int);
+	close(server_memoria);
 	config_destroy(config);
-	abort();
+	//abort();
 }
