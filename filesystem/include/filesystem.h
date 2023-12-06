@@ -41,7 +41,6 @@ typedef struct
 
 typedef enum
 {
-    NOMBRE_ARCHIVO,
     TAMANIO_ARCHIVO,
     BLOQUE_INICIAL
 } fcb_prop_t;
@@ -87,10 +86,9 @@ int modificar_fcb(int, fcb_prop_t, uint32_t);
 void asignar_bloques(int, int);
 void desasignar_bloques(int, int);
 int truncar_fcb(char *, uint32_t);
-void escribir_dato(void *, uint32_t, uint32_t);
-void escribir_datos(void *, int, fcb_t); // No se usa
+void escribir_datos(void *, int , fcb_t *);
 void *leer_bloque(uint32_t);
-bloque_t *obtener_lista_de_bloques(int, int, int, t_list *, t_log *);
+bloque_t *obtener_lista_de_bloques(int, int, int, t_log *);
 void realizar_f_write(t_instruccion_fs *);
 void realizar_f_read(t_instruccion_fs *);
 int borrar_fcb(int);
