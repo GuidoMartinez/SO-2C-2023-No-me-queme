@@ -15,6 +15,7 @@ pthread_mutex_t mutex_cola_exit;
 pthread_mutex_t leer_grado;
 pthread_mutex_t mutex_generador_pid;
 pthread_mutex_t mutex_tabla_archivos;
+pthread_mutex_t mutex_PF;
 
 sem_t sem_multiprog;
 sem_t sem_exit;
@@ -26,6 +27,7 @@ sem_t sem_blocked_w;
 sem_t sem_detener_sleep;
 sem_t sem_hilo_FS;
 sem_t reanudaar_exec;
+//sem_t sem_PF;
 
 t_list *recursos_kernel;
 t_list *lista_ready;
@@ -166,6 +168,7 @@ int main(int argc, char **argv)
     pthread_mutex_init(&mutex_cola_exec, NULL);
     pthread_mutex_init(&mutex_cola_block, NULL);
     pthread_mutex_init(&mutex_generador_pid, NULL);
+    pthread_mutex_init(&mutex_PF, NULL);
 
     sem_init(&sem_listos_ready, 0, 0);
     sem_init(&sem_ready, 0, 0);
@@ -176,7 +179,8 @@ int main(int argc, char **argv)
     sem_init(&sem_detener_sleep, 0, 0);
     sem_init(&sem_hilo_FS, 0, 0);
     sem_init(&reanudaar_exec, 0, 0);
-    /*sem_init(&sem_block_return, 0, 0);*/
+   // sem_init(&sem_PF, 0, 0);
+  
 
     while (1)
     {
@@ -847,6 +851,7 @@ void *recibir_op_FS()
 }
 
 void* manejar_pf(){
+    //sem_wait(&sem_PF);
     /*1.- Mover al proceso al estado Bloqueado. Este estado bloqueado será independiente de todos los
     demás ya que solo afecta al proceso y no compromete recursos compartidos.*/
 
@@ -862,6 +867,12 @@ void* manejar_pf(){
 
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
+     sem_post(&sem_ready);
+
+    if(lista_ready > 0){
+    sem_post(&sem_exec);
+    }
+
     /*2.- Solicitar al módulo memoria que se cargue en memoria principal la página correspondiente, la
     misma será obtenida desde el mensaje recibido de la CPU.*/
 
@@ -870,6 +881,7 @@ void* manejar_pf(){
     /*3.- Esperar la respuesta del módulo memoria.*/
 
     // TODO - GONZA - SUMAR MUTEX PARA EL SOCKET DE MEMORIA PARA ASEGURARSE QUE ESE HILO RECIBA PRIMERO LA RESPUESTA DEL PG.
+    pthread_mutex_lock(&mutex_PF);
     op_code op = recibir_operacion(conexion_memoria);
     if(op != PAGINA_CARGADA) {
         log_error(kernel_logger_info,"No se puedo cargar la pagina.");
@@ -879,7 +891,7 @@ void* manejar_pf(){
     int* pid_memoria = malloc(sizeof(int));
 
     recibir_pid(conexion_memoria, pid_memoria);
-
+    pthread_mutex_unlock(&mutex_PF);
     /*4.- Al recibir la respuesta del módulo memoria, desbloquear el proceso y colocarlo en la cola de
     ready.*/
 

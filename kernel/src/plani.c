@@ -139,9 +139,10 @@ void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado)
 {
     if (pcb->estado != nuevo_estado)
     {
-        /*char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
-        char *estado_anterior_string = strdup(estado_to_string(pcb->estado));*/
+        char *nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
+        char *estado_anterior_string = strdup(estado_to_string(pcb->estado));
         pcb->estado = nuevo_estado;
+        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, estado_anterior_string, nuevo_estado_string); 
         // free(estado_anterior_string);
         // free(nuevo_estado_string);
     }
@@ -296,10 +297,6 @@ void exec_pcb()
             pthread_create(&hilo_page_fault, NULL, (void *)manejar_pf, NULL);
             pthread_detach(hilo_page_fault);
 
-            sem_post(&sem_ready);
-            if(lista_ready > 0){
-                sem_post(&sem_exec);
-            }
             continue;
         }
 

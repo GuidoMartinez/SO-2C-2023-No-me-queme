@@ -14,6 +14,7 @@ extern pthread_mutex_t mutex_cola_exit;
 extern pthread_mutex_t leer_grado;
 extern pthread_mutex_t mutex_generador_pid;
 extern pthread_mutex_t mutex_tabla_archivos;
+extern pthread_mutex_t mutex_PF;
 
 extern sem_t sem_multiprog;
 extern sem_t sem_exit;
