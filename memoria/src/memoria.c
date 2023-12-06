@@ -19,10 +19,9 @@ int main(int argc, char **argv)
 
 	server_memoria = iniciar_servidor(logger_memoria_info, config_valores_memoria.ip_escucha, config_valores_memoria.puerto_escucha);
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
-
+ 
 	atender_clientes_memoria();
-	while (1)
-		;
+	while (1); // TODO -- BORRAR ESPERA ACTIVA
 	return EXIT_SUCCESS;
 }
 
@@ -74,7 +73,8 @@ void inicializar_memoria()
 void atender_clientes_memoria()
 {
 	atender_cliente_cpu();
-	atender_cliente_fs_archivos();
+	atender_cliente_fs_swap();
+	//atender_cliente_fs_archivos();
 	atender_cliente_kernel();
 }
 
@@ -121,7 +121,7 @@ int atender_cliente_kernel()
 	return 0;
 }
 
-int atender_cliente_fs_archivos()
+int atender_cliente_fs_swap()
 {
 
 	socket_fs = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
@@ -129,7 +129,27 @@ int atender_cliente_fs_archivos()
 	if (socket_fs != -1)
 	{
 		pthread_t hilo_cliente;
-		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem_archivos, (void *)&socket_fs);
+		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem_swap, (void *)&socket_fs);
+		pthread_detach(hilo_cliente);
+		return 1;
+	}
+	else
+	{
+		log_error(logger_memoria_info, "Error al escuchar clientes... Finalizando servidor \n"); // log para fallo de comunicaciones
+		abort();
+	}
+	return 0;
+}
+
+int atender_cliente_fs_archivos()
+{
+
+	socket_fs_arch = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
+
+	if (socket_fs_arch != -1)
+	{
+		pthread_t hilo_cliente;
+		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem_archivos, (void *)&socket_fs_arch);
 		pthread_detach(hilo_cliente);
 		return 1;
 	}
@@ -164,7 +184,7 @@ void *manejo_conexion_cpu(void *arg)
 			uint32_t pid, pc;
 			pedido_instruccion(&pid, &pc, socket_cpu_int);
 			t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
-			printf("La instruccion de PC %d para el PID %d es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
+			printf("Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
 			enviar_instruccion(socket_cpu_int, instruccion_pedida);
 			break;
 		case MARCO:
@@ -192,7 +212,7 @@ void *manejo_conexion_cpu(void *arg)
 		case MOV_IN_CPU: // Lee el valor del marco y lo devuelve para guardarlo en el registro (se pide la direccion) - recibo direccion fisica
 
 			int df;
-			recibir_mov_in_cpu(&df, socket_cpu_int); 
+			recibir_mov_in_cpu(&df, socket_cpu_int);
 			uint32_t valor_leido = leer_memoria(df);
 
 			enviar_valor_mov_in_cpu(valor_leido, socket_cpu_int); // MOV_IN_CPU
@@ -240,6 +260,7 @@ void *manejo_conexion_kernel(void *arg)
 			{
 				log_error(logger_memoria_info, "No se recibio OK la lista de bloques swap iniciales");
 			}
+			log_info(logger_memoria_info, "Proceso inicializado OK para instrucciones, tabla pags y swap - PID [%d]", proceso_memoria->pid);
 			// TODO -- RESPONDERLE AL KERNEL QUE SE CREO OK.
 			break;
 		case FINALIZAR_PROCESO:
@@ -278,7 +299,6 @@ void *manejo_conexion_kernel(void *arg)
 			{
 				marco_a_asignar = asignar_marco_libre(pid_pf);
 				entrada_a_traer->marco = marco_a_asignar;
-
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
 			{
@@ -289,7 +309,7 @@ void *manejo_conexion_kernel(void *arg)
 				t_proceso_memoria *proceso_swapeado = obtener_proceso_pid(marco_real->pid);
 
 				log_info(logger_memoria_info, "REEMPLAZO - Marco: [%d] - Page Out: [%d] - [%d] - Page In: [%d] - [%d]", marco_a_asignar, proceso_swapeado->pid, entrada_a_swapear->indice,
-																																		pid_pf, nro_pag_pf); // LOG OBLIGATORIO
+						 pid_pf, nro_pag_pf); // LOG OBLIGATORIO
 
 				if (entrada_a_swapear->bit_modificado == 1) // SI ESTA MODIFICADO LO ESCRIBO EN SWAP
 				{
@@ -299,7 +319,7 @@ void *manejo_conexion_kernel(void *arg)
 					if (codigo_operacion == ESCRITURA_BLOQUE_OK)
 					{
 						int valor = recibir_int(socket_fs_int);
-						valor +=1; // asi no tira unnused
+						valor += 1;																																											   // asi no tira unnused
 						log_info(logger_memoria_info, "SWAP OUT -  PID: [%d] - Marco: [%d] - Page Out: [%d]- [%d]", proceso_swapeado->pid, marco_a_asignar, proceso_swapeado->pid, entrada_a_swapear->indice); // LOG OBLIGATORIO
 					}
 					else
@@ -318,7 +338,6 @@ void *manejo_conexion_kernel(void *arg)
 
 				enviar_op_con_int(socket_kernel_int, PAGINA_CARGADA, pid_pf);
 				log_info(logger_memoria_info, "SWAP IN -  PID: [%d] - Marco: [%d] - Page In: [%d] -[%d]", proceso_memoria->pid, marco_a_asignar, proceso_memoria->pid, entrada_a_traer->indice); // LOG OBLIGATORIO
-
 			}
 			break;
 		default:
@@ -330,30 +349,64 @@ void *manejo_conexion_kernel(void *arg)
 	return NULL;
 }
 
-void *manejo_conexion_filesystem_archivos(void *arg)
+void *manejo_conexion_filesystem_swap(void *arg)
 {
 
 	socket_fs_int = *(int *)arg;
+	// while (1)
+	//{
+
+	op_code codigo_operacion = recibir_operacion(socket_fs_int);
+
+	log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
+
+	switch (codigo_operacion)
+	{
+	case HANDSHAKE_FILESYSTEM:
+		log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FILESYSTEM");
+		recibir_handshake(socket_fs_int, logger_memoria_info);
+		realizar_handshake(socket_fs_int, HANDSHAKE_MEMORIA, logger_memoria_info);
+		break;
+	/*case F_WRITE_FS:
+
+		break;
+	case F_READ_FS:
+
+		break;*/
+	default:
+		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
+		abort();
+		// finalizar_memoria();
+		break;
+	}
+	//}
+	return NULL;
+}
+
+void *manejo_conexion_filesystem_archivos(void *arg)
+{
+
+	socket_fs_archivos = *(int *)arg;
 	while (1)
 	{
 
-		op_code codigo_operacion = recibir_operacion(socket_fs_int);
+		op_code codigo_operacion = recibir_operacion(socket_fs_archivos);
 
-		log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
+		log_info(logger_memoria_info, "Se recibio una operacion de FS para READ/WRITE: %d", codigo_operacion);
 
 		switch (codigo_operacion)
 		{
-		case HANDSHAKE_FILESYSTEM:
-			log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FILESYSTEM");
-			recibir_handshake(socket_fs_int, logger_memoria_info);
-			realizar_handshake(socket_fs_int, HANDSHAKE_MEMORIA, logger_memoria_info);
+		case HANDSHAKE_FILESYSTEM_ARCHIVOS:
+			log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FILESYSTEM para read write");
+			recibir_handshake(socket_fs_archivos, logger_memoria_info);
+			realizar_handshake(socket_fs_archivos, HANDSHAKE_MEMORIA, logger_memoria_info);
 			break;
-		case F_WRITE_FS:
+		/*case F_WRITE_FS:
 
 			break;
 		case F_READ_FS:
 
-			break;
+			break;*/
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
 			abort();
@@ -541,7 +594,7 @@ t_instruccion *obtener_instrccion_pc(t_proceso_memoria *proceso, uint32_t pc_ped
 
 t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedido)
 {
-	log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
+	// log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
 	sleep(config_valores_memoria.retardo_respuesta / 1000);
 	return obtener_instrccion_pc(proceso, pc_pedido);
@@ -911,7 +964,7 @@ t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *entradas, int marco_pedid
 	t_entrada_tabla_pag *paginaM = (t_entrada_tabla_pag *)list_find(entradas, pagConMismoMarco);
 	return paginaM;*/
 
-		bool _pag_mismo_marco(void *elemento)
+	bool _pag_mismo_marco(void *elemento)
 	{
 		return ((t_entrada_tabla_pag *)elemento)->marco == marco_pedido;
 	}
@@ -921,9 +974,7 @@ t_entrada_tabla_pag *obtener_entrada_con_marco(t_list *entradas, int marco_pedid
 	entrada_elegida = list_find(entradas, _pag_mismo_marco);
 	pthread_mutex_unlock(&mutex_procesos);
 	return entrada_elegida;
-
 }
-
 
 void enviar_marco_cpu(int marco, int socket, op_code codigo)
 {
@@ -983,6 +1034,7 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 void inicializar_nuevo_proceso(t_proceso_memoria *proceso_nuevo)
 {
 	int q_pags = inicializar_estructuras_memoria_nuevo_proceso(proceso_nuevo);
+	log_info(logger_memoria_info, "Estructuras de memoria para PID [%d] inicializadas - se pide SWAP", proceso_nuevo->pid);
 	pedido_inicio_swap(q_pags, socket_fs_int);
 }
 

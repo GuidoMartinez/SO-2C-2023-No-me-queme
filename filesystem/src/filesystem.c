@@ -30,26 +30,20 @@ int main(int argc, char **argv)
     lista_fcb = list_create();
     pthread_mutex_init(&mutex_fat, NULL);
 
-    socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
-    realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
+    // CONEXION MEMORIA SWAP
+    socket_memoria_swap = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
+    realizar_handshake(socket_memoria_swap, HANDSHAKE_FILESYSTEM, filesystem_logger_info);
 
     pthread_t conexion_memoria_swap;
     pthread_create(&conexion_memoria_swap, NULL, manejo_conexion_memoria_swap, NULL);
     pthread_detach(conexion_memoria_swap);
 
-    op_code handshake_memoria = recibir_operacion(socket_memoria);
-    if (handshake_memoria == HANDSHAKE_MEMORIA)
-    {
-        op_code prueba = recibir_handshake(socket_memoria, filesystem_logger_info);
-        log_info(filesystem_logger_info, "Deserialice el codigo de operacion %d", prueba);
-        log_info(filesystem_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
-    }
-    else
-    {
-        log_warning(filesystem_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
-    }
-    // t_paquete *respuesta = recibir_paquete(socket_memoria);
+/*
+    // CONEXION CON MEMORIA PARA F_READ Y F_WRITE
 
+    socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
+    realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM_ARCHIVOS, filesystem_logger_info);
+*/
     // CONEXION CON KERNEL
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
     socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);
@@ -174,7 +168,7 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
 
         if (bloque_libre == -1)
         {
-            log_info(filesystem_logger_info, "No hay bloques libres disponibles en la tabla SWAP");
+            log_warning(filesystem_logger_info, "No hay bloques libres disponibles en la tabla SWAP");
             break;
         }
         swap[bloque_libre] = 1;
@@ -210,43 +204,43 @@ void *manejo_conexion_memoria_swap(void *arg)
 
     while (1)
     {
-        op_code codigo_operacion = recibir_operacion(socket_memoria);
+        op_code codigo_operacion = recibir_operacion(socket_memoria_swap);
         log_info(filesystem_logger_info, "Se recibio una operacion de MEMORIA - SWAP: %d", codigo_operacion);
 
         switch (codigo_operacion)
         {
         case HANDSHAKE_MEMORIA:
-            codigo_operacion = recibir_handshake(socket_memoria, filesystem_logger_info);
+            codigo_operacion = recibir_handshake(socket_memoria_swap, filesystem_logger_info);
             log_info(filesystem_logger_info, "Deserialice el codigo de operacion %d", codigo_operacion);
             log_info(filesystem_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
             break;
 
         case INICIO_SWAP:
-            int cantidad_bloques = recibir_int(socket_memoria);
+            int cantidad_bloques = recibir_int(socket_memoria_swap);
             t_list *lista_bloques_swap = lista_bloques_swap_reservados(cantidad_bloques);
 
             t_paquete *paquete_bloques_swap = crear_paquete_con_codigo_de_operacion(LISTA_BLOQUES_SWAP);
             serializar_lista_swap(lista_bloques_swap, paquete_bloques_swap);
 
-            enviar_paquete(paquete_bloques_swap, socket_memoria);
+            enviar_paquete(paquete_bloques_swap, socket_memoria_swap);
             eliminar_paquete(paquete_bloques_swap);
 
             list_destroy_and_destroy_elements(lista_bloques_swap, free);
             break;
 
         case SWAP_A_LIBERAR:
-            t_list *bloques_a_liberar = recibir_listado_id_bloques(socket_memoria);
+            t_list *bloques_a_liberar = recibir_listado_id_bloques(socket_memoria_swap);
             liberar_bloques_swap(bloques_a_liberar);
-            enviar_op_con_int(socket_memoria, SWAP_LIBERADA, 1);
+            enviar_op_con_int(socket_memoria_swap, SWAP_LIBERADA, 1);
             break;
 
         case LEER_BLOQUE:
-            int bloque_a_leer = recibir_int(socket_memoria);
+            int bloque_a_leer = recibir_int(socket_memoria_swap);
             if (bloque_a_leer < bloques_swap)
             {
                 bloque_t bloque;
                 bloque.datos = leer_bloque_swap(bloque_a_leer);
-                enviar_bloque(socket_memoria, bloque);
+                enviar_bloque(socket_memoria_swap, bloque);
             }
             else
             {
@@ -256,19 +250,22 @@ void *manejo_conexion_memoria_swap(void *arg)
             break;
 
         case ESCRIBIR_BLOQUE:
-            bloque_con_id_t bloque_id = recibir_escritura_swap(socket);
+            bloque_con_id_t bloque_id = recibir_escritura_swap(socket_memoria_swap);
             uint32_t id_bloque_a_escribir = (uint32_t)bloque_id.id_bloque;
-            void* datos_a_escribir = bloque_id.bloque.datos;
+            void *datos_a_escribir = bloque_id.bloque.datos;
             escribir_bloque_swap(id_bloque_a_escribir, datos_a_escribir);
 
             t_paquete *paquete_respuesta = crear_paquete_con_codigo_de_operacion(ESCRITURA_BLOQUE_OK);
             int respuesta = 1;
             agregar_a_paquete(paquete_respuesta, &respuesta, sizeof(int));
-            enviar_paquete(paquete_respuesta, socket_memoria);
+            enviar_paquete(paquete_respuesta, socket_memoria_swap);
             eliminar_paquete(paquete_respuesta);
             break;
 
         default:
+            log_error(filesystem_logger_info, "Fallo la comunicacion MEMORIA. Abortando \n");
+            finalizar_filesystem();
+
             break;
         }
     }
@@ -301,7 +298,7 @@ void finalizar_filesystem()
     log_info(filesystem_logger_info, "Finalizando el modulo FILESYSTEM");
     log_destroy(filesystem_logger_info);
     config_destroy(config);
-    close(socket_memoria);
+    close(socket_memoria_swap);
     close(socket_kernel);
     free(fat);
     free(swap);

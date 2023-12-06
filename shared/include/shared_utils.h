@@ -55,7 +55,8 @@ typedef enum
     MARCO,
     PAGE_FAULT_KERNEL,
     MARCO_PAGE_FAULT,
-    PAGINA_CARGADA
+    PAGINA_CARGADA,
+    HANDSHAKE_FILESYSTEM_ARCHIVOS
 } op_code;
 
 typedef enum
@@ -350,7 +351,7 @@ int recibir_int(int);
 uint32_t recibir_valor_memoria(int);
 
 uint32_t str_to_uint32(char *);
-char* cod_inst_to_str(nombre_instruccion);
+char *cod_inst_to_str(nombre_instruccion);
 
 void liberar_instruccion(t_instruccion *);
 void liberar_lista_instrucciones(t_list *);

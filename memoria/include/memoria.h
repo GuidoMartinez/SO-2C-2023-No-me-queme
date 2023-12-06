@@ -11,7 +11,7 @@ t_proceso_memoria *proceso_memoria;
 
 op_code resp_code_fs;
 
-int server_memoria, socket_fs, socket_cpu, socket_kernel, socket_fs_int, socket_cpu_int, socket_kernel_int;
+int server_memoria, socket_fs, socket_fs_arch, socket_cpu, socket_kernel, socket_fs_int, socket_cpu_int, socket_kernel_int, socket_fs_archivos;
 int tamanio_memoria, indice_tabla;
 int cantidad_pags;
 int contador_lru = 0;
@@ -46,9 +46,11 @@ void atender_clientes_memoria();
 void *manejo_conexiones(void *);
 
 int atender_cliente_cpu();
+int atender_cliente_fs_swap();
 int atender_cliente_fs_archivos();
 int atender_cliente_kernel();
 void *manejo_conexion_cpu(void *);
+void *manejo_conexion_filesystem_swap(void *);
 void *manejo_conexion_filesystem_archivos(void *);
 void *manejo_conexion_kernel(void *);
 void send_page_size(uint32_t, int);

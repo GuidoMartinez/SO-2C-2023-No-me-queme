@@ -481,7 +481,7 @@ void serializar_instruccion(t_paquete *paquete, t_instruccion *instruccion)
 							sizeof(uint32_t) * 2 +
 							instruccion->longitud_parametro1 +
 							instruccion->longitud_parametro2;
-	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+	//printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
 	paquete->buffer->stream = malloc(paquete->buffer->size);
 
 	int desplazamiento = 0;
@@ -593,7 +593,7 @@ void pedido_instruccion(uint32_t *pid, uint32_t *pc, int socket)
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
-	printf("size del stream a deserializar \n%d", size);
+	//printf("size del stream a deserializar \n%d", size);
 	memcpy(pid, buffer + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(pc, buffer + offset, sizeof(int));
