@@ -170,7 +170,7 @@ void *manejo_conexion_cpu(void *arg)
 	{
 		op_code codigo_operacion = recibir_operacion(socket_cpu_int);
 
-		//log_info(logger_memoria_info, "Se recibio una operacion de CPU: %d", codigo_operacion);
+		// log_info(logger_memoria_info, "Se recibio una operacion de CPU: %d", codigo_operacion);
 		switch (codigo_operacion)
 		{
 		case HANDSHAKE_CPU:
@@ -186,7 +186,7 @@ void *manejo_conexion_cpu(void *arg)
 			uint32_t pid, pc;
 			pedido_instruccion(&pid, &pc, socket_cpu_int);
 			t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
-			log_info(logger_memoria_info,"Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
+			log_info(logger_memoria_info, "Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
 			enviar_instruccion(socket_cpu_int, instruccion_pedida);
 			break;
 		case MARCO:
@@ -210,7 +210,7 @@ void *manejo_conexion_cpu(void *arg)
 			recibir_mov_out_cpu(&valor, &dir_fisica, socket_cpu_int);
 
 			log_info(logger_memoria_info, "VALOR %d , DIRECCION FISICA %d", valor, dir_fisica);
-			escribir_memoria(dir_fisica, valor);
+			escribir_memoria_cpu(dir_fisica, valor);
 
 			// TODO -- VER SI DEVUELVO OK.
 
@@ -219,7 +219,7 @@ void *manejo_conexion_cpu(void *arg)
 
 			int df;
 			recibir_mov_in_cpu(&df, socket_cpu_int);
-			uint32_t valor_leido = leer_memoria(df);
+			uint32_t valor_leido = leer_memoria_cpu(df);
 
 			enviar_valor_mov_in_cpu(valor_leido, socket_cpu_int); // MOV_IN_CPU
 
@@ -241,7 +241,7 @@ void *manejo_conexion_kernel(void *arg)
 
 		op_code codigo_operacion = recibir_operacion(socket_kernel_int);
 
-		//log_info(logger_memoria_info, "Se recibio una operacion de KERNEL: %d", codigo_operacion);
+		// log_info(logger_memoria_info, "Se recibio una operacion de KERNEL: %d", codigo_operacion);
 		switch (codigo_operacion)
 		{
 		case HANDSHAKE_KERNEL:
@@ -284,8 +284,10 @@ void *manejo_conexion_kernel(void *arg)
 			if (codigo_operacion == SWAP_LIBERADA)
 			{
 				int prueba = recibir_int(socket_fs_int);
-				prueba = +1; // por warning unnused
-				log_info(logger_memoria_info, "Se liberaron los bloques SWAP correspondientes al proceso PID [%d]", proceso_a_eliminar->pid);
+				if (prueba != -1)
+				{
+					log_info(logger_memoria_info, "Se liberaron los bloques SWAP correspondientes al proceso PID [%d]", proceso_a_eliminar->pid);
+				}
 			}
 			else
 			{
@@ -313,7 +315,7 @@ void *manejo_conexion_kernel(void *arg)
 				log_info(logger_memoria_info, "HAY MARCOS LIBRES - no se debe reemplazar ninguna pagina en memoria");
 				marco_a_asignar = asignar_marco_libre(pid_pf);
 				entrada_a_traer->marco = marco_a_asignar;
-				log_info(logger_memoria_info, "El marco a asignar es  [%d] para PID [%d] - Pag [%d]", marco_a_asignar,pid_pf,nro_pag_pf);
+				log_info(logger_memoria_info, "El marco a asignar es  [%d] para PID [%d] - Pag [%d]", marco_a_asignar, pid_pf, nro_pag_pf);
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
 			{
@@ -335,7 +337,7 @@ void *manejo_conexion_kernel(void *arg)
 					if (codigo_operacion == ESCRITURA_BLOQUE_OK)
 					{
 						int valor = recibir_int(socket_fs_int);
-						valor += 1;																																											   // asi no tira unnused
+						valor += 1;																																													   // asi no tira unnused
 						log_info(logger_memoria_info, "SWAP OUT -  PID: [%d] - Marco: [%d] - Page Out: PID [%d]- PAG [%d]", proceso_swapeado->pid, marco_a_asignar, proceso_swapeado->pid, entrada_a_swapear->indice); // LOG OBLIGATORIO
 					}
 					else
@@ -375,12 +377,8 @@ void *manejo_conexion_filesystem_swap(void *arg)
 {
 
 	socket_fs_int = *(int *)arg;
-	// while (1)
-	//{
 
 	op_code codigo_operacion = recibir_operacion(socket_fs_int);
-
-	//log_info(logger_memoria_info, "Se recibio una operacion de FS: %d", codigo_operacion);
 
 	switch (codigo_operacion)
 	{
@@ -389,46 +387,48 @@ void *manejo_conexion_filesystem_swap(void *arg)
 		recibir_handshake(socket_fs_int, logger_memoria_info);
 		realizar_handshake(socket_fs_int, HANDSHAKE_MEMORIA, logger_memoria_info);
 		break;
-	/*case F_WRITE_FS:
-
-		break;
-	case F_READ_FS:
-
-		break;*/
 	default:
 		log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
 		abort();
-		// finalizar_memoria();
 		break;
 	}
-	//}
 	return NULL;
 }
 
 void *manejo_conexion_filesystem_ops(void *arg)
 {
-
-	socket_fs_archivos = *(int *)arg;
+	int direc_fisica;
+	void *bloque;
+	socket_fs_arch_ops = *(int *)arg;
 	while (1)
 	{
 
-		op_code codigo_operacion = recibir_operacion(socket_fs_archivos);
+		op_code codigo_operacion = recibir_operacion(socket_fs_arch_ops);
 
 		log_info(logger_memoria_info, "Se recibio una operacion de FS para READ/WRITE: %d", codigo_operacion);
 
 		switch (codigo_operacion)
 		{
-		case HANDSHAKE_FILESYSTEM_ARCHIVOS:
+		case HANDSHAKE_FILESYSTEM_OPS:
 			log_info(logger_memoria_info, "Handshake exitosa con FILESYSTEM, se conecto un FILESYSTEM para read write");
-			recibir_handshake(socket_fs_archivos, logger_memoria_info);
-			realizar_handshake(socket_fs_archivos, HANDSHAKE_MEMORIA, logger_memoria_info);
+			recibir_handshake(socket_fs_arch_ops, logger_memoria_info);
+			realizar_handshake(socket_fs_arch_ops, HANDSHAKE_MEMORIA, logger_memoria_info);
 			break;
-		/*case F_WRITE_FS:
+		case F_WRITE_FS: // leo de memoria para escribir en fs
+			recibir_f_write_fs(&direc_fisica, socket_fs_arch_ops);
+			bloque = leer_memoria_fs(direc_fisica);
 
+			enviar_pagina_leida_fs(bloque, socket_fs_arch_ops);
+			free(bloque);
 			break;
-		case F_READ_FS:
+		case F_READ_FS: // escribo en memoria lo que me manda fs
+			bloque = recibir_f_read_fs(&direc_fisica, socket_fs_arch_ops);
 
-			break;*/
+			escribir_memoria_fs(direc_fisica, bloque);
+
+			enviar_op_con_int(socket_fs_arch_ops, F_READ_FS, 1);
+			free(bloque);
+			break;
 		default:
 			log_error(logger_memoria_info, "Fallo la comunicacion con memoria para f read / f write. Abortando \n");
 			abort();
@@ -565,7 +565,7 @@ char *leer_archivo(char *unPath)
 	}
 
 	fclose(archivo);
-	//log_info(logger_memoria_info, "Archivo de instrucciones leido.");
+	// log_info(logger_memoria_info, "Archivo de instrucciones leido.");
 	return cadena;
 }
 
@@ -618,9 +618,10 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 {
 	// log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
-	if(config_valores_memoria.retardo_respuesta / 1000 > 0)
-	sleep(config_valores_memoria.retardo_respuesta / 1000);
-	else sleep(1);
+	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+		sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else
+		sleep(1);
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 
@@ -650,7 +651,7 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *entrada)
 	if (entrada_existente == NULL)
 	{
 		// Si la entrada no existe, agrégala a la lista
-		log_error(logger_memoria_info,"marco de la entrada: %d", entrada->marco);
+		log_error(logger_memoria_info, "marco de la entrada: %d", entrada->marco);
 		list_add(paginas_utilizadas, entrada);
 	}
 	pthread_mutex_unlock(&mutex_fifo);
@@ -694,9 +695,11 @@ t_entrada_tabla_pag *paginaAReemplazar()
 	{
 	case FIFO:
 		pagina_a_reemplazar = obtenerPaginaFIFO();
-		if(pagina_a_reemplazar->marco != -1) log_info(logger_memoria_info, "el marco de la pagina es: %d", pagina_a_reemplazar->marco);
+		if (pagina_a_reemplazar->marco != -1)
+			log_info(logger_memoria_info, "el marco de la pagina es: %d", pagina_a_reemplazar->marco);
 		marco_reemplazo = list_get(marcos, pagina_a_reemplazar->marco);
-		if(marco_reemplazo == NULL) log_info(logger_memoria_info, "marco reemplazo es NULL");
+		if (marco_reemplazo == NULL)
+			log_info(logger_memoria_info, "marco reemplazo es NULL");
 
 		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
 		return pagina_a_reemplazar;
@@ -779,12 +782,12 @@ void cargar_pagina_swap_en_memoria(int socket, int marco_asignar, int pid_pfs)
 {
 
 	op_code codigo_operacion = recibir_operacion(socket);
-	//log_info(logger_memoria_info, "Me llego un codigo de operacion de FS - SWAP");
+	// log_info(logger_memoria_info, "Me llego un codigo de operacion de FS - SWAP");
 
 	if (codigo_operacion == VALOR_BLOQUE)
 	{
 		void *pagina_SWAP = recibir_bloque_swap(socket);
-		log_info(logger_memoria_info, "Recibi el SWAP de la pagina para cargar en memoria");
+		log_info(logger_memoria_info, "Recibi el SWAP del PID [%d] para cargar en memoria", pid_pfs);
 		escribirPagEnMemoria(pagina_SWAP, marco_asignar);
 	}
 	else
@@ -914,11 +917,11 @@ void liberar_marcos_proceso(uint32_t pid_a_liberar)
 		log_error(logger_memoria_info, "se libera marco: %d", marco_proximamente_libre->num_de_marco);
 	}
 
-	for (int j = 0; j < list_size(marcos);j++) {
-		t_marco* marquito = list_get(marcos,j);
-		log_warning(logger_memoria_info,"El marco en la posicion %d con indice %d tiene como pid %d ",j,marquito->num_de_marco, marquito->pid);
+	for (int j = 0; j < list_size(marcos); j++)
+	{
+		t_marco *marquito = list_get(marcos, j);
+		log_warning(logger_memoria_info, "El marco en la posicion %d con indice %d tiene como pid %d ", j, marquito->num_de_marco, marquito->pid);
 	}
-
 }
 
 void recibir_pedido_marco(int *pid_tr, int *index, int socket)
@@ -927,7 +930,7 @@ void recibir_pedido_marco(int *pid_tr, int *index, int socket)
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
-	//printf("size del stream a deserializar %d \n ", size);
+	// printf("size del stream a deserializar %d \n ", size);
 	memcpy(pid_tr, buffer + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(index, buffer + offset, sizeof(int));
@@ -970,9 +973,9 @@ t_marco *marco_desde_df(int df)
 void marcar_pag_modificada(int pid_mod, int marco_mod)
 {
 	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)pid_mod);
-	log_error(logger_memoria_info, "Valor del pid: %d", proceso->pid );
+	log_error(logger_memoria_info, "Valor del pid: %d", proceso->pid);
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
-	log_error(logger_memoria_info, "cantidad de paginas: %d - tamaño de la lista total: %d - lista en memoria: %d", proceso->tabla_paginas->cantidad_paginas , list_size(proceso->tabla_paginas->entradas_tabla), list_size(paginas_en_memoria) );
+	log_error(logger_memoria_info, "cantidad de paginas: %d - tamaño de la lista total: %d - lista en memoria: %d", proceso->tabla_paginas->cantidad_paginas, list_size(proceso->tabla_paginas->entradas_tabla), list_size(paginas_en_memoria));
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco_mod);
 	log_error(logger_memoria_info, "marco: %d - indice: %d - marco en pagina: %d", marco_mod, pagina_modificada->indice, pagina_modificada->marco);
 
@@ -1052,7 +1055,7 @@ t_proceso_memoria *recibir_proceso_nuevo(int socket)
 	void *buffer;
 
 	buffer = recibir_buffer(&size, socket);
-	//printf("Size del stream a deserializar: %d \n", size);
+	// printf("Size del stream a deserializar: %d \n", size);
 
 	t_proceso_memoria *proceso_nuevo = malloc(sizeof(t_proceso_memoria));
 
@@ -1186,7 +1189,7 @@ void recibir_mov_out_cpu(uint32_t *valor, int *marco, int socket)
 	int offset = 0;
 
 	printf("size del stream a deserializar %d \n", size);
-	memcpy(valor, buffer + offset, sizeof(int));
+	memcpy(valor, buffer + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 	memcpy(marco, buffer + offset, sizeof(int));
 
@@ -1215,9 +1218,19 @@ void enviar_valor_mov_in_cpu(uint32_t valor, int socket)
 	eliminar_paquete(paquete_mov_in);
 }
 
+void enviar_pagina_leida_fs(void *bloque, int socket)
+{
+	t_paquete *paquete_f_write = crear_paquete_con_codigo_de_operacion(F_WRITE_FS);
+	paquete_f_write->buffer->size += config_valores_memoria.tamanio_pagina;
+	paquete_f_write->buffer->stream = realloc(paquete_f_write->buffer->stream, paquete_f_write->buffer->size);
+	memcpy(paquete_f_write->buffer->stream, bloque, config_valores_memoria.tamanio_pagina);
+	enviar_paquete(paquete_f_write, socket);
+	eliminar_paquete(paquete_f_write);
+}
+
 // MEMORIA USUARIO
 
-void escribir_memoria(int dir_fisica, uint32_t valor)
+void escribir_memoria_cpu(int dir_fisica, uint32_t valor)
 {
 	// TODO - AGREGAR MUTEX
 	log_info(logger_memoria_info, "voy a escribir un valor en memoria usuario");
@@ -1229,17 +1242,58 @@ void escribir_memoria(int dir_fisica, uint32_t valor)
 
 	marcar_pag_modificada(marco->pid, marco->num_de_marco);
 	log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco->pid);
-	if(config_valores_memoria.retardo_respuesta / 1000 > 0)
-	sleep(config_valores_memoria.retardo_respuesta / 1000);
-	else sleep(1);
-	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
+	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+		sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else
+		sleep(1);
+	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO POR CPU- PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 }
 
-uint32_t leer_memoria(uint32_t dir_fisica)
+void escribir_memoria_fs(int dir_fisica, void *bloque)
+{
+
+	t_marco *marco_escibir = marco_desde_df(dir_fisica);
+	escribirPagEnMemoria(bloque, marco_escibir->num_de_marco); // mutex dentro de la funcion // entiendo que el num de marco es la direcc fisica. // TODO CONVERTIR ?
+	log_info(logger_memoria_info, "FS WRITE - Escribo bloque en dir fisica %d - marco %d", dir_fisica, marco_escibir->num_de_marco);
+
+	// TODO -- VALIDAR -- cuando hago un F_READ debo marcar la pagina que tiene el marco como modificada
+	marcar_pag_modificada(marco_escibir->pid, marco_escibir->num_de_marco);
+	log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco_escibir->pid);
+	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+		sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else
+		sleep(1);
+	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO POR FS - PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco_escibir->pid, dir_fisica); // LOG OBLIGATORIO
+}
+
+uint32_t leer_memoria_cpu(uint32_t dir_fisica)
 {
 	uint32_t valor_leido = 0;
 	pthread_mutex_lock(&mutex_memoria_usuario);
 	memcpy(&valor_leido, memoria_usuario + dir_fisica, sizeof(uint32_t));
+	pthread_mutex_unlock(&mutex_memoria_usuario);
+
+	t_marco *marco = marco_desde_df(dir_fisica);
+	// TODO -- VALIDAR -- cuando hago un F_READ debo marcar la pagina que tiene el marco como modificada
+	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)marco->pid);
+	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
+	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
+	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
+
+	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+		sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else
+		sleep(1);
+	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - CPU - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
+
+	return valor_leido;
+}
+
+void *leer_memoria_fs(int dir_fisica)
+{
+	void *bloque_leido = malloc(config_valores_memoria.tamanio_pagina);
+	pthread_mutex_lock(&mutex_memoria_usuario);
+	memcpy(bloque_leido, memoria_usuario + dir_fisica, config_valores_memoria.tamanio_pagina);
 	pthread_mutex_unlock(&mutex_memoria_usuario);
 
 	t_marco *marco = marco_desde_df(dir_fisica);
@@ -1249,12 +1303,13 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
 	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 
-	if(config_valores_memoria.retardo_respuesta / 1000 > 0)
-	sleep(config_valores_memoria.retardo_respuesta / 1000);
-	else sleep(1);
-	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica);
+	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+		sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else
+		sleep(1);
+	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - FS - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 
-	return valor_leido;
+	return bloque_leido;
 }
 
 void *leer_pagina_para_swapear(int marco)
@@ -1315,29 +1370,61 @@ void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero l
 
 	log_info(logger_memoria_info, "***** DESTRUCCION TABLA DE PAGINAS - PID [%d] - Tamano [%d]", proceso_a_eliminar->pid, proceso_a_eliminar->tabla_paginas->cantidad_paginas); // LOG OBLIGATORIO
 
-    pthread_mutex_lock(&mutex_procesos);
-    list_remove_element(procesos_totales, proceso_a_eliminar);
-    pthread_mutex_unlock(&mutex_procesos);
+	pthread_mutex_lock(&mutex_procesos);
+	list_remove_element(procesos_totales, proceso_a_eliminar);
+	pthread_mutex_unlock(&mutex_procesos);
 
-    t_list* paginas_a_elminar = proceso_a_eliminar->tabla_paginas->entradas_tabla;
-    int cantidad_entradas = proceso_a_eliminar->tabla_paginas->cantidad_paginas;
-
-	log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
-
-    // libero paginas del proces oen FIFO
-    for(int i = 0; i < cantidad_entradas; i++) {
-        t_entrada_tabla_pag* pag_a_borrar = list_get(paginas_a_elminar,i);
-        pthread_mutex_lock(&mutex_fifo);
-        list_remove_element(paginas_utilizadas,pag_a_borrar);
-        pthread_mutex_unlock(&mutex_fifo);
-    }
+	t_list *paginas_a_elminar = proceso_a_eliminar->tabla_paginas->entradas_tabla;
+	int cantidad_entradas = proceso_a_eliminar->tabla_paginas->cantidad_paginas;
 
 	log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
 
-    list_destroy_and_destroy_elements(proceso_a_eliminar->tabla_paginas->entradas_tabla, free);
-    free(proceso_a_eliminar->path);
-    liberar_lista_instrucciones(proceso_a_eliminar->instrucciones);
-    free(proceso_a_eliminar);
+	// libero paginas del proces oen FIFO
+	for (int i = 0; i < cantidad_entradas; i++)
+	{
+		t_entrada_tabla_pag *pag_a_borrar = list_get(paginas_a_elminar, i);
+		pthread_mutex_lock(&mutex_fifo);
+		list_remove_element(paginas_utilizadas, pag_a_borrar);
+		pthread_mutex_unlock(&mutex_fifo);
+	}
+
+	log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
+
+	list_destroy_and_destroy_elements(proceso_a_eliminar->tabla_paginas->entradas_tabla, free);
+	free(proceso_a_eliminar->path);
+	liberar_lista_instrucciones(proceso_a_eliminar->instrucciones);
+	free(proceso_a_eliminar);
+}
+
+// INSTRUCCIONES FILESYSTEM FS F READ F WRITE OPS
+
+void *recibir_f_read_fs(int *ds, int socket)
+{
+
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	printf("size del stream a deserializar %d \n", size);
+	memcpy(ds, buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	void *bloque = malloc(config_valores_memoria.tamanio_pagina);
+	memcpy(bloque, buffer + offset, config_valores_memoria.tamanio_pagina);
+
+	free(buffer);
+	return bloque;
+}
+
+void recibir_f_write_fs(int *df, int socket)
+{
+	int size;
+	void *buffer = recibir_buffer(&size, socket);
+	int offset = 0;
+
+	// printf("size del stream a deserializar \n%d", size);
+	memcpy(df, buffer + offset, sizeof(int));
+
+	free(buffer);
 }
 
 void finalizar_memoria()

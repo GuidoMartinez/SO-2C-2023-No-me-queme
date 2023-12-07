@@ -19,13 +19,13 @@ int main(int argc, char **argv)
     retardo_acceso_bloque = config_valores_filesystem.retardo_acceso_bloque;
     cant_bloques = config_valores_filesystem.cant_bloques_total;
     tamanio_bloque = config_valores_filesystem.tam_bloque;
-    //fat = malloc(tamanio_fat);
+    // fat = malloc(tamanio_fat);
     tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
     tamanio_fat = (config_valores_filesystem.cant_bloques_total - config_valores_filesystem.cant_bloques_swap);
     path_fcb = config_valores_filesystem.path_fcb;
     path_bloques = config_valores_filesystem.path_bloques;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
-    //fat = malloc(tamanio_fat);
+    // fat = malloc(tamanio_fat);
     swap = malloc(bloques_swap);
     bloques = inicializar_bloque_de_datos(path_bloques, cant_bloques);
     lista_fcb = list_create();
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
     default:
         log_error(filesystem_logger_info, "Fallo la comunicacion con KERNEL. Abortando \n");
         abort();
-        //finalizar_memoria();
+        // finalizar_memoria();
         break;
     }
     // Mapeo de memoria
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
     fd = open(config_valores_filesystem.path_bloques, O_RDWR);
     ftruncate(fd, tam_memoria_file_system);
     memoria_file_system = mmap(NULL, tam_memoria_file_system, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    
+
     // inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
     inicializar_fcb_list(config_valores_filesystem.path_fcb);
     /*int exit_status = crear_fat(config_valores_filesystem.path_fat);
@@ -387,7 +387,7 @@ int obtener_primer_bloque_libre()
 {
     for (uint32_t i = 0; i < tamanio_fat; i++)
     {
-        
+
         if (fat[i] == -1)
         {
             return i;
@@ -420,7 +420,7 @@ int crear_fat(char *path_fat)
         close(file_descriptor);
         return -1;
     }
-    
+
     fat = mmap(NULL, tamanio_fat, PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
     if (fat == MAP_FAILED)
     {
@@ -826,7 +826,8 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
             log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
             break;
         }
-        if(bloque_actual >= tamanio_fat || bloque_actual < 0){
+        if (bloque_actual >= tamanio_fat || bloque_actual < 0)
+        {
             log_warning(filesystem_logger_info, "Indice de bloque fuera del espacio mapeado para FAT");
         }
         fat[bloque_actual] = (uint32_t)obtener_primer_bloque_libre();
@@ -996,18 +997,30 @@ bloque_t *obtener_lista_de_bloques(int id_fcb, int p_seek, int tam_a_leer, t_log
 void realizar_f_write(t_instruccion_fs *instruccion_file)
 {
     uint32_t pid = instruccion_file->pid;
-    uint32_t direccion_fisica = instruccion_file->param1_length;
-    int tamanio = instruccion_file->param2_length;
+    int direccion_fisica = atoi(instruccion_file->param2);
+    int tamanio = tamanio_bloque;
     int cantidad_bloques = (int)ceil((double)tamanio / tamanio_bloque);
-    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_WRITE);
-    agregar_a_paquete(paquete, &pid, sizeof(uint32_t));
-    agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
-    agregar_a_paquete(paquete, &tamanio, sizeof(uint32_t));
-    enviar_paquete(paquete, socket_memoria);
-    eliminar_paquete(paquete);
-    nombre_instruccion codigo = recibir_operacion(socket_memoria);
-    if (codigo == F_WRITE)
+    enviar_op_con_int(socket_memoria_op,F_WRITE_FS,direccion_fisica);
+    
+
+
+    
+    op_code codigo = recibir_operacion(socket_memoria_op);
+    if (codigo == F_WRITE_FS)
     {
+
+	int size; // PODES CHEQUEAR QUE SIZE SEA > 0.
+	void *bloque_a_escribir = recibir_buffer(&size, socket);
+
+
+// Enunciado: F_WRITE (Nombre Archivo, Dirección Lógica): Esta instrucción solicita al Kernel que se escriba en el archivo indicado la información que es 
+// obtenida a partir de la dirección física de Memoria.
+
+// F_WIRTE - FS: solicitará al módulo File System que escriba en el archivo desde la dirección física de memoria recibida por parámetro (y el puntero que deberia apuntar al primer byte del bloque)
+
+// DE ACA PARA ABAJO, tenes que guardar bloque_a_escribir en donde te dice la instruccion (es 1 solo bloque el que se escribe)
+//
+
         t_list *paquete_recibido = recibir_paquete(socket_memoria);
         if (paquete_recibido != NULL && list_size(paquete_recibido) > 0)
         {
@@ -1040,13 +1053,13 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
     }
 }
 
-void realizar_f_read(t_instruccion_fs *instruccion_file)
+void realizar_f_read(t_instruccion_fs *instruccion_file) // ver comentarios al final
 {
     int direccion_fisica = atoi(instruccion_file->param2);
     uint32_t id_fcb = buscar_fcb(instruccion_file->param1);
     log_info(filesystem_logger_info, "Entro a realizar f read");
     uint32_t id_bloque_inicial = (uint32_t)valor_fcb(id_fcb, BLOQUE_INICIAL);
-    int tamanio_restante = atoi(instruccion_file->param1);
+    int tamanio_restante = atoi(instruccion_file->param1); // TODO -- TOMAS -- el parametro 1 es el nombre del archivo, aca que pasa_
     for (uint32_t id_bloque = id_bloque_inicial; tamanio_restante > 0; id_bloque = fat[id_bloque])
     {
         void *datos = leer_bloque(id_bloque);
@@ -1068,6 +1081,41 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
         }
         tamanio_restante -= bytes_leer;
         direccion_fisica += bytes_leer;
+    }
+
+    // DEBERIAS LEER EL BLOQUE COMPLETO Y METERLO EN UN VOID* que tenga de tamanio tamanio_bloque (void* bloque_leido por ej y enviarlo como queda aca abajo
+
+    void *bloque_leido = malloc(tamanio_bloque);
+
+    t_paquete *paq_f_read = crear_paquete_con_codigo_de_operacion(F_WRITE_FS);
+    paq_f_read->buffer->size += sizeof(int) + config_valores_filesystem.tam_bloque;
+    paq_f_read->buffer->stream = malloc(paq_f_read->buffer->size);
+
+    int offset = 0;
+
+    printf("Size del stream a enviar %d \n", paq_f_read->buffer->size);
+
+    memcpy(paq_f_read->buffer->stream + offset, &(direccion_fisica), sizeof(int));
+    offset += sizeof(int);
+
+    memcpy(paq_f_read->buffer->stream + offset, bloque_leido, config_valores_filesystem.tam_bloque);
+
+    enviar_paquete(paq_f_read, socket_memoria_op);
+    eliminar_paquete(paq_f_read);
+
+    op_code cod_f_read = recibir_operacion(socket_memoria_op);
+    if (cod_f_read == F_READ_FS)
+    {
+        int valor = recibir_int(socket_memoria_op);
+        if (valor == -1)
+        {
+            log_info(filesystem_logger_info, "no se pudo escribir el bloque en memoria");
+        }
+        log_info(filesystem_logger_info, "Se escribio correctamente el bloque en memoria");
+    }
+    else
+    {
+        log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria",cod_f_read);
     }
 }
 

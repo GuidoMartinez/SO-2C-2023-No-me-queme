@@ -12,7 +12,7 @@ t_proceso_memoria *proceso_memoria;
 op_code resp_code_fs;
 uint32_t global_pid_pedido;
 
-int server_memoria, socket_fs, socket_fs_ops, socket_cpu, socket_kernel, socket_fs_int, socket_cpu_int, socket_kernel_int, socket_fs_archivos;
+int server_memoria, socket_fs, socket_fs_ops, socket_cpu, socket_kernel, socket_fs_int, socket_cpu_int, socket_kernel_int, socket_fs_arch_ops;
 int tamanio_memoria, indice_tabla;
 int cantidad_pags;
 int contador_lru = 0;
@@ -83,7 +83,7 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *);
 t_list *obtener_total_pags_en_memoria(t_list *);
 void escribirPagEnMemoria(void *, int);
 void pedido_lectura_swap(int, t_entrada_tabla_pag *);
-void pedido_escritura_swap(int,t_entrada_tabla_pag *);
+void pedido_escritura_swap(int, t_entrada_tabla_pag *);
 void *leer_pagina_para_swapear(int);
 void *recibir_bloque_swap(int);
 
@@ -113,10 +113,10 @@ void pedido_inicio_swap(int, int);
 void asignar_id_bloque_swap(t_proceso_memoria *, t_list *);
 
 void recibir_mov_out_cpu(uint32_t *, int *, int);
-void escribir_memoria(int, uint32_t);
+void escribir_memoria_cpu(int, uint32_t);
 
 void recibir_mov_in_cpu(int *, int);
-uint32_t leer_memoria(uint32_t);
+uint32_t leer_memoria_cpu(uint32_t);
 void enviar_valor_mov_in_cpu(uint32_t, int);
 
 void limpiar_swap(t_proceso_memoria *);
@@ -126,6 +126,13 @@ void enviar_bloques_swap_a_liberar(t_list *, int);
 void inicializar_nuevo_proceso(t_proceso_memoria *);
 int inicializar_estructuras_memoria_nuevo_proceso(t_proceso_memoria *);
 void eliminar_proceso_memoria(t_proceso_memoria *);
+
+void *recibir_f_read_fs(int *, int);
+void escribir_memoria_fs(int, void *);
+
+void recibir_f_write_fs(int *, int);
+void* leer_memoria_fs(int);
+void enviar_pagina_leida_fs(void*,int);
 
 void finalizar_memoria();
 
