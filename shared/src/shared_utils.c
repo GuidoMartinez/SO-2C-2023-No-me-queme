@@ -894,6 +894,15 @@ void liberar_instruccion(t_instruccion *instr)
 	free(instr);
 }
 
+void liberar_contexto(t_contexto_ejecucion *contexto){
+	free(contexto->instruccion_ejecutada);
+	free(contexto->registros);
+	free(contexto->instruccion_ejecutada->parametro1);
+	free(contexto->instruccion_ejecutada->parametro2);
+	free(contexto);
+}
+
+
 void liberar_lista_instrucciones(t_list *instrucciones)
 {
 	list_destroy_and_destroy_elements(instrucciones, (void (*)(void *))liberar_instruccion);

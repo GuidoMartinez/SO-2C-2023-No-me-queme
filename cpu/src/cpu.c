@@ -73,6 +73,8 @@ int main(int argc, char **argv)
             limpiar_interrupciones();
             pthread_mutex_unlock(&mutex_interrupt);
 
+            liberar_contexto(contexto_actual);
+
             break;
         default:
             log_error(cpu_logger_info, "El codigo que me llego es %d", codigo_operacion);
@@ -109,41 +111,44 @@ void *recibir_interrupt(void *arg)
         }
         t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
         interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
-        switch (interrupcion->motivo_interrupcion)
+        if (contexto_actual != NULL)
         {
-        case INTERRUPT_FIN_QUANTUM:
-            log_info(cpu_logger_info, "Recibo fin de quantum");
-            interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
-            pthread_mutex_lock(&mutex_interrupt);
-            contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
-            pthread_mutex_unlock(&mutex_interrupt);
-            break;
-        case INTERRUPT_FIN_PROCESO:
-            log_info(cpu_logger_info, "Recibo fin de proceso");
-            if (!descartar_instruccion)
+            switch (interrupcion->motivo_interrupcion)
             {
-                interrupciones[INTERRUPT_FIN_PROCESO] = 1;
+            case INTERRUPT_FIN_QUANTUM:
+                // log_info(cpu_logger_info, "Recibo fin de quantum");
+                interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
                 pthread_mutex_lock(&mutex_interrupt);
-                contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+                contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
                 pthread_mutex_unlock(&mutex_interrupt);
+                break;
+            case INTERRUPT_FIN_PROCESO:
+                log_info(cpu_logger_info, "Recibo fin de proceso");
+                if (!descartar_instruccion)
+                {
+                    interrupciones[INTERRUPT_FIN_PROCESO] = 1;
+                    pthread_mutex_lock(&mutex_interrupt);
+                    contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+                    pthread_mutex_unlock(&mutex_interrupt);
+                }
+                break;
+            case INTERRUPT_NUEVO_PROCESO:
+                log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
+                interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
+                pthread_mutex_lock(&mutex_interrupt);
+                contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
+                pthread_mutex_unlock(&mutex_interrupt);
+                break;
+            default:
+                log_warning(cpu_logger_info, "Operacion desconocida \n");
+                finalizar_cpu();
+                abort();
+                break;
             }
-            break;
-        case INTERRUPT_NUEVO_PROCESO:
-            log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
-            interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
-            pthread_mutex_lock(&mutex_interrupt);
-            contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
-            pthread_mutex_unlock(&mutex_interrupt);
-            break;
-        default:
-            log_warning(cpu_logger_info, "Operacion desconocida \n");
-            finalizar_cpu();
-            abort();
-            break;
         }
+            free(interrupcion);
     }
 
-    // free(interrupcion);
     return NULL;
 }
 
@@ -295,10 +300,16 @@ t_instruccion *fetch(int pid, int pc)
 // Ejecuta instrucciones
 void decode(t_instruccion *instruccion)
 {
-    char* param1 = string_new();
-    char* param2 = string_new();
-    if(instruccion->parametro1 != NULL) {strcpy(param1, instruccion->parametro1);}
-    if(instruccion->parametro2 != NULL) {strcpy(param2, instruccion->parametro2);}
+    char *param1 = string_new();
+    char *param2 = string_new();
+    if (instruccion->parametro1 != NULL)
+    {
+        strcpy(param1, instruccion->parametro1);
+    }
+    if (instruccion->parametro2 != NULL)
+    {
+        strcpy(param2, instruccion->parametro2);
+    }
     log_info(cpu_logger_info, "PID: %d - DECODE - Instruccion: %s - %s - %s", contexto_actual->pid, cod_inst_to_str(instruccion->codigo), param1, param2);
 
     switch (instruccion->codigo)
@@ -354,6 +365,9 @@ void decode(t_instruccion *instruccion)
         log_error(cpu_logger_info, "Instruccion no reconocida");
         break;
     }
+
+    free(param1);
+    free(param2);
 }
 
 bool es_syscall()
@@ -377,12 +391,16 @@ bool es_syscall()
     }
 }
 
-uint32_t obtener_valor_dir(uint32_t dl){
+uint32_t obtener_valor_dir(uint32_t dl)
+{
 
     int df = traducir_dl(dl);
     int valor = 0;
 
-    if(df == -1) {return df;}
+    if (df == -1)
+    {
+        return df;
+    }
 
     enviar_op_con_int(socket_memoria, MOV_IN_CPU, df);
 
@@ -390,42 +408,55 @@ uint32_t obtener_valor_dir(uint32_t dl){
 
     uint32_t resultado = recibir_valor_memoria(socket_memoria);
 
-    if (codigo_operacion == (op_code)MOV_IN_CPU) {valor = resultado;}
-    else {log_error(cpu_logger_info, "Error al hacer el MOV_IN");}
+    if (codigo_operacion == (op_code)MOV_IN_CPU)
+    {
+        valor = resultado;
+    }
+    else
+    {
+        log_error(cpu_logger_info, "Error al hacer el MOV_IN");
+    }
 
     return valor;
-} 
-
-void escribir_memoria(uint32_t dl, uint32_t valor){
-    int df = traducir_dl(dl);
-
-    log_info(cpu_logger_info, "El valor a enviar por MOV_OUT ES %d",valor);
-
-    if(df != -1) {enviar_mov_out(df, valor);}
-    else {log_info(cpu_logger_info, "Hubo page fault");}
 }
 
+void escribir_memoria(uint32_t dl, uint32_t valor)
+{
+    int df = traducir_dl(dl);
+
+    log_info(cpu_logger_info, "El valor a enviar por MOV_OUT ES %d", valor);
+
+    if (df != -1)
+    {
+        enviar_mov_out(df, valor);
+    }
+    else
+    {
+        log_info(cpu_logger_info, "Hubo page fault");
+    }
+}
 
 void enviar_mov_out(int df, uint32_t valor)
 {
-	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MOV_OUT_CPU);
-	paquete->buffer->size += sizeof(int) + sizeof(uint32_t);
-	paquete->buffer->stream = malloc(paquete->buffer->size);
+    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(MOV_OUT_CPU);
+    paquete->buffer->size += sizeof(int) + sizeof(uint32_t);
+    paquete->buffer->stream = malloc(paquete->buffer->size);
 
-    log_info(cpu_logger_info,"El size del paquete mov out es %d", paquete->buffer->size);
+    log_info(cpu_logger_info, "El size del paquete mov out es %d", paquete->buffer->size);
 
-	int offset = 0;
+    int offset = 0;
 
     memcpy(paquete->buffer->stream + offset, &(valor), sizeof(uint32_t));
     offset += sizeof(uint32_t);
-	memcpy(paquete->buffer->stream + offset, &(df), sizeof(int));
+    memcpy(paquete->buffer->stream + offset, &(df), sizeof(int));
 
-	enviar_paquete(paquete, socket_memoria);
-	eliminar_paquete(paquete);
+    enviar_paquete(paquete, socket_memoria);
+    eliminar_paquete(paquete);
 }
 
-int traducir_dl(uint32_t dl){
-    uint32_t num_pag = dl/tamano_pagina;
+int traducir_dl(uint32_t dl)
+{
+    uint32_t num_pag = dl / tamano_pagina;
 
     log_error(cpu_logger_info, "Numero de pagina: %d", num_pag);
 
@@ -437,14 +468,16 @@ int traducir_dl(uint32_t dl){
 
     int marco = recibir_marco(socket_memoria);
 
-    if(operacion == MARCO_PAGE_FAULT) {
+    if (operacion == MARCO_PAGE_FAULT)
+    {
         log_info(cpu_logger_info, "Page Fault PID: %d - Página: %d", contexto_actual->pid, num_pag);
         page_fault = true;
         contexto_actual->nro_pf = num_pag;
         return marco;
     }
-    else{
-        log_info(cpu_logger_info, "“PID: %d - OBTENER MARCO - Página: %d - Marco:%d”",contexto_actual->pid, num_pag, marco);
+    else
+    {
+        log_info(cpu_logger_info, "“PID: %d - OBTENER MARCO - Página: %d - Marco:%d”", contexto_actual->pid, num_pag, marco);
         int df = marco * tamano_pagina + desplazamiento;
         log_info(cpu_logger_info, "Dirección física: %d", df);
         return df;

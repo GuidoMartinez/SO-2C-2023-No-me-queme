@@ -11,31 +11,23 @@ void _set(char *registro, char *valor)
 // Suma al registro el valor pasado como parámetro.
 void _sum(char *registro_destino, char *registro_origen)
 {
-    uint32_t *destino = malloc(sizeof(uint32_t));
-    destino = get_registry(registro_destino);
-    uint32_t *origen = malloc(sizeof(uint32_t));
-    origen = get_registry(registro_origen);
+    uint32_t *destino = get_registry(registro_destino);
+    uint32_t *origen = get_registry(registro_origen);
 
     *(destino) = *(destino) + *(origen);
 
     contexto_actual->codigo_ultima_instru = SUM;
-    // free(destino);
-    // free(origen);
 }
 
 // Resta al registro el valor pasado como parámetro.
 void _sub(char *registro_destino, char *registro_origen)
 {
-    uint32_t *destino = malloc(sizeof(uint32_t));
-    destino = get_registry(registro_destino);
-    uint32_t *origen = malloc(sizeof(uint32_t));
-    origen = get_registry(registro_origen);
+    uint32_t *destino = get_registry(registro_destino);
+    uint32_t *origen = get_registry(registro_origen);
 
     *(destino) = *(destino) - *(origen);
 
     contexto_actual->codigo_ultima_instru = SUB;
-    // free(destino);
-    // free(origen);
 }
 
 // Si valor del registro != cero, actualiza el IP al número de instrucción pasada por parámetro.
