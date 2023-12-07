@@ -496,7 +496,7 @@ t_list *parsear_instrucciones(char *path)
 		}
 		else if (string_equals_ignore_case(palabras[0], "F_OPEN"))
 		{
-			list_add(instrucciones, armar_estructura_instruccion(F_OPEN, palabras[1], ""));
+			list_add(instrucciones, armar_estructura_instruccion(F_OPEN, palabras[1], palabras[2]));
 		}
 		else if (string_equals_ignore_case(palabras[0], "F_TRUNCATE"))
 		{
@@ -577,7 +577,7 @@ t_instruccion *armar_estructura_instruccion(nombre_instruccion id, char *paramet
 	estructura->parametro2 = (parametro2[0] != '\0') ? strdup(parametro2) : parametro2;
 	estructura->longitud_parametro1 = strlen(estructura->parametro1) + 1;
 	estructura->longitud_parametro2 = strlen(estructura->parametro2) + 1;
-	// printf("%s - %s - %s \n", obtener_nombre_instruccion(estructura->codigo), estructura->parametro1, estructura->parametro2); // PRINT INSTRUCCIONES
+	printf("%s - %s - %s \n", obtener_nombre_instruccion(estructura->codigo), estructura->parametro1, estructura->parametro2); // PRINT INSTRUCCIONES
 
 	return estructura;
 }
@@ -618,7 +618,9 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 {
 	// log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
+	if(config_valores_memoria.retardo_respuesta / 1000 > 0)
 	sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else sleep(1);
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 
@@ -648,6 +650,7 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *entrada)
 	if (entrada_existente == NULL)
 	{
 		// Si la entrada no existe, agrégala a la lista
+		log_error("marco de la entrada: %d", entrada->marco);
 		list_add(paginas_utilizadas, entrada);
 	}
 	pthread_mutex_unlock(&mutex_fifo);
@@ -691,7 +694,9 @@ t_entrada_tabla_pag *paginaAReemplazar()
 	{
 	case FIFO:
 		pagina_a_reemplazar = obtenerPaginaFIFO();
+		if(pagina_a_reemplazar->marco != -1) log_info(logger_memoria_info, "el marco de la pagina es: %d", pagina_a_reemplazar->marco);
 		marco_reemplazo = list_get(marcos, pagina_a_reemplazar->marco);
+		if(marco_reemplazo == NULL) log_info(logger_memoria_info, "marco reemplazo es NULL");
 
 		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
 		return pagina_a_reemplazar;
@@ -1218,7 +1223,9 @@ void escribir_memoria(int dir_fisica, uint32_t valor)
 
 	marcar_pag_modificada(marco->pid, marco->num_de_marco);
 	log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco->pid);
+	if(config_valores_memoria.retardo_respuesta / 1000 > 0)
 	sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else sleep(1);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 }
 
@@ -1236,7 +1243,9 @@ uint32_t leer_memoria(uint32_t dir_fisica)
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
 	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 
+	if(config_valores_memoria.retardo_respuesta / 1000 > 0)
 	sleep(config_valores_memoria.retardo_respuesta / 1000);
+	else sleep(1);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica);
 
 	return valor_leido;
@@ -1300,14 +1309,27 @@ void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero l
 
 	log_info(logger_memoria_info, "***** DESTRUCCION TABLA DE PAGINAS - PID [%d] - Tamano [%d]", proceso_a_eliminar->pid, proceso_a_eliminar->tabla_paginas->cantidad_paginas); // LOG OBLIGATORIO
 
-	pthread_mutex_lock(&mutex_procesos);
-	list_remove_element(procesos_totales, proceso_a_eliminar);
-	pthread_mutex_unlock(&mutex_procesos);
+    pthread_mutex_lock(&mutex_procesos);
+    list_remove_element(procesos_totales, proceso_a_eliminar);
+    pthread_mutex_unlock(&mutex_procesos);
 
-	list_destroy_and_destroy_elements(proceso_a_eliminar->tabla_paginas->entradas_tabla, free);
-	free(proceso_a_eliminar->path);
-	liberar_lista_instrucciones(proceso_a_eliminar->instrucciones);
-	free(proceso_a_eliminar);
+    t_list* paginas_a_elminar = proceso_a_eliminar->tabla_paginas->entradas_tabla;
+    int cantidad_entradas = proceso_a_eliminar->tabla_paginas->cantidad_paginas;
+
+
+    // libero paginas del proces oen FIFO
+    for(int i = 0; i < cantidad_entradas; i++) {
+        t_entrada_tabla_pag* pag_a_borrar = list_get(paginas_a_elminar,i);
+        pthread_mutex_lock(&mutex_fifo);
+        list_remove_element(paginas_utilizadas,pag_a_borrar);
+        pthread_mutex_unlock(&mutex_fifo);
+    }
+
+
+    list_destroy_and_destroy_elements(proceso_a_eliminar->tabla_paginas->entradas_tabla, free);
+    free(proceso_a_eliminar->path);
+    liberar_lista_instrucciones(proceso_a_eliminar->instrucciones);
+    free(proceso_a_eliminar);
 }
 
 void finalizar_memoria()

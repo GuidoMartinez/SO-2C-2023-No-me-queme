@@ -27,7 +27,7 @@ sem_t sem_blocked_w;
 sem_t sem_detener_sleep;
 sem_t sem_hilo_FS;
 sem_t reanudaar_exec;
-//sem_t sem_PF;
+// sem_t sem_PF;
 
 t_list *recursos_kernel;
 t_list *lista_ready;
@@ -179,8 +179,7 @@ int main(int argc, char **argv)
     sem_init(&sem_detener_sleep, 0, 0);
     sem_init(&sem_hilo_FS, 0, 0);
     sem_init(&reanudaar_exec, 0, 0);
-   // sem_init(&sem_PF, 0, 0);
-  
+    // sem_init(&sem_PF, 0, 0);
 
     while (1)
     {
@@ -234,7 +233,7 @@ int main(int argc, char **argv)
         if (!strncmp(linea, "iniciar_planificacion", 21))
         {
 
-             log_info(kernel_logger_info, "Inicio de planificacion");
+            log_info(kernel_logger_info, "Inicio de planificacion");
             iniciar_planificacion();
 
             //  free(linea);
@@ -318,6 +317,7 @@ void finalizar_kernel()
     close(conexion_cpu_interrupt);
     close(conexion_memoria);
     close(conexion_filesystem);
+    abort();
 }
 
 void iniciar_proceso(char *path, int size, int prioridad)
@@ -344,8 +344,8 @@ void finalizar_proceso(int pid)
     }
     else
     {
-        log_error(kernel_logger_info, "El PID enviado no se encuentra en ejecucion");
-        //return;
+        log_info(kernel_logger_info, "El PID enviado no se encuentra en ejecucion");
+        // return;
     }
     t_pcb *proceso_encontrado;
     proceso_encontrado = buscarProceso(pid);
@@ -541,7 +541,7 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
     memcpy(paquete->buffer->stream + desplazamiento, path, long_path);
 }
 
-void serializar_pedido_archivo_fs(t_paquete *paquete, int pid,char *nombreArchivo)
+void serializar_pedido_archivo_fs(t_paquete *paquete, int pid, char *nombreArchivo)
 {
     paquete->buffer->size += sizeof(uint32_t) * 3 +
                              strlen(nombreArchivo) + 1;
@@ -556,7 +556,6 @@ void serializar_pedido_archivo_fs(t_paquete *paquete, int pid,char *nombreArchiv
 
     memcpy(paquete->buffer->stream + desplazamiento, &(nombreArchivo), sizeof(uint32_t));
     desplazamiento += sizeof(uint32_t);
-
 }
 
 void serializar_truncate_archivo_fs(t_paquete *paquete, int pid, int tamanio)
@@ -572,7 +571,6 @@ void serializar_truncate_archivo_fs(t_paquete *paquete, int pid, int tamanio)
 
     memcpy(paquete->buffer->stream + desplazamiento, &(tamanio), sizeof(uint32_t));
     desplazamiento += sizeof(uint32_t);
-
 }
 
 void chequear_archivo_fs(int pid_nuevo, char *nombreArchivo, int conexion_filesystem)
@@ -591,14 +589,13 @@ void truncate_archivo_fs(int pid_nuevo, int tamanio, int conexion_filesystem)
     eliminar_paquete(paquete_proceso_nuevo);
 }
 
-void enviarInstruccionFS(int conexion, t_instruccion_fs* inst_fs)
+void enviarInstruccionFS(int conexion, t_instruccion_fs *inst_fs)
 {
     t_paquete *paquete = crear_paquete_con_codigo_de_operacion(OP_FILESYSTEM);
-   serializar_instruccion_fs(paquete, inst_fs);
-	enviar_paquete(paquete, conexion);
-	eliminar_paquete(paquete);
+    serializar_instruccion_fs(paquete, inst_fs);
+    enviar_paquete(paquete, conexion);
+    eliminar_paquete(paquete);
 }
-
 
 recurso_instancia *buscar_recurso(t_list *lista_recursos, char *nombre_recurso)
 {
@@ -627,12 +624,12 @@ void liberar_recursos(t_pcb *pcb)
         recurso_en_kernel = buscar_recurso(recursos_kernel, recurso_proceso->nombre);
 
         t_queue *cola_bloqueados = recurso_en_kernel->colabloqueado;
-        //log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
+        // log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
 
-       // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_en_kernel->cantidad);
+        // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] antes  \n", recurso_en_kernel->cantidad);
 
         recurso_en_kernel->cantidad += recurso_proceso->cantidad;
-       // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_en_kernel->cantidad);
+        // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_en_kernel->cantidad);
 
         recurso_proceso->cantidad -= recurso_proceso->cantidad;
 
@@ -698,7 +695,7 @@ int verif_crear_recurso_file(t_archivo_global *archivo)
     int result = 0;
     if (!archivo_existe(lista_global_archivos, archivo->nombreArchivo))
     {
-        //crear_archivo_global(archivo->nombreArchivo);
+        // crear_archivo_global(archivo->nombreArchivo);
         result = 1;
     }
 
@@ -762,8 +759,8 @@ void exec_block_fs()
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
     proceso_en_ejecucion = NULL;
     set_pcb_block(pcbelegido);
-    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "BLOCKED");  
-   
+    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "BLOCKED");
+
     pthread_mutex_lock(&mutex_cola_block);
     pcbelegido->motivo_block = OP_FILESYSTEM;
     pthread_mutex_unlock(&mutex_cola_block);
@@ -771,23 +768,24 @@ void exec_block_fs()
 
 void open_file(char *nombre_archivo, char lock)
 {
-    //lista_global_archivos: sacar
+    // lista_global_archivos: sacar
     t_archivo_global *archivo = buscarArchivoGlobal(lista_global_archivos, nombre_archivo);
     archivo->lock = lock;
     archivo->contador += 1;
 }
 
-void fs_interaction(){
+void fs_interaction()
+{
 
-        // Usar instruccion_fs
-       // enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
+    // Usar instruccion_fs
+    // enviar_instruccion(conexion_filesystem, proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada);
 
-        exec_block_fs();
-        // Se espera respuesta en hilo
-        sem_post(&sem_hilo_FS);
+    exec_block_fs();
+    // Se espera respuesta en hilo
+    sem_post(&sem_hilo_FS);
 
-        sem_post(&sem_ready);
-        sem_post(&sem_exec);
+    sem_post(&sem_ready);
+    sem_post(&sem_exec);
 }
 
 void *recibir_op_FS()
@@ -798,8 +796,8 @@ void *recibir_op_FS()
         sem_wait(&sem_hilo_FS);
 
         t_resp_file op = recibir_operacion(conexion_filesystem);
-        int *pid= malloc(sizeof(int));
-        recibir_pid(conexion_filesystem,pid);
+        int *pid = malloc(sizeof(int));
+        recibir_pid(conexion_filesystem, pid);
 
         switch (op)
         {
@@ -807,42 +805,42 @@ void *recibir_op_FS()
             log_error(kernel_logger_info, "Obtuvimos codigo F_ERROR");
             break;
         case F_OPEN_SUCCESS:
-        sem_post(&reanudaar_exec);
+            sem_post(&reanudaar_exec);
             break;
         case F_TRUNCATE_SUCCESS:
-        pcb_bloqueado = buscarProceso(*(pid));
-        remove_blocked(pcb_bloqueado->pid);
-        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY"); 
-        set_pcb_ready(pcb_bloqueado);
-        sem_post(&sem_ready);
-        sem_post(&sem_exec);
+            pcb_bloqueado = buscarProceso(*(pid));
+            remove_blocked(pcb_bloqueado->pid);
+            log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");
+            set_pcb_ready(pcb_bloqueado);
+            sem_post(&sem_ready);
+            sem_post(&sem_exec);
             break;
         case F_WRITE_SUCCESS:
-        pcb_bloqueado = buscarProceso(*(pid));
-        remove_blocked(pcb_bloqueado->pid);
-        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY"); 
-        set_pcb_ready(pcb_bloqueado);
-        sem_post(&sem_ready);
-        sem_post(&sem_exec);
+            pcb_bloqueado = buscarProceso(*(pid));
+            remove_blocked(pcb_bloqueado->pid);
+            log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");
+            set_pcb_ready(pcb_bloqueado);
+            sem_post(&sem_ready);
+            sem_post(&sem_exec);
             break;
         case F_READ_SUCCESS:
-       pcb_bloqueado = buscarProceso(*(pid));
-        remove_blocked(pcb_bloqueado->pid);
-        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");   
-        set_pcb_ready(pcb_bloqueado);
-        sem_post(&sem_ready);
-        sem_post(&sem_exec);
+            pcb_bloqueado = buscarProceso(*(pid));
+            remove_blocked(pcb_bloqueado->pid);
+            log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");
+            set_pcb_ready(pcb_bloqueado);
+            sem_post(&sem_ready);
+            sem_post(&sem_exec);
             break;
         case F_CREATE_SUCCESS:
-        sem_post(&reanudaar_exec);
+            sem_post(&reanudaar_exec);
             break;
         case FILE_DOESNT_EXISTS:
-        t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada, 1);
-        inst_f_open_fs->estado=F_CREATE;
-        enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
-        sem_post(&sem_hilo_FS);
+            t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada, 1);
+            inst_f_open_fs->estado = F_CREATE;
+            enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
+            sem_post(&sem_hilo_FS);
             break;
-        default: 
+        default:
             log_info(kernel_logger_info, "Me llego un codigo de operacion de FS que no reconozco");
             finalizar_kernel();
             break;
@@ -850,8 +848,9 @@ void *recibir_op_FS()
     }
 }
 
-void* manejar_pf(void* args){
-    //sem_wait(&sem_PF);
+void *manejar_pf(void *args)
+{
+    // sem_wait(&sem_PF);
     /*1.- Mover al proceso al estado Bloqueado. Este estado bloqueado será independiente de todos los
     demás ya que solo afecta al proceso y no compromete recursos compartidos.*/
 
@@ -860,20 +859,24 @@ void* manejar_pf(void* args){
     int pid = args_pf->pid;
     int nro_pf = args_pf->num_pf;
 
-    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pid, "EXEC", "BLOCKED"); 
-    log_info(kernel_logger_info, "PID[%d]-Bloqueado por: PAGE_FAULT  \n", nro_pf);   
+    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pid, "EXEC", "BLOCKED");
+    log_info(kernel_logger_info, "PID[%d]-Bloqueado por: PAGE_FAULT  \n", nro_pf);
 
-    //todo AGREGAR SEMAFORO
-    t_pcb* pcb = buscarProceso(pid);
+    // todo AGREGAR SEMAFORO
+    t_pcb *pcb = buscarProceso(pid);
     set_pcb_block(pcb);
-    proceso_en_ejecucion = NULL; 
+    proceso_en_ejecucion = NULL;
 
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
-    sem_post(&sem_ready);
+    if (frenado != 1)
+    {
+        sem_post(&sem_ready);
 
-    if(list_size(lista_ready) > 0){
-    sem_post(&sem_exec);
+        if (list_size(lista_ready) > 0)
+        {
+            sem_post(&sem_exec);
+        }
     }
 
     /*2.- Solicitar al módulo memoria que se cargue en memoria principal la página correspondiente, la
@@ -886,8 +889,9 @@ void* manejar_pf(void* args){
     // TODO - GONZA - SUMAR MUTEX PARA EL SOCKET DE MEMORIA PARA ASEGURARSE QUE ESE HILO RECIBA PRIMERO LA RESPUESTA DEL PG.
     pthread_mutex_lock(&mutex_PF);
     op_code op = recibir_operacion(conexion_memoria);
-    if(op != PAGINA_CARGADA) {
-        log_error(kernel_logger_info,"No se puedo cargar la pagina.");
+    if (op != PAGINA_CARGADA)
+    {
+        log_error(kernel_logger_info, "No se puedo cargar la pagina.");
         return NULL;
     }
 
@@ -898,38 +902,41 @@ void* manejar_pf(void* args){
     /*4.- Al recibir la respuesta del módulo memoria, desbloquear el proceso y colocarlo en la cola de
     ready.*/
 
-    t_pcb* pcb_bloqueado = buscarProceso(pid_memoria);
+    t_pcb *pcb_bloqueado = buscarProceso(pid_memoria);
 
     pcb_bloqueado->contexto_ejecucion->motivo_desalojado = PAGE_FAULT_RESUELTO;
 
     remove_blocked(pcb_bloqueado->pid);
     set_pcb_ready(pcb_bloqueado);
-    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY"); 
-     
-    sem_post(&sem_ready);
-    sem_post(&sem_exec);
+    log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY");
+
+    if(frenado!=1){
+        sem_post(&sem_ready);
+        sem_post(&sem_exec);
+    }
 
     return NULL;
 }
 
 void enviar_pf(int socket, op_code code, int num_pag, int pid)
 {
-	t_paquete *paquete = crear_paquete_con_codigo_de_operacion(code);
-	paquete->buffer->size += sizeof(int) * 2;
-	paquete->buffer->stream = malloc(paquete->buffer->size);
+    t_paquete *paquete = crear_paquete_con_codigo_de_operacion(code);
+    paquete->buffer->size += sizeof(int) * 2;
+    paquete->buffer->stream = malloc(paquete->buffer->size);
 
-	int offset = 0;
+    int offset = 0;
 
-	memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
+    memcpy(paquete->buffer->stream + offset, &(pid), sizeof(int));
     offset += sizeof(int);
     memcpy(paquete->buffer->stream + offset, &(num_pag), sizeof(int));
 
-	enviar_paquete(paquete, socket);
-	eliminar_paquete(paquete);
+    enviar_paquete(paquete, socket);
+    eliminar_paquete(paquete);
 }
 
-t_instruccion_fs* inicializar_instruccion_fs(t_instruccion* instr, uint32_t ptr) {
-    t_instruccion_fs* instr_fs = malloc(sizeof(t_instruccion_fs));
+t_instruccion_fs *inicializar_instruccion_fs(t_instruccion *instr, uint32_t ptr)
+{
+    t_instruccion_fs *instr_fs = malloc(sizeof(t_instruccion_fs));
 
     instr_fs->estado = instr->codigo;
     instr_fs->pid = instr->pid;
@@ -945,7 +952,6 @@ t_instruccion_fs* inicializar_instruccion_fs(t_instruccion* instr, uint32_t ptr)
     instr_fs->puntero = ptr;
 
     return instr_fs;
-    
 }
 
 t_resp_file esperar_respuesta_file()
@@ -964,17 +970,19 @@ t_resp_file esperar_respuesta_file()
 
         break;
     }
-   // log_warning(kernel_logger_info, "El codigo que recibi es %s", obtener_nombre_resp_file(respuesta));
+    // log_warning(kernel_logger_info, "El codigo que recibi es %s", obtener_nombre_resp_file(respuesta));
     return respuesta;
 }
 
-void hay_deadlock(char* recurso_deadlock){
-    t_list* nombres_recursos = proceso_en_ejecucion->recursos_asignados;
+void hay_deadlock(char *recurso_deadlock)
+{
+    t_list *nombres_recursos = proceso_en_ejecucion->recursos_asignados;
 
     log_info(kernel_logger_info, "Deadlock detectado: %d - Recursos en posesión: ", proceso_en_ejecucion->pid);
 
-    for(int i=0; i<list_size(nombres_recursos); i++){
-        char* recurso = list_get(nombres_recursos, i);
+    for (int i = 0; i < list_size(nombres_recursos); i++)
+    {
+        char *recurso = list_get(nombres_recursos, i);
         log_info(kernel_logger_info, "%s", recurso);
     }
 

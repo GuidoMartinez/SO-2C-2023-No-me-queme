@@ -72,7 +72,7 @@ int main(int argc, char **argv)
     memoria_file_system = mmap(NULL, tam_memoria_file_system, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (formatear == 1)
         inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
-    inicializar_fcb_list(config_valores_filesystem.path_fcb, filesystem_logger_info);
+    inicializar_fcb_list(config_valores_filesystem.path_fcb);
     int exit_status = crear_fat(config_valores_filesystem.path_fat);
     if (exit_status == -1)
     {
@@ -1122,12 +1122,12 @@ t_instruccion_fs *deserializar_instruccion_file(int socket_cliente)
     memcpy(&(instruccion->param1_length), buffer + offset, sizeof(uint32_t));
     offset += sizeof(uint32_t);
 
+    memcpy(&(instruccion->param2_length), buffer + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
     instruccion->param1 = malloc(instruccion->param1_length);
     memcpy(instruccion->param1, buffer + offset, instruccion->param1_length);
     offset += instruccion->param1_length;
-
-    memcpy(&(instruccion->param2_length), buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
 
     instruccion->param2 = malloc(instruccion->param2_length);
     memcpy(instruccion->param2, buffer + offset, instruccion->param2_length);
@@ -1150,6 +1150,7 @@ void *comunicacion_kernel()
         case OP_FILESYSTEM:
         {
             t_instruccion_fs *nueva_instruccion = deserializar_instruccion_fs(socket_kernel);
+            log_info(filesystem_logger_info, "Instruccion deserializada correctamente");
             uint32_t pid = nueva_instruccion->pid;
             switch (nueva_instruccion->estado)
             {
