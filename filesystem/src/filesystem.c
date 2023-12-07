@@ -19,6 +19,7 @@ int main(int argc, char **argv)
     retardo_acceso_bloque = config_valores_filesystem.retardo_acceso_bloque;
     cant_bloques = config_valores_filesystem.cant_bloques_total;
     tamanio_bloque = config_valores_filesystem.tam_bloque;
+    //fat = malloc(tamanio_fat);
     tam_memoria_file_system = config_valores_filesystem.cant_bloques_total * config_valores_filesystem.tam_bloque;
     tamanio_fat = (config_valores_filesystem.cant_bloques_total - config_valores_filesystem.cant_bloques_swap);
     path_fcb = config_valores_filesystem.path_fcb;
@@ -43,7 +44,7 @@ int main(int argc, char **argv)
     // CONEXION CON MEMORIA PARA F_READ Y F_WRITE
 
     socket_memoria_op = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
-    realizar_handshake(socket_memoria_op, HANDSHAKE_FILESYSTEM_ARCHIVOS, filesystem_logger_info);
+    realizar_handshake(socket_memoria_op, HANDSHAKE_FILESYSTEM_OPS, filesystem_logger_info);
 
     op_code codigo_op = recibir_operacion(socket_memoria_op);
     log_info(filesystem_logger_info, "Se recibio una operacion de MEMORIA - OPS: %d", codigo_op);
@@ -87,11 +88,11 @@ int main(int argc, char **argv)
     
     // inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
     inicializar_fcb_list(config_valores_filesystem.path_fcb);
-    int exit_status = crear_fat(config_valores_filesystem.path_fat);
+    /*int exit_status = crear_fat(config_valores_filesystem.path_fat);
     if (exit_status == -1)
     {
         return -1;
-    }
+    }*/
     pthread_t hilo_cliente;
     pthread_create(&hilo_cliente, NULL, comunicacion_kernel, NULL);
     pthread_detach(hilo_cliente);
