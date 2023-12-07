@@ -766,12 +766,16 @@ void exec_block_fs()
     pthread_mutex_unlock(&mutex_cola_block);
 }
 
-void open_file(char *nombre_archivo, char lock)
+int open_file(char *nombre_archivo, char lock)
 {
     // lista_global_archivos: sacar
     t_archivo_global *archivo = buscarArchivoGlobal(lista_global_archivos, nombre_archivo);
+    if(archivo == NULL){
+        return -1;
+    }
     archivo->lock = lock;
     archivo->contador += 1;
+    return 1;
 }
 
 void fs_interaction()
@@ -798,7 +802,7 @@ void *recibir_op_FS()
         t_resp_file op = recibir_operacion(conexion_filesystem);
         int *pid = malloc(sizeof(int));
         recibir_pid(conexion_filesystem, pid);
-
+        log_warning(kernel_logger_info, "Recibi operacion de fs %d" ,op);
         switch (op)
         {
         case F_ERROR:
@@ -937,7 +941,7 @@ void enviar_pf(int socket, op_code code, int num_pag, int pid)
 t_instruccion_fs *inicializar_instruccion_fs(t_instruccion *instr, uint32_t ptr)
 {
     t_instruccion_fs *instr_fs = malloc(sizeof(t_instruccion_fs));
-
+    
     instr_fs->estado = instr->codigo;
     instr_fs->pid = instr->pid;
     instr_fs->param1_length = instr->longitud_parametro1;
@@ -950,7 +954,6 @@ t_instruccion_fs *inicializar_instruccion_fs(t_instruccion *instr, uint32_t ptr)
     memcpy(instr_fs->param2, instr->parametro2, instr->longitud_parametro2);
 
     instr_fs->puntero = ptr;
-
     return instr_fs;
 }
 

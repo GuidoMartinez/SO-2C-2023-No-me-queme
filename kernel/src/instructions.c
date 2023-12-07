@@ -220,12 +220,18 @@ void kf_open()
 
         sem_post(&sem_hilo_FS);
         sem_wait(&reanudaar_exec);
-        open_file(nombre_archivo, lock);
-    }
-
-    if (archivo_global_pedido->lock == 'W' || lock == 'W')
+        if(open_file(nombre_archivo, lock)==-1){
+            log_warning(kernel_logger_info, "Se creo archivo");
+            crear_archivo_global(nombre_archivo, lock);
+        }
+        
+        crear_archivo_proceso(nombre_archivo, pcbelegido);
+        log_warning(kernel_logger_info, "Hice open file");
+    }else
     {
-
+        if (archivo_global_pedido->lock == 'W' || lock == 'W')
+    {
+        log_warning(kernel_logger_info, "Tenia lock de escritura");
         queue_push(archivo_global_pedido->colabloqueado, pcbelegido);
         exec_block_fs();
 
@@ -238,15 +244,15 @@ void kf_open()
         // if (list_size(lista_ready) > 0) PARA DETENER PLANI
         sem_post(&sem_exec);
     }
+    
+    
     else if (lock == 'R')
     {
+        log_warning(kernel_logger_info, "Tenia lock de lectura");
         archivo_global_pedido->contador++;
     }
-    else
-    {
-        crear_archivo_global(nombre_archivo, lock);
+    
     }
-
     sem_post(&sem_ready);
     // if (list_size(lista_ready) > 0) PARA DETENER PLANI
     sem_post(&sem_exec);
@@ -362,12 +368,17 @@ void kf_truncate()
 
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     char* tamanio = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2;
-
+    log_warning(kernel_logger_info, "La lista de proceso en ejecucion tiene %d elementos", list_size(proceso_en_ejecucion->archivos_abiertos));
+    log_warning(kernel_logger_info, "La lista de pcbelegidos tiene %d elementos", list_size(pcbelegido->archivos_abiertos));
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
 
     log_info(kernel_logger_info, "PID[%d] - Archivo %s - TAMAÑO %s", pcbelegido->pid, nombre_archivo, tamanio);
+    if(archivo_proceso != NULL){
+        log_warning(kernel_logger_info, "El archivo proceso no es NULL");
+    }
+    log_warning(kernel_logger_info, "Voy a inicializar instruccion fs, valor del puntero %s", archivo_proceso->nombreArchivo);
     t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, archivo_proceso->puntero);
-
+    log_warning(kernel_logger_info, "El inicialice intruccion fs");
     enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
     fs_interaction();
 };

@@ -24,12 +24,13 @@ int main(int argc, char **argv)
     path_fcb = config_valores_filesystem.path_fcb;
     path_bloques = config_valores_filesystem.path_bloques;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
-    // fat = malloc(tamanio_fat);
+    //fat = malloc(tamanio_fat);
     swap = malloc(bloques_swap);
     bloques = inicializar_bloque_de_datos(path_bloques, cant_bloques);
     lista_fcb = list_create();
     pthread_mutex_init(&mutex_fat, NULL);
     inicializar_swap();
+    formatear = 1;
 
     // CONEXION MEMORIA SWAP
     socket_memoria_swap = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
@@ -62,7 +63,7 @@ int main(int argc, char **argv)
     default:
         log_error(filesystem_logger_info, "Fallo la comunicacion con KERNEL. Abortando \n");
         abort();
-        // finalizar_memoria();
+        //finalizar_memoria();
         break;
     }
     // Mapeo de memoria
@@ -70,8 +71,8 @@ int main(int argc, char **argv)
     fd = open(config_valores_filesystem.path_bloques, O_RDWR);
     ftruncate(fd, tam_memoria_file_system);
     memoria_file_system = mmap(NULL, tam_memoria_file_system, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (formatear == 1)
-        inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
+    
+    // inicializar_datos_memoria(tam_memoria_file_system, memoria_file_system);
     inicializar_fcb_list(config_valores_filesystem.path_fcb);
     int exit_status = crear_fat(config_valores_filesystem.path_fat);
     if (exit_status == -1)
@@ -274,6 +275,7 @@ void *manejo_conexion_memoria_swap(void *arg)
         default:
             log_error(filesystem_logger_info, "Fallo la comunicacion MEMORIA. Abortando \n");
             finalizar_filesystem();
+            abort();
 
             break;
         }
@@ -367,10 +369,11 @@ int obtener_cantidad_de_bloques(int id_fcb)
     return cant_bloques_fcb;
 }
 
-uint32_t obtener_primer_bloque_libre()
+int obtener_primer_bloque_libre()
 {
     for (uint32_t i = 0; i < tamanio_fat; i++)
     {
+        
         if (fat[i] == -1)
         {
             return i;
@@ -403,6 +406,7 @@ int crear_fat(char *path_fat)
         close(file_descriptor);
         return -1;
     }
+    
     fat = mmap(NULL, tamanio_fat, PROT_READ | PROT_WRITE, MAP_SHARED, file_descriptor, 0);
     if (fat == MAP_FAILED)
     {
@@ -410,6 +414,7 @@ int crear_fat(char *path_fat)
         close(file_descriptor);
         return -1;
     }
+
     if (formatear == 1)
     {
         for (int i = 0; i < tamanio_fat; i++)
@@ -418,6 +423,7 @@ int crear_fat(char *path_fat)
         }
         log_info(filesystem_logger_info, "Tabla FAT formateada exitosamente");
     }
+
     fat[0] = 0;
     log_info(filesystem_logger_info, "Tabla FAT creada");
     return 0;
@@ -625,8 +631,8 @@ uint32_t conseguir_id_fcb(char *nombre_fcb)
 
 fcb_t *buscar_fcb_t(char *nombre_fcb)
 {
-    fcb_t * resultado = NULL; 
-    resultado->bloque_inicial= -1;
+    fcb_t *resultado = NULL;
+    resultado->bloque_inicial = -1;
     uint32_t id_fcb = conseguir_id_fcb(nombre_fcb);
     uint32_t bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
 
@@ -657,19 +663,9 @@ uint32_t buscar_fcb(char *nombre_fcb)
     uint32_t id_fcb = conseguir_id_fcb(nombre_fcb);
     uint32_t bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
 
-    if (bloque_inicial != -1)
+    if (fat[bloque_inicial] != -1)
     {
-        while (bloque_inicial != -1)
-        {
-            fcb_t *fcb = &(fat[bloque_inicial]);
-
-            if (strcmp(fcb->nombre_archivo, nombre_fcb) == 0)
-            {
-                resultado = fcb->id;
-                break;
-            }
-            bloque_inicial = fat[bloque_inicial];
-        }
+        return id_fcb;
     }
     if (resultado == -1)
     {
@@ -816,8 +812,11 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
             log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
             break;
         }
-
-        fat[bloque_actual] = obtener_primer_bloque_libre();
+        if(bloque_actual >= tamanio_fat || bloque_actual < 0){
+            log_warning(filesystem_logger_info, "Indice de bloque fuera del espacio mapeado para FAT");
+        }
+        fat[bloque_actual] = (uint32_t)obtener_primer_bloque_libre();
+        log_warning(filesystem_logger_info, "El valor del bloque actual en fat es %d", fat[bloque_actual]);
         bloque_actual = fat[bloque_actual];
     }
 }
@@ -998,16 +997,16 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
         t_list *paquete_recibido = recibir_paquete(socket_memoria);
         if (paquete_recibido != NULL && list_size(paquete_recibido) > 0)
         {
-            //char *valor_recibido = instruccion_file->param1;
+            // char *valor_recibido = instruccion_file->param1;
             uint32_t id_fcb = buscar_fcb(instruccion_file->param1);
-            modificar_fcb(id_fcb, TAMANIO_ARCHIVO, (uint32_t) tamanio);
+            modificar_fcb(id_fcb, TAMANIO_ARCHIVO, (uint32_t)tamanio);
             bloque_t *lista_bloques = obtener_lista_de_bloques(id_fcb, direccion_fisica, tamanio, filesystem_logger_info);
             if (lista_bloques != NULL)
             {
                 for (int i = 0; i < cantidad_bloques; i++)
                 {
                     bloque_t bloque_info = lista_bloques[i];
-                    void* datos_a_escribir = bloque_info.datos;
+                    void *datos_a_escribir = bloque_info.datos;
                     uint32_t bloque_id = valor_fcb(id_fcb, BLOQUE_INICIAL);
                     uint32_t tamanio_a_escribir = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
                     log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
@@ -1027,13 +1026,12 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
     }
 }
 
-
 void realizar_f_read(t_instruccion_fs *instruccion_file)
 {
     int direccion_fisica = atoi(instruccion_file->param2);
     uint32_t id_fcb = buscar_fcb(instruccion_file->param1);
     log_info(filesystem_logger_info, "Entro a realizar f read");
-    uint32_t id_bloque_inicial = (uint32_t) valor_fcb(id_fcb, BLOQUE_INICIAL);
+    uint32_t id_bloque_inicial = (uint32_t)valor_fcb(id_fcb, BLOQUE_INICIAL);
     int tamanio_restante = atoi(instruccion_file->param1);
     for (uint32_t id_bloque = id_bloque_inicial; tamanio_restante > 0; id_bloque = fat[id_bloque])
     {
@@ -1052,7 +1050,7 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
         if (respuesta == MENSAJE)
         {
             char *mensaje = recibir_mensaje_sin_log(socket_memoria);
-			free(mensaje);
+            free(mensaje);
         }
         tamanio_restante -= bytes_leer;
         direccion_fisica += bytes_leer;

@@ -679,14 +679,14 @@ t_instruccion_fs *deserializar_instruccion_fs(int socket)
 	memcpy(&(instruccion->param1_length), buffer + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
-	instruccion->param1 = realloc(instruccion->param1, instruccion->param1_length);
-	memcpy(instruccion->param1, buffer + offset, instruccion->param1_length);
-	offset += instruccion->param1_length;
-
 	memcpy(&(instruccion->param2_length), buffer + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
-	instruccion->param2 = realloc(instruccion->param2, instruccion->param2_length);
+	instruccion->param1 = malloc(instruccion->param1_length);
+	memcpy(instruccion->param1, buffer + offset, instruccion->param1_length);
+	offset += instruccion->param1_length;
+
+	instruccion->param2 = malloc(instruccion->param2_length);
 	memcpy(instruccion->param2, buffer + offset, instruccion->param2_length);
 	offset += instruccion->param2_length;
 

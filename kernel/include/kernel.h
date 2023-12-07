@@ -122,7 +122,7 @@ int verif_crear_recurso_file(t_archivo_global *);
 t_archivo_global *buscarArchivoGlobal(t_list *, char *);
 void exec_block_fs () ;
 
-void open_file(char*, char);
+int open_file(char*, char);
 void fs_interaction();
 
 void* recibir_op_FS();
