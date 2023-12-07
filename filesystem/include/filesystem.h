@@ -7,7 +7,7 @@
 #include <stdint.h>
 #define UINT32_MAX 4294967295 // Define UINT32_MAX si no está definido
 
-int socket_memoria, server_filesystem, socket_kernel,socket_memoria_swap;
+int socket_memoria_op, server_filesystem, socket_kernel,socket_memoria_swap;
 
 typedef struct // archivo de configuracion filesystem
 {

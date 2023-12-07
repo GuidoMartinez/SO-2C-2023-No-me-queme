@@ -75,7 +75,7 @@ void atender_clientes_memoria()
 {
 	atender_cliente_cpu();
 	atender_cliente_fs_swap();
-	// atender_cliente_fs_archivos();
+	atender_cliente_fs_ops();
 	atender_cliente_kernel();
 }
 
@@ -142,15 +142,15 @@ int atender_cliente_fs_swap()
 	return 0;
 }
 
-int atender_cliente_fs_archivos()
+int atender_cliente_fs_ops()
 {
 
-	socket_fs_arch = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
+	socket_fs_ops = esperar_cliente(server_memoria, logger_memoria_info); // se conecta primero cpu, segundo fs y 3ro kernel
 
-	if (socket_fs_arch != -1)
+	if (socket_fs_ops != -1)
 	{
 		pthread_t hilo_cliente;
-		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem_archivos, (void *)&socket_fs_arch);
+		pthread_create(&hilo_cliente, NULL, manejo_conexion_filesystem_ops, (void *)&socket_fs_ops);
 		pthread_detach(hilo_cliente);
 		return 1;
 	}
@@ -405,7 +405,7 @@ void *manejo_conexion_filesystem_swap(void *arg)
 	return NULL;
 }
 
-void *manejo_conexion_filesystem_archivos(void *arg)
+void *manejo_conexion_filesystem_ops(void *arg)
 {
 
 	socket_fs_archivos = *(int *)arg;
@@ -430,7 +430,7 @@ void *manejo_conexion_filesystem_archivos(void *arg)
 
 			break;*/
 		default:
-			log_error(logger_memoria_info, "Fallo la comunicacion. Abortando \n");
+			log_error(logger_memoria_info, "Fallo la comunicacion con memoria para f read / f write. Abortando \n");
 			abort();
 			// finalizar_memoria();
 			break;

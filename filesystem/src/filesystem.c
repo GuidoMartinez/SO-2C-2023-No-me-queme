@@ -39,12 +39,25 @@ int main(int argc, char **argv)
     pthread_create(&conexion_memoria_swap, NULL, manejo_conexion_memoria_swap, NULL);
     pthread_detach(conexion_memoria_swap);
 
-    /*
-        // CONEXION CON MEMORIA PARA F_READ Y F_WRITE
+    // CONEXION CON MEMORIA PARA F_READ Y F_WRITE
 
-        socket_memoria = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
-        realizar_handshake(socket_memoria, HANDSHAKE_FILESYSTEM_ARCHIVOS, filesystem_logger_info);
-    */
+    socket_memoria_op = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
+    realizar_handshake(socket_memoria_op, HANDSHAKE_FILESYSTEM_ARCHIVOS, filesystem_logger_info);
+
+    op_code codigo_op = recibir_operacion(socket_memoria_op);
+    log_info(filesystem_logger_info, "Se recibio una operacion de MEMORIA - OPS: %d", codigo_op);
+
+    if (codigo_op == HANDSHAKE_MEMORIA)
+    {
+        codigo_op = recibir_handshake(socket_memoria_op, filesystem_logger_info);
+        log_info(filesystem_logger_info, "Deserialice el codigo de operacion %d", socket_memoria_op);
+        log_info(filesystem_logger_info, "HANDSHAKE EXITOSO CON MEMORIA PARA OPs");
+    }
+    else
+    {
+        log_warning(filesystem_logger_info, "No me pude conectar a MEMORIA para F_READ Y F_WRITE");
+    }
+
     // CONEXION CON KERNEL
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
     socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);
@@ -625,8 +638,8 @@ uint32_t conseguir_id_fcb(char *nombre_fcb)
 
 fcb_t *buscar_fcb_t(char *nombre_fcb)
 {
-    fcb_t * resultado = NULL; 
-    resultado->bloque_inicial= -1;
+    fcb_t *resultado = NULL;
+    resultado->bloque_inicial = -1;
     uint32_t id_fcb = conseguir_id_fcb(nombre_fcb);
     uint32_t bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
 
@@ -998,16 +1011,16 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
         t_list *paquete_recibido = recibir_paquete(socket_memoria);
         if (paquete_recibido != NULL && list_size(paquete_recibido) > 0)
         {
-            //char *valor_recibido = instruccion_file->param1;
+            // char *valor_recibido = instruccion_file->param1;
             uint32_t id_fcb = buscar_fcb(instruccion_file->param1);
-            modificar_fcb(id_fcb, TAMANIO_ARCHIVO, (uint32_t) tamanio);
+            modificar_fcb(id_fcb, TAMANIO_ARCHIVO, (uint32_t)tamanio);
             bloque_t *lista_bloques = obtener_lista_de_bloques(id_fcb, direccion_fisica, tamanio, filesystem_logger_info);
             if (lista_bloques != NULL)
             {
                 for (int i = 0; i < cantidad_bloques; i++)
                 {
                     bloque_t bloque_info = lista_bloques[i];
-                    void* datos_a_escribir = bloque_info.datos;
+                    void *datos_a_escribir = bloque_info.datos;
                     uint32_t bloque_id = valor_fcb(id_fcb, BLOQUE_INICIAL);
                     uint32_t tamanio_a_escribir = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
                     log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
@@ -1027,13 +1040,12 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
     }
 }
 
-
 void realizar_f_read(t_instruccion_fs *instruccion_file)
 {
     int direccion_fisica = atoi(instruccion_file->param2);
     uint32_t id_fcb = buscar_fcb(instruccion_file->param1);
     log_info(filesystem_logger_info, "Entro a realizar f read");
-    uint32_t id_bloque_inicial = (uint32_t) valor_fcb(id_fcb, BLOQUE_INICIAL);
+    uint32_t id_bloque_inicial = (uint32_t)valor_fcb(id_fcb, BLOQUE_INICIAL);
     int tamanio_restante = atoi(instruccion_file->param1);
     for (uint32_t id_bloque = id_bloque_inicial; tamanio_restante > 0; id_bloque = fat[id_bloque])
     {
@@ -1052,7 +1064,7 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
         if (respuesta == MENSAJE)
         {
             char *mensaje = recibir_mensaje_sin_log(socket_memoria);
-			free(mensaje);
+            free(mensaje);
         }
         tamanio_restante -= bytes_leer;
         direccion_fisica += bytes_leer;
