@@ -14,6 +14,10 @@ void exit_pcb(void)
         liberar_recursos(pcb);
 
         pcb_destroy(pcb);
+        if (list_size(lista_ready_detenidos)> 0){
+list_add(lista_ready,list_get(lista_ready_detenidos,0));
+        }
+        
         sem_post(&sem_ready);
         if (frenado != 1)
         {
@@ -66,6 +70,7 @@ t_pcb *safe_pcb_remove(t_list *list, pthread_mutex_t *mutex)
     pthread_mutex_lock(mutex);
     pcb = list_remove(list, 0);
     pthread_mutex_unlock(mutex);
+     log_info(kernel_logger_info, "fifo%d", pcb->pid);
     return pcb;
 }
 void pcb_create(int prio, int tamano, int pid_ok)
@@ -217,7 +222,7 @@ void ready_pcb(void)
         else
         {
             t_pcb *pcb = safe_pcb_remove(cola_listos_para_ready, &mutex_cola_listos_para_ready);
-            log_info(kernel_logger_info, "Pase a READY el PCB: %d", pcb->pid);
+           // log_info(kernel_logger_info, "Pase a READY el PCB: %d", pcb->pid);
             pthread_mutex_lock(&leer_grado);
             int procesos_ready = list_size(lista_ready);
             int procesos_exec = list_size(cola_exec);
@@ -225,13 +230,15 @@ void ready_pcb(void)
 
             int procesos_activos = procesos_ready + procesos_exec + procesos_bloqueado;
 
-            if (procesos_activos <= sem.g_multiprog_ini)
+            log_info(kernel_logger_info, "READY %d EXEC %d BLOQUEADOS %d",procesos_ready,procesos_exec,procesos_bloqueado);
+            
+            if (procesos_activos < sem.g_multiprog_ini)
             {
 
-                // procesos_activos = procesos_activos + 1;
-                pthread_mutex_unlock(&leer_grado);
+                procesos_activos= procesos_activos + 1;
+               
                 set_pcb_ready(pcb);
-                if (ALGORITMO_PLANIFICACION == PRIORIDADES)
+                if (ALGORITMO_PLANIFICACION == PRIORIDADES) //detener_planificacion
                 {
                     if (proceso_en_ejecucion != NULL)
                     {
@@ -249,15 +256,18 @@ void ready_pcb(void)
                 {
                     sem_post(&sem_ready);
                 }
-                // else {
-                // sem_wait(&sem_detener);
-                // log_info(kernel_logger_info,"Me frene");
-                //   }
+               
             }
             else
             {
                 log_info(kernel_logger_info, "Excede grado de multiprogramacion");
+                pthread_mutex_lock(&mutex_cola_exit);
+                list_add(lista_ready_detenidos, pcb);
+                pthread_mutex_unlock(&mutex_cola_exit);
+                
+               
             }
+            pthread_mutex_unlock(&leer_grado);
         }
     }
 }

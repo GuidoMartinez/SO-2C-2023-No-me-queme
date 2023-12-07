@@ -408,7 +408,7 @@ void iniciar_planificacion()
     if (frenado)
     {
         log_info(kernel_logger_info, "entre a iniciar plani dsp de haber frenado");
-        list_add_all(lista_ready, lista_ready_detenidos);
+        //list_add_all(lista_ready, lista_ready_detenidos);
         sem_post(&sem_detener);
         sem_post(&sem_detener_sleep);
         sem_post(&sem_ready);
@@ -430,11 +430,11 @@ void detener_planificacion()
     pthread_mutex_lock(&mutex_cola_ready);
     // pthread_mutex_lock(&mutex_cola_exec);
 
-    list_add_all(lista_ready_detenidos, lista_ready);
+   /// list_add_all(lista_ready_detenidos, lista_ready);
     // list_add_all(cola_block, lista_block_detenidos);
     // list_add_all(cola_exec, lista_exec_detenidos);
 
-    list_clean(lista_ready);
+    //list_clean(lista_ready);
     // list_clean(cola_exec);
     pthread_mutex_unlock(&mutex_cola_ready);
     // pthread_mutex_unlock(&mutex_cola_exec);
