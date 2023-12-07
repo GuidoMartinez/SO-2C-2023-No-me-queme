@@ -25,8 +25,6 @@ int main(int argc, char **argv)
     path_bloques = config_valores_filesystem.path_bloques;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
     path_fat = config_valores_filesystem.path_fat;
-    // fat = malloc(tamanio_fat);
-    swap = malloc(bloques_swap);
     lista_fcb = list_create();
     pthread_mutex_init(&mutex_fat, NULL);
     inicializar_swap();
@@ -93,15 +91,16 @@ int main(int argc, char **argv)
     pthread_t hilo_cliente;
     pthread_create(&hilo_cliente, NULL, comunicacion_kernel, NULL);
     pthread_detach(hilo_cliente);
-    while (1);
+    while (1)
+        ;
     abort();
 }
 
-void* leer_bloque_swap(uint32_t numero_bloque)
+void *leer_bloque_swap(uint32_t numero_bloque)
 {
-    void* datos = NULL;
+    void *datos = NULL;
     FILE *archivo_bloques = fopen(path_bloques, "rb");
-    numero_bloque += tamanio_fat-1;
+    numero_bloque += tamanio_fat - 1;
     if (archivo_bloques == NULL)
     {
         log_error(filesystem_logger_info, "Error al abrir el archivo de Bloques para lectura");
@@ -177,7 +176,7 @@ void liberar_bloques_swap(t_list *lista_bloques_a_liberar)
             void *valor_libre = malloc(tamanio_bloque);
             memset(valor_libre, 0, tamanio_bloque);
             escribir_bloque_swap(nro_bloque, valor_libre);
-            free(valor_libre); 
+            free(valor_libre);
         }
         else
         {
@@ -397,14 +396,14 @@ int crear_archivo_bloques(char *path_bloques)
     }
     fflush(archivo_bloques);
     fclose(archivo_bloques);
-    
+
     log_info(filesystem_logger_info, "Archivo de bloques creado");
     return 0;
 }
 
-void* leer_bloque(uint32_t numero_bloque)
+void *leer_bloque(uint32_t numero_bloque)
 {
-    void* datos = NULL;
+    void *datos = NULL;
     FILE *archivo_bloques = fopen(path_bloques, "rb");
     if (archivo_bloques == NULL)
     {
@@ -436,7 +435,7 @@ int crear_fat(char *path_fat)
     }
     fflush(archivo_fat);
     fclose(archivo_fat);
-    
+
     log_info(filesystem_logger_info, "Tabla FAT creada");
     return 0;
 }
@@ -447,7 +446,7 @@ uint32_t posicion_en_fat(uint32_t posicion)
     if (archivo_fat == NULL)
     {
         log_error(filesystem_logger_info, "Error al abrir el archivo FAT");
-        return -1; 
+        return -1;
     }
 
     fseek(archivo_fat, posicion * sizeof(uint32_t), SEEK_SET);
@@ -466,7 +465,7 @@ void modificar_en_fat(uint32_t posicion, uint32_t nuevo_valor)
     if (archivo_fat == NULL)
     {
         log_error(filesystem_logger_info, "Error al abrir el archivo FAT");
-        return -1; 
+        return -1;
     }
 
     fseek(archivo_fat, posicion * sizeof(uint32_t), SEEK_SET);
@@ -488,7 +487,7 @@ void inicializar_swap()
     }
 
     uint32_t valor_swap = 0;
-    for (uint32_t i = tamanio_fat-1; i < bloques_swap; i++)
+    for (uint32_t i = tamanio_fat - 1; i < bloques_swap; i++)
     {
         fwrite(&valor_swap, tamanio_bloque, 1, archivo_bloques);
     }
@@ -612,7 +611,7 @@ int crear_fcb(char *nombre_fcb)
     {
         uint32_t fcb_id = list_size(lista_fcb);
         nuevo_fcb->id = fcb_id;
-        fcb_id++;  // Incrementa después de asignar
+        fcb_id++; // Incrementa después de asignar
     }
 
     nuevo_fcb->nombre_archivo = string_new();
@@ -906,7 +905,7 @@ void escribir_datos(void *datos, int cant_bloques, fcb_t *id_fcb)
         }
         else
         {
-            
+
             bloque_siguiente = posicion_en_fat(bloque_id);
         }
         escribir_bloque(bloque_id, datos);
@@ -935,7 +934,7 @@ bloque_t *obtener_lista_de_bloques(int id_fcb, int p_seek, int tam_a_leer, t_log
     {
         int tam_restante = tam_a_leer - tam_leido;
         int bytes_leer = (tam_restante < tamanio_bloque) ? tam_restante : tamanio_bloque;
-        //lista_bloques[idx_bloque].datos = leer_bloque(bloque_actual);
+        // lista_bloques[idx_bloque].datos = leer_bloque(bloque_actual);
         tam_leido += bytes_leer;
         idx_bloque++;
         bloque_actual = posicion_en_fat(bloque_actual);
@@ -971,31 +970,27 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
     int direccion_fisica = atoi(instruccion_file->param2);
     int tamanio = tamanio_bloque;
     int cantidad_bloques = (int)ceil((double)tamanio / tamanio_bloque);
-    enviar_op_con_int(socket_memoria_op,F_WRITE_FS,direccion_fisica);
-    
+    enviar_op_con_int(socket_memoria_op, F_WRITE_FS, direccion_fisica);
 
-
-    
     op_code codigo = recibir_operacion(socket_memoria_op);
     if (codigo == F_WRITE_FS)
     {
 
-	int size; // PODES CHEQUEAR QUE SIZE SEA > 0.
-	void *bloque_a_escribir = recibir_buffer(&size, socket);
+        int size; // PODES CHEQUEAR QUE SIZE SEA > 0.
+        void *bloque_a_escribir = recibir_buffer(&size, socket);
 
+        // Enunciado: F_WRITE (Nombre Archivo, Dirección Lógica): Esta instrucción solicita al Kernel que se escriba en el archivo indicado la información que es
+        // obtenida a partir de la dirección física de Memoria.
 
-// Enunciado: F_WRITE (Nombre Archivo, Dirección Lógica): Esta instrucción solicita al Kernel que se escriba en el archivo indicado la información que es 
-// obtenida a partir de la dirección física de Memoria.
+        // F_WIRTE - FS: solicitará al módulo File System que escriba en el archivo desde la dirección física de memoria recibida por parámetro (y el puntero que deberia apuntar al primer byte del bloque)
 
-// F_WIRTE - FS: solicitará al módulo File System que escriba en el archivo desde la dirección física de memoria recibida por parámetro (y el puntero que deberia apuntar al primer byte del bloque)
-
-// DE ACA PARA ABAJO, tenes que guardar bloque_a_escribir en donde te dice la instruccion (es 1 solo bloque el que se escribe)
-//
+        // DE ACA PARA ABAJO, tenes que guardar bloque_a_escribir en donde te dice la instruccion (es 1 solo bloque el que se escribe)
+        //
 
         t_list *paquete_recibido = recibir_paquete(socket_memoria);
         if (paquete_recibido != NULL && list_size(paquete_recibido) > 0)
         {
-            // char *valor_recibido = instruccion_file->param1;
+            char *valor_recibido = instruccion_file->param1;
             uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
             modificar_fcb(id_fcb, TAMANIO_ARCHIVO, (uint32_t)tamanio);
             bloque_t *lista_bloques = obtener_lista_de_bloques(id_fcb, direccion_fisica, tamanio, filesystem_logger_info);
@@ -1004,10 +999,11 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
                 for (int i = 0; i < cantidad_bloques; i++)
                 {
                     bloque_t bloque_info = lista_bloques[i];
-                    void *datos_a_escribir = bloque_info.datos;
+                    void *datos_a_escribir = bloque_a_escribir + i * tamanio_bloque;
                     uint32_t bloque_id = valor_fcb(id_fcb, BLOQUE_INICIAL);
-                    uint32_t tamanio_a_escribir = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
+                    uint32_t tamanio_a_escribir = tamanio;
                     log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
+
                     pthread_mutex_lock(&mutex_fat);
                     if (posicion_en_fat(bloque_id) == 0)
                     {
@@ -1015,7 +1011,8 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
                         modificar_en_fat(bloque_id, id_fcb);
                     }
                     pthread_mutex_unlock(&mutex_fat);
-                    escribir_datos(bloque_info.datos, cantidad_bloques, lista_bloques);
+
+                    escribir_datos(datos_a_escribir, tamanio_a_escribir, lista_bloques);
                 }
                 free(lista_bloques);
             }
@@ -1026,11 +1023,15 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
 
 void realizar_f_read(t_instruccion_fs *instruccion_file) // ver comentarios al final
 {
-    int direccion_fisica = atoi(instruccion_file->param2);
+    int direccion_fisica = (instruccion_file->puntero);
     uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
     log_info(filesystem_logger_info, "Entro a realizar f read");
     uint32_t id_bloque_inicial = (uint32_t)valor_fcb(id_fcb, BLOQUE_INICIAL);
-    int tamanio_restante = direccion_fisica; // TODO -- TOMAS -- el parametro 1 es el nombre del archivo, aca que pasa_
+    int tamanio_restante = (instruccion_file->param2); // TODO -- TOMAS -- el parametro 1 es el nombre del archivo, aca que pasa
+
+    // Crear un buffer para almacenar los datos leídos
+    void *bloque_leido = malloc(tamanio_bloque);
+    void *bloque_leer_temporal = bloque_leido;  //TODO
     for (uint32_t id_bloque = id_bloque_inicial; tamanio_restante > 0; id_bloque = posicion_en_fat(id_bloque))
     {
         void *datos = leer_bloque(id_bloque);
@@ -1086,7 +1087,7 @@ void realizar_f_read(t_instruccion_fs *instruccion_file) // ver comentarios al f
     }
     else
     {
-        log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria",cod_f_read);
+        log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria", cod_f_read);
     }
 }
 
