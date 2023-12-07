@@ -15,31 +15,37 @@ void exit_pcb(void)
 
         pcb_destroy(pcb);
         sem_post(&sem_ready);
-        if (list_size(lista_ready) > 0)
-            sem_post(&sem_exec);
+        if (frenado != 1)
+        {
+            if (list_size(lista_ready) > 0)
+                sem_post(&sem_exec);
+        }
     }
 }
 
-void pcb_destroy(t_pcb *pcb){
+void pcb_destroy(t_pcb *pcb)
+{
     log_info(kernel_logger_info, "Entre al destroy ");
 
+    if (list_size(pcb->archivos_abiertos) > 0)
+    {
+        for (int i = 0; i <= list_size(pcb->archivos_abiertos); i++)
+        {
+            t_archivo_global *archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, list_get(pcb->archivos_abiertos, i));
+            if (archivo_global == NULL)
+            {
+                continue;
+            }
+            archivo_global->contador--;
 
-if (list_size(pcb->archivos_abiertos)>0){  
-    for(int i = 0; i <= list_size(pcb->archivos_abiertos); i++){
-        t_archivo_global* archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, list_get(pcb->archivos_abiertos, i));
-        if(archivo_global == NULL){
-            continue;
-        }
-        archivo_global->contador--;
- 
-        if(archivo_global->contador == 0){
-            list_remove_element(lista_archivos_abiertos, archivo_global);
-            free(archivo_global->nombreArchivo);
-            free(archivo_global);
+            if (archivo_global->contador == 0)
+            {
+                list_remove_element(lista_archivos_abiertos, archivo_global);
+                free(archivo_global->nombreArchivo);
+                free(archivo_global);
+            }
         }
     }
- }
-
 
     list_destroy(pcb->archivos_abiertos);
 
@@ -90,7 +96,8 @@ void pcb_create(int prio, int tamano, int pid_ok)
 t_pcb *elegir_pcb_segun_algoritmo()
 {
 
-    if(list_size(lista_ready)==0){
+    if (list_size(lista_ready) == 0)
+    {
         exit(1);
     }
     switch (ALGORITMO_PLANIFICACION)
@@ -139,13 +146,13 @@ void cambiar_estado(t_pcb *pcb, estado_proceso nuevo_estado)
 {
     if (pcb->estado != nuevo_estado)
     {
-        //char* nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
-        //char* estado_anterior_string = strdup(estado_to_string(pcb->estado));
-        //log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, strdup(estado_to_string(pcb->estado)), strdup(estado_to_string(nuevo_estado))); 
+        // char* nuevo_estado_string = strdup(estado_to_string(nuevo_estado));
+        // char* estado_anterior_string = strdup(estado_to_string(pcb->estado));
+        // log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, strdup(estado_to_string(pcb->estado)), strdup(estado_to_string(nuevo_estado)));
         pcb->estado = nuevo_estado;
-        //log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, estado_anterior_string, nuevo_estado_string); 
-        //free(estado_anterior_string);
-        //free(nuevo_estado_string);
+        // log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb->pid, estado_anterior_string, nuevo_estado_string);
+        // free(estado_anterior_string);
+        // free(nuevo_estado_string);
     }
 }
 
@@ -187,10 +194,10 @@ void planificar_largo_plazo()
 }
 
 void planificar_corto_plazo()
-{    
+{
     log_info(kernel_logger_info, "Entre corto plazo");
     pthread_t hilo_corto_plazo, hilo_quantum;
-    
+
     pthread_create(&hilo_corto_plazo, NULL, (void *)exec_pcb, NULL);
     pthread_detach(hilo_corto_plazo);
     pthread_create(&hilo_quantum, NULL, (void *)quantum_interrupter, NULL);
@@ -221,7 +228,7 @@ void ready_pcb(void)
             if (procesos_activos <= sem.g_multiprog_ini)
             {
 
-                //procesos_activos = procesos_activos + 1;
+                // procesos_activos = procesos_activos + 1;
                 pthread_mutex_unlock(&leer_grado);
                 set_pcb_ready(pcb);
                 if (ALGORITMO_PLANIFICACION == PRIORIDADES)
@@ -246,8 +253,11 @@ void ready_pcb(void)
                 // sem_wait(&sem_detener);
                 // log_info(kernel_logger_info,"Me frene");
                 //   }
-            } else {
-            log_info(kernel_logger_info,"Excede grado de multiprogramacion"); }
+            }
+            else
+            {
+                log_info(kernel_logger_info, "Excede grado de multiprogramacion");
+            }
         }
     }
 }
@@ -292,10 +302,11 @@ void exec_pcb()
 
         proceso_en_ejecucion = pcbelegido; // TODO -- CHEQUEAR QUE NO ROMPA EN OTRO LADO GONZA
 
-        if(pcbelegido->contexto_ejecucion->motivo_desalojado == PAGE_FAULT){
+        if (pcbelegido->contexto_ejecucion->motivo_desalojado == PAGE_FAULT)
+        {
             log_info(kernel_logger_info, "El proceso %d fue desalojado por PAGE FAULT", proceso_en_ejecucion->pid);
 
-            args_pf* args = malloc(sizeof(args_pf));
+            args_pf *args = malloc(sizeof(args_pf));
             args->pid = proceso_en_ejecucion->pid;
             args->num_pf = pcbelegido->contexto_ejecucion->nro_pf;
 
@@ -325,21 +336,21 @@ void exec_pcb()
             break;
         case F_OPEN:
             kf_open();
-        break;
+            break;
         case F_CLOSE:
             kf_close();
-        break;
+            break;
         case F_SEEK:
             kf_seek();
         case F_READ:
             kf_read();
-        break;
+            break;
         case F_WRITE:
             kf_write();
-        break;
+            break;
         case F_TRUNCATE:
             kf_truncate();
-        break;
+            break;
         default:
             log_info(kernel_logger_info, "Entre al default");
             safe_pcb_remove(cola_exec, &mutex_cola_exec);
@@ -348,8 +359,6 @@ void exec_pcb()
             sem_post(&sem_exec);
             break;
         }
-
-
     }
 
     // TODO: Chequear estos free
@@ -424,7 +433,8 @@ void remove_blocked(int pid)
     }
 }
 
-void remove_ready(int pid){
+void remove_ready(int pid)
+{
     bool _proceso_id(void *elemento)
     {
         return ((t_pcb *)elemento)->pid == pid;

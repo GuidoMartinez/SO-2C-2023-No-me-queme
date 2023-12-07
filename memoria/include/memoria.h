@@ -10,6 +10,7 @@ t_list *paginas_utilizadas;
 t_proceso_memoria *proceso_memoria;
 
 op_code resp_code_fs;
+uint32_t global_pid_pedido;
 
 int server_memoria, socket_fs, socket_fs_arch, socket_cpu, socket_kernel, socket_fs_int, socket_cpu_int, socket_kernel_int, socket_fs_archivos;
 int tamanio_memoria, indice_tabla;
@@ -89,7 +90,7 @@ void *recibir_bloque_swap(int);
 double marcosTotales();
 void inicializar_marcos();
 t_list *obtener_marcos_pid(uint32_t);
-bool mismo_pid_marco(t_marco *, int);
+bool mismo_pid_marco(t_marco *);
 int asignar_marco_libre(uint32_t);
 void liberar_marco_indice(int);
 void liberar_marcos_proceso(uint32_t);

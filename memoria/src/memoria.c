@@ -186,7 +186,7 @@ void *manejo_conexion_cpu(void *arg)
 			uint32_t pid, pc;
 			pedido_instruccion(&pid, &pc, socket_cpu_int);
 			t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
-			log_info("Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
+			log_info(logger_memoria_info,"Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s \n", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
 			enviar_instruccion(socket_cpu_int, instruccion_pedida);
 			break;
 		case MARCO:
@@ -650,7 +650,7 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *entrada)
 	if (entrada_existente == NULL)
 	{
 		// Si la entrada no existe, agrégala a la lista
-		log_error("marco de la entrada: %d", entrada->marco);
+		log_error(logger_memoria_info,"marco de la entrada: %d", entrada->marco);
 		list_add(paginas_utilizadas, entrada);
 	}
 	pthread_mutex_unlock(&mutex_fifo);
@@ -747,6 +747,7 @@ t_entrada_tabla_pag *obtener_entrada_menor_tiempo_lru(t_list *lista_entradas)
 t_entrada_tabla_pag *obtenerPaginaFIFO()
 {
 	pthread_mutex_lock(&mutex_fifo);
+	log_error(logger_memoria_info, "List size de paginas utilizadas antes de sacar pag a reemplazar %d", list_size(paginas_utilizadas));
 	t_entrada_tabla_pag *pagina = list_remove(paginas_utilizadas, 0);
 	pthread_mutex_unlock(&mutex_fifo);
 	return pagina;
@@ -850,16 +851,16 @@ t_list *obtener_total_pags_en_memoria(t_list *lista_procesos)
 
 t_list *obtener_marcos_pid(uint32_t pid_pedido)
 {
-
+	global_pid_pedido = pid_pedido;
 	pthread_mutex_lock(&mutex_marcos);
 	t_list *marcos_proceso = (t_list *)list_filter(marcos, mismo_pid_marco);
 	pthread_mutex_unlock(&mutex_marcos);
 	return marcos_proceso;
 }
 
-bool mismo_pid_marco(t_marco *marco, int pid)
+bool mismo_pid_marco(t_marco *marco)
 {
-	return marco->pid == pid;
+	return marco->pid == global_pid_pedido;
 }
 
 bool es_marco_libre(void *elemento)
@@ -911,6 +912,11 @@ void liberar_marcos_proceso(uint32_t pid_a_liberar)
 		liberar_marco_indice(marco_proximamente_libre->num_de_marco);
 
 		log_error(logger_memoria_info, "se libera marco: %d", marco_proximamente_libre->num_de_marco);
+	}
+
+	for (int j = 0; j < list_size(marcos);j++) {
+		t_marco* marquito = list_get(marcos,j);
+		log_warning(logger_memoria_info,"El marco en la posicion %d con indice %d tiene como pid %d ",j,marquito->num_de_marco, marquito->pid);
 	}
 
 }
