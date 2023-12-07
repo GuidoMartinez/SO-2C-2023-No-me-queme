@@ -65,7 +65,7 @@ bloque_t crear_bloque_vacio(int);
 bloque_t *inicializar_bloque_de_datos(const char *, int);
 void inicializar_datos_memoria(int, void *);
 int obtener_cantidad_de_bloques(int);
-uint32_t obtener_primer_bloque_libre();
+int obtener_primer_bloque_libre();
 bool bloque_esta_ocupado(uint32_t *, int);
 int crear_fat(char *);
 void inicializar_swap();

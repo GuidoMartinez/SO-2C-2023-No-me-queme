@@ -280,21 +280,29 @@ void exec_pcb()
         sem_wait(&sem_ready);
         sem_wait(&sem_exec);
         log_info(kernel_logger_info, "Entre a hilo exec");
-        if (list_size(lista_ready) < 1)
+        if (list_size(lista_ready) < 1 && proceso_en_ejecucion == NULL)
         {
             log_info(kernel_logger_info, "Lista ready vacia");
             continue;
         }
-
+        if(proceso_en_ejecucion == NULL){
+            log_warning(kernel_logger_info, "Proceso en ejecucion es NULL");
+        }
+        else {
+            log_warning(kernel_logger_info, "Motivo de desalojo %d", proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado);
+        }
         if (proceso_en_ejecucion == NULL || proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL)
         {
+            log_warning(kernel_logger_info, "Tengo que elegir pcb segun algoritmo");
             pcbelegido = elegir_pcb_segun_algoritmo();
             proceso_admitido(pcbelegido);
         }
         else
         {
+            log_warning(kernel_logger_info, "Proceso en ejecucion es el pcb elegido");
             pcbelegido = proceso_en_ejecucion;
         }
+        log_warning(kernel_logger_info, "Envie contexto");
         enviar_contexto(conexion_cpu_dispatch, pcbelegido->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcbelegido->pid, pcbelegido->contexto_ejecucion->program_counter);
 
@@ -329,7 +337,7 @@ void exec_pcb()
 
         int codigo_instruccion = pcbelegido->contexto_ejecucion->codigo_ultima_instru;
         log_info(kernel_logger_info, "Volvio PID %d con codigo inst %d ", ultimo_contexto->pid, pcbelegido->contexto_ejecucion->codigo_ultima_instru);
-
+        pcbelegido->contexto_ejecucion->instruccion_ejecutada->pid = pcbelegido->pid;
         switch (codigo_instruccion)
         {
         case EXIT:

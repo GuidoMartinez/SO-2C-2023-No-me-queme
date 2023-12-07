@@ -115,18 +115,21 @@ void _mov_out(char *direc_logica, char *registro)
 void _f_open(char *nombre_archivo, char *modo_apertura)
 {
     contexto_actual->codigo_ultima_instru = F_OPEN;
+    contexto_actual->motivo_desalojado = SYSCALL;
 }
 
 // Solicita al kernel que cierre el archivo pasado por parámetro.
 void _f_close(char *nombre_archivo)
 {
     contexto_actual->codigo_ultima_instru = F_CLOSE;
+    contexto_actual->motivo_desalojado = SYSCALL;
 }
 
 // Solicita al kernel actualizar el puntero del archivo a la posición pasada por parámetro.
 void _f_seek(char *nombre_archivo, char *posicion)
 {
     contexto_actual->codigo_ultima_instru = F_SEEK;
+    contexto_actual->motivo_desalojado = SYSCALL;
 }
 
 // Solicita al Kernel que se lea del archivo indicado y
@@ -136,6 +139,7 @@ void _f_read(char *nombre_archivo, char *direc_logica)
     traducir_dl_fs(direc_logica);
 
     contexto_actual->codigo_ultima_instru = F_READ;
+    contexto_actual->motivo_desalojado = SYSCALL;
 }
 
 // Solicita al Kernel que se escriba en el archivo indicado l
@@ -145,12 +149,14 @@ void _f_write(char *nombre_archivo, char *direc_logica)
     traducir_dl_fs(direc_logica);
 
     contexto_actual->codigo_ultima_instru = F_WRITE;
+    contexto_actual->motivo_desalojado = SYSCALL;
 }
 
 //  Solicita al Kernel que se modifique el tamaño del archivo al indicado por parámetro.
 void _f_truncate(char *nombre_archivo, char *tamanio)
 {
     contexto_actual->codigo_ultima_instru = F_TRUNCATE;
+    contexto_actual->motivo_desalojado = SYSCALL;
 }
 
 // representa la syscall de finalización del proceso.
