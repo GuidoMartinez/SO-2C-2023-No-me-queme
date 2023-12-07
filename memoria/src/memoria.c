@@ -902,11 +902,17 @@ void liberar_marcos_proceso(uint32_t pid_a_liberar)
 	log_info(logger_memoria_info, "Liberando los marcos ocupados por el PID [%d]", pid_a_liberar);
 
 	t_list *marcos_proceso = obtener_marcos_pid(pid_a_liberar);
+
+	log_error(logger_memoria_info, "cantidad de marcos: %d", list_size(marcos_proceso));
+
 	for (int i = 0; i < list_size(marcos_proceso); i++)
 	{
-		t_marco *marco_proximamente_libre = list_get(marcos, i);
+		t_marco *marco_proximamente_libre = list_get(marcos_proceso, i);
 		liberar_marco_indice(marco_proximamente_libre->num_de_marco);
+
+		log_error(logger_memoria_info, "se libera marco: %d", marco_proximamente_libre->num_de_marco);
 	}
+
 }
 
 void recibir_pedido_marco(int *pid_tr, int *index, int socket)
@@ -962,14 +968,8 @@ void marcar_pag_modificada(int pid_mod, int marco_mod)
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
 	log_error(logger_memoria_info, "cantidad de paginas: %d - tamaño de la lista total: %d - lista en memoria: %d", proceso->tabla_paginas->cantidad_paginas , list_size(proceso->tabla_paginas->entradas_tabla), list_size(paginas_en_memoria) );
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco_mod);
-	t_entrada_tabla_pag *pagina_log = list_get(paginas_en_memoria,0);
-	log_error(logger_memoria_info, "marco: %d - indice: %d - marco en pagina: %d", marco_mod, pagina_log->indice, pagina_log->marco);
+	log_error(logger_memoria_info, "marco: %d - indice: %d - marco en pagina: %d", marco_mod, pagina_modificada->indice, pagina_modificada->marco);
 
-	if(pagina_modificada == NULL)
-	{
-		log_error(logger_memoria_info, "pagina modificada es null");
-	}
-	log_error(logger_memoria_info, "indice: %d", pagina_modificada->indice);
 	cambiar_bit_modificado(proceso, pagina_modificada->indice, 1);
 	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 }
@@ -1316,6 +1316,7 @@ void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero l
     t_list* paginas_a_elminar = proceso_a_eliminar->tabla_paginas->entradas_tabla;
     int cantidad_entradas = proceso_a_eliminar->tabla_paginas->cantidad_paginas;
 
+	log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
 
     // libero paginas del proces oen FIFO
     for(int i = 0; i < cantidad_entradas; i++) {
@@ -1325,6 +1326,7 @@ void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero l
         pthread_mutex_unlock(&mutex_fifo);
     }
 
+	log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
 
     list_destroy_and_destroy_elements(proceso_a_eliminar->tabla_paginas->entradas_tabla, free);
     free(proceso_a_eliminar->path);
