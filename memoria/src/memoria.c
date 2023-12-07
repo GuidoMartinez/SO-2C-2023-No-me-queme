@@ -452,7 +452,10 @@ void send_page_size(uint32_t tam_pagina, int socket)
 t_list *parsear_instrucciones(char *path)
 {
 	t_list *instrucciones = list_create();
-	char *pseudo_codigo_leido = leer_archivo(path);
+	char*path_completo = string_new();
+	string_append(&path_completo, "./cfg/");
+	string_append(&path_completo, path);
+	char *pseudo_codigo_leido = leer_archivo(path_completo);
 	char **split_instrucciones = string_split(pseudo_codigo_leido, "\n");
 	int indice_split = 0;
 	while (split_instrucciones[indice_split] != NULL)
@@ -530,6 +533,7 @@ t_list *parsear_instrucciones(char *path)
 	free(pseudo_codigo_leido);
 	string_iterate_lines(split_instrucciones, (void (*)(char *))free);
 	free(split_instrucciones);
+	free(path_completo);
 	return instrucciones;
 }
 
