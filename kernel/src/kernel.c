@@ -184,7 +184,6 @@ int main(int argc, char **argv)
     while (1)
     {
         char *linea;
-        
 
         linea = readline(">");
 
@@ -317,15 +316,15 @@ void finalizar_kernel()
     close(conexion_cpu_interrupt);
     close(conexion_memoria);
     close(conexion_filesystem);
-    free (config_valores_kernel.ip_memoria);
-    free (config_valores_kernel.puerto_memoria);
-    free (config_valores_kernel.ip_filesystem);
-    free (config_valores_kernel.puerto_filesystem);
-    free (config_valores_kernel.ip_cpu);
-    free (config_valores_kernel.puerto_cpu_dispatch);
-    free (config_valores_kernel.puerto_cpu_interrupt);
-    free (config_valores_kernel.algoritmo_planificacion);
-    free (config_valores_kernel.algoritmo_planificacion);
+    free(config_valores_kernel.ip_memoria);
+    free(config_valores_kernel.puerto_memoria);
+    free(config_valores_kernel.ip_filesystem);
+    free(config_valores_kernel.puerto_filesystem);
+    free(config_valores_kernel.ip_cpu);
+    free(config_valores_kernel.puerto_cpu_dispatch);
+    free(config_valores_kernel.puerto_cpu_interrupt);
+    free(config_valores_kernel.algoritmo_planificacion);
+    free(config_valores_kernel.algoritmo_planificacion);
     string_array_destroy(config_valores_kernel.recursos);
     string_array_destroy(config_valores_kernel.instancias_recursos);
     abort();
@@ -419,7 +418,7 @@ void iniciar_planificacion()
     if (frenado)
     {
         log_info(kernel_logger_info, "entre a iniciar plani dsp de haber frenado");
-        //list_add_all(lista_ready, lista_ready_detenidos);
+        // list_add_all(lista_ready, lista_ready_detenidos);
         sem_post(&sem_detener);
         sem_post(&sem_detener_sleep);
         sem_post(&sem_ready);
@@ -441,12 +440,12 @@ void detener_planificacion()
     pthread_mutex_lock(&mutex_cola_ready);
     // pthread_mutex_lock(&mutex_cola_exec);
 
-   /// list_add_all(lista_ready_detenidos, lista_ready);
+    /// list_add_all(lista_ready_detenidos, lista_ready);
     // list_add_all(cola_block, lista_block_detenidos);
     // list_add_all(cola_exec, lista_exec_detenidos);
 
-    //list_clean(lista_ready);
-    // list_clean(cola_exec);
+    // list_clean(lista_ready);
+    //  list_clean(cola_exec);
     pthread_mutex_unlock(&mutex_cola_ready);
     // pthread_mutex_unlock(&mutex_cola_exec);
 }
@@ -458,7 +457,7 @@ void quantum_interrupter(void)
     interrupcion->pid = -1;
     while (1)
     {
-        usleep(config_valores_kernel.quantum*1000);
+        usleep(config_valores_kernel.quantum * 1000);
         if (ALGORITMO_PLANIFICACION == RR)
         {
             enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
@@ -624,6 +623,7 @@ void liberar_recursos(t_pcb *pcb)
 {
     t_list *lista_recursos_liberar = pcb->recursos_asignados;
     recurso_instancia *recurso_en_kernel = (recurso_instancia *)malloc(sizeof(recurso_instancia));
+
     t_pcb *pcb_bloqueado;
 
     enviar_op_con_int(conexion_memoria, FINALIZAR_PROCESO, pcb->pid);
@@ -634,6 +634,9 @@ void liberar_recursos(t_pcb *pcb)
         recurso_proceso = list_get(lista_recursos_liberar, i);
         recurso_en_kernel = buscar_recurso(recursos_kernel, recurso_proceso->nombre);
 
+        if (recurso_proceso->cantidad < 1)
+            continue;
+
         t_queue *cola_bloqueados = recurso_en_kernel->colabloqueado;
         // log_info(kernel_logger_info, "tamaño cola bloqueados %d", queue_size(cola_bloqueados));
 
@@ -643,26 +646,44 @@ void liberar_recursos(t_pcb *pcb)
         // log_info(kernel_logger_info, "LIBERE RECURSO de proceso[%d] despues \n", recurso_en_kernel->cantidad);
 
         recurso_proceso->cantidad -= recurso_proceso->cantidad;
+        t_queue *colaAux = queue_create();
 
         while (queue_size(cola_bloqueados) > 0)
         {
             log_info(kernel_logger_info, "Comienzo a liberar bloqueados bloqueado");
             pcb_bloqueado = queue_pop(cola_bloqueados);
+
             if (pcb_bloqueado->pid != pcb->pid)
             {
-                log_info(kernel_logger_info, "Libero proceso: %d", pcb_bloqueado->pid);
-                remove_blocked(pcb_bloqueado->pid);
-                if (!frenado)
-                {
-                    set_pcb_ready(pcb_bloqueado);
-                    sem_post(&sem_ready);
-                    if (list_size(lista_ready) > 0)
-                        sem_post(&sem_exec);
-                }
-                else
-                {
-                    list_add(lista_ready_detenidos, pcb_bloqueado);
-                }
+                queue_push(colaAux, pcb_bloqueado);
+            }
+        }
+        t_pcb *aux;
+        while (queue_size(colaAux) > 0)
+        {
+            aux = queue_pop(colaAux);
+            queue_push(cola_bloqueados, aux);
+        }
+        if (queue_size(cola_bloqueados) > 0)
+        {
+            pcb_bloqueado = queue_pop(cola_bloqueados);
+
+            log_info(kernel_logger_info, "Libero proceso: %d", pcb_bloqueado->pid);
+            remove_blocked(pcb_bloqueado->pid);
+            recurso_proceso = buscar_recurso(pcb->recursos_asignados, recurso_proceso->nombre);
+            recurso_proceso->cantidad += 1;
+            recurso_en_kernel->cantidad -= 1;
+
+            if (!frenado)
+            {
+                set_pcb_ready(pcb_bloqueado);
+                sem_post(&sem_ready);
+                if (list_size(lista_ready) > 0)
+                    sem_post(&sem_exec);
+            }
+            else
+            {
+                list_add(lista_ready_detenidos, pcb_bloqueado);
             }
         }
     }
@@ -764,7 +785,7 @@ t_archivo_global *crear_archivo_global_con_contador(char *nombre, char lock, int
     return archivo;
 }
 
-void sumar_contador_archivo_global(char* nombre_archivo)
+void sumar_contador_archivo_global(char *nombre_archivo)
 {
     bool _encontrar_por_nombre(void *elemento)
     {
@@ -775,7 +796,7 @@ void sumar_contador_archivo_global(char* nombre_archivo)
     list_replace_by_condition(lista_archivos_abiertos, _encontrar_por_nombre, archivo);
 }
 
-void restar_contador_archivo_global(char* nombre_archivo)
+void restar_contador_archivo_global(char *nombre_archivo)
 {
     bool _encontrar_por_nombre(void *elemento)
     {
@@ -816,7 +837,8 @@ int open_file(char *nombre_archivo, char lock)
 {
     // lista_global_archivos: sacar
     t_archivo_global *archivo = buscarArchivoGlobal(lista_global_archivos, nombre_archivo);
-    if(archivo == NULL){
+    if (archivo == NULL)
+    {
         return -1;
     }
     archivo->lock = lock;
@@ -848,7 +870,7 @@ void *recibir_op_FS()
         t_resp_file op = recibir_operacion(conexion_filesystem);
         int *pid = malloc(sizeof(int));
         recibir_pid(conexion_filesystem, pid);
-        log_warning(kernel_logger_info, "Recibi operacion de fs %d" ,op);
+        log_warning(kernel_logger_info, "Recibi operacion de fs %d", op);
         switch (op)
         {
         case F_ERROR:
@@ -961,7 +983,8 @@ void *manejar_pf(void *args)
     set_pcb_ready(pcb_bloqueado);
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY");
 
-    if(frenado!=1){
+    if (frenado != 1)
+    {
         sem_post(&sem_ready);
         sem_post(&sem_exec);
     }
@@ -988,7 +1011,7 @@ void enviar_pf(int socket, op_code code, int num_pag, int pid)
 t_instruccion_fs *inicializar_instruccion_fs(t_instruccion *instr, uint32_t ptr)
 {
     t_instruccion_fs *instr_fs = malloc(sizeof(t_instruccion_fs));
-    
+
     instr_fs->estado = instr->codigo;
     instr_fs->pid = instr->pid;
     instr_fs->param1_length = instr->longitud_parametro1;

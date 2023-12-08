@@ -191,7 +191,7 @@ bool descartar_interrupcion(int pid)
 
 void limpiar_interrupciones()
 {
-    log_info(cpu_logger_info, "entre al limpiar");
+   
     interrupciones[INTERRUPT_FIN_QUANTUM] = 0;
     interrupciones[INTERRUPT_FIN_PROCESO] = 0;
     interrupciones[INTERRUPT_NUEVO_PROCESO] = 0;
