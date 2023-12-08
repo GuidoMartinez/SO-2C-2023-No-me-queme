@@ -327,7 +327,8 @@ void finalizar_filesystem()
 {
     log_info(filesystem_logger_info, "Finalizando el modulo FILESYSTEM");
     log_destroy(filesystem_logger_info);
-    list_destroy_and_destroy_elements(lista_fcb, borrar_fcb);
+    //list_destroy_and_destroy_elements(lista_fcb, borrar_fcb);
+    list_destroy(lista_fcb);
     config_destroy(config);
 
     free(swap);
@@ -966,7 +967,7 @@ void borrar_fcb(int id)
     if (remove(fcb->ruta_archivo) != 0)
     {
         log_error(filesystem_logger_info, "Error al eliminar el archivo asociado al FCB (ID: %d)", id);
-        return resultado;
+        return;
     }
 
     list_remove_element(lista_fcb, fcb);
