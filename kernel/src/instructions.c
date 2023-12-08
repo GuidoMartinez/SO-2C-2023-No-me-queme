@@ -271,6 +271,18 @@ void kf_close()
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, nombre_archivo);
 
+    if(archivo_global_pedido == NULL) {
+        log_warning(kernel_logger_info, "El archivo global no estaba abierto");
+    }else{
+        log_error(kernel_logger_info, "%c", archivo_global_pedido->lock);
+    }
+
+    if(archivo_proceso == NULL) {
+        log_warning(kernel_logger_info, "El archivo proceso no estaba abierto");
+    }
+
+
+
     if (archivo_global_pedido != NULL && archivo_proceso != NULL)
     {
 
@@ -296,19 +308,51 @@ void kf_close()
     // NO sacar la lista de archivos abiertos
     // list_remove_element(proceso_en_ejecucion->archivos_abiertos, archivo_proceso);
     // Mutex! capaz no? solo un proceso en ejecucion...
+    bool continuar = true;
+    bool crear = true;
     list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
+    t_queue* cola_temporal_de_escritura = queue_create();
+
 
     if (archivo_global_pedido->lock == 'N' && queue_size(archivo_global_pedido->colabloqueado) > 0)
     {
-        t_pcb *pcb_desbloqueado = queue_pop(archivo_global_pedido->colabloqueado);
+        while(continuar){
+            t_pcb *pcb_desbloqueado = queue_pop(archivo_global_pedido->colabloqueado);
+            log_warning(kernel_logger_info, "PID[%d] Desbloqueado por %s \n", pcb_desbloqueado->pid, archivo_global_pedido->nombreArchivo);
+            
+            char lock = pcb_desbloqueado->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
+            if(lock == 'W' && !crear ) {
+                queue_push(cola_temporal_de_escritura, pcb_desbloqueado);
+                if(queue_size(archivo_global_pedido->colabloqueado) == 0) continuar = false;
+                continue;
+            }
+            log_warning(kernel_logger_info, "Lock %c \n", lock);
 
-        // Se abre el archivo para ese proceso
-        crear_archivo_proceso(nombre_archivo, pcb_desbloqueado);
-        open_file(nombre_archivo, pcb_desbloqueado->contexto_ejecucion->instruccion_ejecutada->parametro2[0]);
+            // Se abre el archivo para ese proceso
+            crear_archivo_proceso(nombre_archivo, pcb_desbloqueado);
+            open_file(nombre_archivo, lock);
 
-        set_pcb_ready(pcb_desbloqueado);
+            if(crear){
+                crear_archivo_global_con_contador(nombre_archivo, lock, archivo_global_pedido->contador + 1);
+                crear = false;
+            }else{
+                sumar_contador_archivo_global(nombre_archivo);
+            }
+
+            set_pcb_ready(pcb_desbloqueado);
+            if(queue_size(archivo_global_pedido->colabloqueado) == 0) continuar = false;
+        }
+
+            while(queue_size(cola_temporal_de_escritura) > 0){
+            t_pcb *pcb_desbloqueado = queue_pop(cola_temporal_de_escritura);
+            queue_push(archivo_global_pedido->colabloqueado, pcb_desbloqueado);
+        }
+    }else if(archivo_global_pedido->contador > 0){
+        crear_archivo_global_con_contador(nombre_archivo, 'R', archivo_global_pedido->contador + 1);
     }
 
+    log_warning(kernel_logger_info, "termino fclose");
+    log_warning(kernel_logger_info, "tamaño de la tabla de archivos abiertos %d", list_size(lista_archivos_abiertos));
     sem_post(&sem_ready);
     sem_post(&sem_exec);
 };

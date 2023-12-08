@@ -19,6 +19,6 @@ MOV_OUT 24 CX
 MOV_OUT 28 AX
 F_SEEK consolas 16
 F_WRITE consolas 16
-SLEEP 180
+SLEEP 1
 F_CLOSE consolas
 EXIT

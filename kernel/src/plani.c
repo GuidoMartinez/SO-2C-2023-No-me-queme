@@ -8,6 +8,7 @@ void exit_pcb(void)
     {
         sem_wait(&sem_exit);
         t_pcb *pcb = safe_pcb_remove(cola_exit, &mutex_cola_exit);
+        safe_pcb_remove(cola_exec, &mutex_cola_exec);
         // char *motivo = motivo_exit_to_string(pcb->motivo_exit);
         // log_info(kernel_logger_info, "Le cambie el estado");
 
@@ -42,10 +43,11 @@ void pcb_destroy(t_pcb *pcb)
             {
                 continue;
             }
-            archivo_global->contador--;
+            restar_contador_archivo_global(archivo_global);
 
             if (archivo_global->contador == 0)
             {
+                log_error(kernel_logger_info, "Se cerro el archivo %s", archivo_global->nombreArchivo);
                 list_remove_element(lista_archivos_abiertos, archivo_global);
                 free(archivo_global->nombreArchivo);
                 free(archivo_global);
@@ -295,7 +297,7 @@ void exec_pcb()
         else {
             log_warning(kernel_logger_info, "Motivo de desalojo %d", proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado);
         }
-        if (proceso_en_ejecucion == NULL || proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL)
+        if (proceso_en_ejecucion == NULL || (proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL && proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != PAGE_FAULT))
         {
             log_warning(kernel_logger_info, "Tengo que elegir pcb segun algoritmo");
             pcbelegido = elegir_pcb_segun_algoritmo();

@@ -157,27 +157,27 @@ void obtener_motivo_desalojo()
     if (page_fault)
     {
         contexto_actual->motivo_desalojado = PAGE_FAULT;
-        return NULL
+        return;
     }
     if (es_syscall())
     {
         contexto_actual->motivo_desalojado = SYSCALL;
-        return NULL
+        return;
     }
     if (interrupciones[INTERRUPT_FIN_QUANTUM])
     {
         contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
-        return NULL
+        return;
     }
     if (interrupciones[INTERRUPT_FIN_PROCESO])
     {
         contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
-        return NULL
+        return;
     }
     if (interrupciones[INTERRUPT_NUEVO_PROCESO])
     {
         contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
-        return NULL
+        return;
     }
 }
 

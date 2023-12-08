@@ -141,5 +141,8 @@ t_pcb *buscarProcesoBloqueado(int );
 
 void enviar_pf(int, op_code, int, int);
 void hay_deadlock(char* recurso_deadlock);
+void sumar_contador_archivo_global(char*);
+t_archivo_global *crear_archivo_global_con_contador(char*, char, int);
+void restar_contador_archivo_global(char*);
 
 #endif

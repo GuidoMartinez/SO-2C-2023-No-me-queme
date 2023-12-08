@@ -326,8 +326,8 @@ void finalizar_kernel()
     free (config_valores_kernel.puerto_cpu_interrupt);
     free (config_valores_kernel.algoritmo_planificacion);
     free (config_valores_kernel.algoritmo_planificacion);
-    list_destroy_and_destroy_elements(config_valores_kernel.recursos,free);
-    list_destroy_and_destroy_elements(config_valores_kernel.instancias_recursos,free);
+    string_array_destroy(config_valores_kernel.recursos);
+    string_array_destroy(config_valores_kernel.instancias_recursos);
     abort();
 }
 
@@ -751,6 +751,41 @@ t_archivo_global *crear_archivo_global(char *nombre, char lock)
     return archivo;
 }
 
+t_archivo_global *crear_archivo_global_con_contador(char *nombre, char lock, int contador)
+{
+
+    t_archivo_global *archivo = malloc(sizeof(t_archivo_global));
+    archivo->nombreArchivo = string_new();
+    string_append(&(archivo->nombreArchivo), nombre);
+    archivo->lock = lock;
+    archivo->contador = contador;
+    archivo->colabloqueado = queue_create();
+    list_add(lista_archivos_abiertos, archivo);
+    return archivo;
+}
+
+void sumar_contador_archivo_global(char* nombre_archivo)
+{
+    bool _encontrar_por_nombre(void *elemento)
+    {
+        return ((t_archivo_global *)elemento)->nombreArchivo == nombre_archivo;
+    }
+    t_archivo_global *archivo = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
+    archivo->contador++;
+    list_replace_by_condition(lista_archivos_abiertos, _encontrar_por_nombre, archivo);
+}
+
+void restar_contador_archivo_global(char* nombre_archivo)
+{
+    bool _encontrar_por_nombre(void *elemento)
+    {
+        return ((t_archivo_global *)elemento)->nombreArchivo == nombre_archivo;
+    }
+    t_archivo_global *archivo = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
+    archivo->contador--;
+    list_replace_by_condition(lista_archivos_abiertos, _encontrar_por_nombre, archivo);
+}
+
 t_archivo_global *buscarArchivoGlobal(t_list *lista_archivos, char *nombre_archivo)
 {
     for (int i = 0; i < list_size(lista_archivos); i++)
@@ -882,6 +917,7 @@ void *manejar_pf(void *args)
     set_pcb_block(pcb);
     proceso_en_ejecucion = NULL;
 
+    log_info(kernel_logger_info, "cola exec: %d", list_size(cola_exec));
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
     if (frenado != 1)

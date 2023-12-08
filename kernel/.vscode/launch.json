@@ -11,7 +11,7 @@
             "request": "launch",
             "preLaunchTask": "Make",
             "program": "${workspaceFolder}/kernel",
-            "args": ["./cfg/kernel.cfg"],
+            "args": ["./cfg/fs"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
