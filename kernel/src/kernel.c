@@ -316,6 +316,7 @@ void finalizar_kernel()
     close(conexion_cpu_interrupt);
     close(conexion_memoria);
     close(conexion_filesystem);
+
     free(config_valores_kernel.ip_memoria);
     free(config_valores_kernel.puerto_memoria);
     free(config_valores_kernel.ip_filesystem);
@@ -324,9 +325,9 @@ void finalizar_kernel()
     free(config_valores_kernel.puerto_cpu_dispatch);
     free(config_valores_kernel.puerto_cpu_interrupt);
     free(config_valores_kernel.algoritmo_planificacion);
-    free(config_valores_kernel.algoritmo_planificacion);
     string_array_destroy(config_valores_kernel.recursos);
     string_array_destroy(config_valores_kernel.instancias_recursos);
+
     abort();
 }
 
@@ -436,6 +437,7 @@ void iniciar_planificacion()
 void detener_planificacion()
 {
     frenado = true;
+    log_warning(kernel_logger_info, "cambie el frenado %d", frenado);
 
     pthread_mutex_lock(&mutex_cola_ready);
     // pthread_mutex_lock(&mutex_cola_exec);
@@ -825,7 +827,9 @@ void exec_block_fs()
 
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
     proceso_en_ejecucion = NULL;
+    log_info(kernel_logger_info, "mando a bloquear al proceso");
     set_pcb_block(pcbelegido);
+        log_info(kernel_logger_info, "bloqueado");
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "BLOCKED");
 
     pthread_mutex_lock(&mutex_cola_block);
@@ -855,6 +859,7 @@ void fs_interaction()
     exec_block_fs();
     // Se espera respuesta en hilo
     sem_post(&sem_hilo_FS);
+    log_warning(kernel_logger_info, "Se envio instruccion a FS");
 
     sem_post(&sem_ready);
     sem_post(&sem_exec);

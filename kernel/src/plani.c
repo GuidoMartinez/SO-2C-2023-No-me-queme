@@ -295,7 +295,9 @@ void exec_pcb()
         else {
             log_warning(kernel_logger_info, "Motivo de desalojo %d", proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado);
         }
-        if (proceso_en_ejecucion == NULL || proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL)
+        if (proceso_en_ejecucion == NULL || 
+        (proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL 
+        && proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != PAGE_FAULT))
         {
             log_warning(kernel_logger_info, "Tengo que elegir pcb segun algoritmo");
             pcbelegido = elegir_pcb_segun_algoritmo();
@@ -374,6 +376,7 @@ void exec_pcb()
             break;
         case F_SEEK:
             kf_seek();
+            break;
         case F_READ:
             kf_read();
             break;

@@ -398,7 +398,6 @@ void kf_write()
 
     if (archivo_global_pedido->lock == 'W')
     {
-
         t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, archivo_proceso->puntero);
         enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
         fs_interaction();
