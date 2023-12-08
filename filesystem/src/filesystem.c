@@ -327,11 +327,25 @@ void finalizar_filesystem()
 {
     log_info(filesystem_logger_info, "Finalizando el modulo FILESYSTEM");
     log_destroy(filesystem_logger_info);
-    list_destroy(lista_fcb);
+    list_destroy_and_destroy_elements(lista_fcb, borrar_fcb);
     config_destroy(config);
+
     free(swap);
+    free(path_bloques);
+    free(path_fat);
+    free(path_fcb);
+
+    free(config_valores_filesystem.ip_memoria);
+    free(config_valores_filesystem.puerto_memoria);
+    free(config_valores_filesystem.ip_escucha);
+    free(config_valores_filesystem.puerto_escucha);
+    free(config_valores_filesystem.path_bloques);
+    free(config_valores_filesystem.path_fat);
+    free(config_valores_filesystem.path_fcb);
+
     close(socket_memoria_swap);
     close(socket_kernel);
+    close(socket_memoria_op);
 }
 
 int obtener_cantidad_de_bloques(int id_fcb)
@@ -937,14 +951,14 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
     free(bloque_leido);
 }
 
-int borrar_fcb(int id)
+void borrar_fcb(int id)
 {
     int resultado = -1;
 
     if (buscar_fcb_id(id) == -1)
     {
         log_error(filesystem_logger_info, "No existe un FCB con ese ID: %d", id);
-        return resultado;
+        return;
     }
 
     fcb_t *fcb = _get_fcb_id(id);
@@ -961,7 +975,7 @@ int borrar_fcb(int id)
     free(fcb);
 
     resultado = 0;
-    return resultado;
+    return;
 }
 
 void destroy_instruccion_file(t_instruccion_fs *instruccion)

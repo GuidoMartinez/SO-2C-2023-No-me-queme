@@ -107,7 +107,7 @@ void escribir_bloque(uint32_t, void *);
 void realizar_f_write(t_instruccion_fs *);
 void realizar_f_read(t_instruccion_fs *);
 
-int borrar_fcb(int);
+void borrar_fcb(int);
 
 void destroy_instruccion_file(t_instruccion_fs *);
 
