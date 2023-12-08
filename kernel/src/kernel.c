@@ -458,7 +458,7 @@ void quantum_interrupter(void)
     interrupcion->pid = -1;
     while (1)
     {
-        nanosleep(config_valores_kernel.quantum * 10000000, NULL);
+        usleep(config_valores_kernel.quantum);
         if (ALGORITMO_PLANIFICACION == RR)
         {
             enviar_interrupcion(conexion_cpu_interrupt, interrupcion);

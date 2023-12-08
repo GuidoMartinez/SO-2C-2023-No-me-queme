@@ -109,8 +109,7 @@ void *recibir_interrupt(void *arg)
             finalizar_cpu();
             abort();
         }
-        t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
-        interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
+        t_interrupcion* interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
         if (contexto_actual != NULL)
         {
             switch (interrupcion->motivo_interrupcion)
