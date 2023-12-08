@@ -290,6 +290,8 @@ op_code recibir_handshake(int conexion, t_log *logger)
 
 	memcpy(&(codigo_recibido), buffer + offset, sizeof(op_code));
 
+	free(buffer);
+
 	return codigo_recibido;
 }
 

@@ -111,7 +111,7 @@ void* leer_bloque_swap(uint32_t numero_bloque)
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
-    nanosleep(retardo_acceso_bloque * 1000, NULL);
+    usleep(retardo_acceso_bloque);
 
     return datos;
 }
@@ -130,7 +130,7 @@ int escribir_bloque_swap(uint32_t numero_bloque, void *datos)
     fflush(archivo_bloques);
     fclose(archivo_bloques);
 
-    nanosleep(retardo_acceso_bloque, NULL);
+    usleep(retardo_acceso_bloque);
 
     return 0;
 }
