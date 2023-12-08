@@ -72,7 +72,7 @@ t_pcb *safe_pcb_remove(t_list *list, pthread_mutex_t *mutex)
     pthread_mutex_lock(mutex);
     pcb = list_remove(list, 0);
     pthread_mutex_unlock(mutex);
-     log_info(kernel_logger_info, "rEMOVI PID %d", pcb->pid);
+    //log_info(kernel_logger_info, "rEMOVI PID %d", pcb->pid);
     return pcb;
 }
 void pcb_create(int prio, int tamano, int pid_ok)
@@ -306,6 +306,16 @@ void exec_pcb()
             log_warning(kernel_logger_info, "Proceso en ejecucion es el pcb elegido");
             pcbelegido = proceso_en_ejecucion;
         }
+
+        if(abs(pcbelegido->pid) / 100 > 0) {
+            //log_error(kernel_logger_info, "entro un pcb basura, se continua exec");
+            sem_post(&sem_ready);
+            if(list_size(lista_ready) > 0) {
+                sem_post(&sem_exec);
+            }
+            continue;
+        }
+
         log_warning(kernel_logger_info, "Envie contexto");
         enviar_contexto(conexion_cpu_dispatch, pcbelegido->contexto_ejecucion);
         log_info(kernel_logger_info, "Envie PID %d con PC %d a CPU", pcbelegido->pid, pcbelegido->contexto_ejecucion->program_counter);
@@ -427,7 +437,7 @@ void set_pcb_ready(t_pcb *pcb)
     list_add(lista_ready, pcb);
     pthread_mutex_unlock(&mutex_cola_ready);
     pcb->tiempo_ingreso_ready = time(NULL);
-    log_info(kernel_logger_info, "SET PCB READY %d", pcb->pid);
+    //log_info(kernel_logger_info, "SET PCB READY %d", pcb->pid);
 }
 
 void set_pcb_block(t_pcb *pcb)

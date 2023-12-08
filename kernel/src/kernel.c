@@ -650,7 +650,6 @@ void liberar_recursos(t_pcb *pcb)
 
         while (queue_size(cola_bloqueados) > 0)
         {
-            log_info(kernel_logger_info, "Comienzo a liberar bloqueados bloqueado");
             pcb_bloqueado = queue_pop(cola_bloqueados);
 
             if (pcb_bloqueado->pid != pcb->pid)
@@ -668,11 +667,12 @@ void liberar_recursos(t_pcb *pcb)
         {
             pcb_bloqueado = queue_pop(cola_bloqueados);
 
-            log_info(kernel_logger_info, "Libero proceso: %d", pcb_bloqueado->pid);
             remove_blocked(pcb_bloqueado->pid);
-            recurso_proceso = buscar_recurso(pcb->recursos_asignados, recurso_proceso->nombre);
+            recurso_proceso = buscar_recurso(pcb_bloqueado->recursos_asignados, recurso_proceso->nombre);
             recurso_proceso->cantidad += 1;
             recurso_en_kernel->cantidad -= 1;
+
+            recurso_proceso = buscar_recurso(pcb_bloqueado->recursos_asignados, recurso_proceso->nombre);
 
             if (!frenado)
             {

@@ -159,9 +159,12 @@ void ksignal()
             if (queue_size(recurso_signal->colabloqueado) > 0)
             {
                 log_info(kernel_logger_info, "popie proceso bloquedo por %s", recurso_signal->nombre);
+                t_pcb *proceso_desbloqueado = queue_pop(recurso_signal->colabloqueado);
+                recurso_instancia* recurso_proceso = buscar_recurso(proceso_desbloqueado->recursos_asignados, recurso_signal->nombre);
+                recurso_proceso->cantidad += 1;
                 sem_post(&sem_blocked_w);
-                remove_blocked(pcbelegido->pid);
-                set_pcb_ready(pcbelegido);
+                remove_blocked(proceso_desbloqueado->pid);
+                set_pcb_ready(proceso_desbloqueado);
             }
             else
             {
