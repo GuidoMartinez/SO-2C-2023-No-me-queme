@@ -120,7 +120,7 @@ void *leer_bloque_swap(uint32_t numero_bloque)
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
-    sleep(retardo_acceso_bloque / 1000);
+    nanosleep(retardo_acceso_bloque * 1000, NULL);
 
     return datos;
 }
@@ -139,7 +139,7 @@ int escribir_bloque_swap(uint32_t numero_bloque, void *datos)
     fflush(archivo_bloques);
     fclose(archivo_bloques);
 
-    sleep(retardo_acceso_bloque / 1000);
+    nanosleep(retardo_acceso_bloque, NULL);
 
     return 0;
 }
@@ -183,9 +183,28 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
     {
         uint32_t bloque_libre = obtener_primer_bloque_libre_swap();
 
+<<<<<<< HEAD
         swap[bloque_libre] = 1;
         list_add(lista, bloque_libre);
         bloques_asignados++;
+=======
+        if (bloque_libre != 0)
+        {
+            // Marcar el bloque como ocupado en el archivo de bloques
+            void *valor_ocupado = malloc(tamanio_bloque);
+            memset(valor_ocupado, 0, tamanio_bloque);
+            escribir_bloque_swap(bloque_libre, &valor_ocupado);
+            free(valor_ocupado);
+
+            list_add(lista, bloque_libre);
+            bloques_asignados++;
+        }
+        else
+        {
+            log_info(filesystem_logger_info, "No hay suficientes bloques libres en la partición de swap.");
+            break;
+        }
+>>>>>>> 3fbc4ac3752447071cfe963badff013ae503b7cb
     }
     return lista;
 }
