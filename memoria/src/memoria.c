@@ -628,7 +628,7 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 	// log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
 	// if (config_valores_memoria.retardo_respuesta / 1000 > 0)
-	usleep(config_valores_memoria.retardo_respuesta);
+	usleep(config_valores_memoria.retardo_respuesta*1000);
 	// else
 	// sleep(1);
 	return obtener_instrccion_pc(proceso, pc_pedido);
@@ -1250,10 +1250,11 @@ void escribir_memoria_cpu(int dir_fisica, uint32_t valor)
 
 	marcar_pag_modificada(marco->pid, marco->num_de_marco);
 	log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco->pid); // BORRAR
-	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+	/*if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
-		sleep(1);
+		sleep(1);*/
+		usleep(config_valores_memoria.retardo_respuesta * 1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO POR CPU- PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 }
 
@@ -1267,10 +1268,11 @@ void escribir_memoria_fs(int dir_fisica, void *bloque)
 	// TODO -- VALIDAR -- cuando hago un F_READ debo marcar la pagina que tiene el marco como modificada
 	// marcar_pag_modificada(marco_escibir->pid, marco_escibir->num_de_marco);
 	// log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco_escibir->pid);
-	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+	/*if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
-		sleep(1);
+		sleep(1);*/
+	usleep(config_valores_memoria.retardo_respuesta *1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO POR FS - PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco_escibir->pid, dir_fisica); // LOG OBLIGATORIO
 }
 
@@ -1288,10 +1290,11 @@ uint32_t leer_memoria_cpu(uint32_t dir_fisica)
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
 	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 
-	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+	/*if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
-		sleep(1);
+		sleep(1);*/
+		usleep(config_valores_memoria.retardo_respuesta *1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - CPU - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 
 	return valor_leido;
@@ -1311,10 +1314,11 @@ void *leer_memoria_fs(int dir_fisica)
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco->num_de_marco);
 	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
 
-	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+	/*if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
-		sleep(1);
+		sleep(1);*/
+	usleep(config_valores_memoria.retardo_respuesta *1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - FS - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 
 	return bloque_leido;

@@ -8,7 +8,6 @@ void exit_pcb(void)
     {
         sem_wait(&sem_exit);
         t_pcb *pcb = safe_pcb_remove(cola_exit, &mutex_cola_exit);
-        safe_pcb_remove(cola_exec, &mutex_cola_exec);
         // char *motivo = motivo_exit_to_string(pcb->motivo_exit);
         // log_info(kernel_logger_info, "Le cambie el estado");
 
@@ -36,18 +35,17 @@ void pcb_destroy(t_pcb *pcb)
 
     if (list_size(pcb->archivos_abiertos) > 0)
     {
-        for (int i = 0; i < list_size(pcb->archivos_abiertos); i++)
+        for (int i = 0; i <= list_size(pcb->archivos_abiertos); i++)
         {
             t_archivo_global *archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, list_get(pcb->archivos_abiertos, i));
             if (archivo_global == NULL)
             {
                 continue;
             }
-            restar_contador_archivo_global(archivo_global);
+            archivo_global->contador--;
 
             if (archivo_global->contador == 0)
             {
-                log_error(kernel_logger_info, "Se cerro el archivo %s", archivo_global->nombreArchivo);
                 list_remove_element(lista_archivos_abiertos, archivo_global);
                 free(archivo_global->nombreArchivo);
                 free(archivo_global);
@@ -229,12 +227,12 @@ void ready_pcb(void)
            // log_info(kernel_logger_info, "Pase a READY el PCB: %d", pcb->pid);
             pthread_mutex_lock(&leer_grado);
             int procesos_ready = list_size(lista_ready);
-            int procesos_exec = list_size(cola_exec);
+           // int procesos_exec = list_size(cola_exec);
             int procesos_bloqueado = list_size(cola_block);
 
-            int procesos_activos = procesos_ready + procesos_exec + procesos_bloqueado;
+            int procesos_activos = procesos_ready + procesos_bloqueado;//+ procesos_exec 
 
-            log_info(kernel_logger_info, "READY %d EXEC %d BLOQUEADOS %d",procesos_ready,procesos_exec,procesos_bloqueado);
+          //  log_info(kernel_logger_info, "READY %d EXEC %d BLOQUEADOS %d",procesos_ready,procesos_exec,procesos_bloqueado);
             
             if (procesos_activos < sem.g_multiprog_ini)
             {
@@ -297,7 +295,7 @@ void exec_pcb()
         else {
             log_warning(kernel_logger_info, "Motivo de desalojo %d", proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado);
         }
-        if (proceso_en_ejecucion == NULL || (proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL && proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != PAGE_FAULT))
+        if (proceso_en_ejecucion == NULL || proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL)
         {
             log_warning(kernel_logger_info, "Tengo que elegir pcb segun algoritmo");
             pcbelegido = elegir_pcb_segun_algoritmo();
@@ -366,7 +364,6 @@ void exec_pcb()
             break;
         case F_SEEK:
             kf_seek();
-            break;
         case F_READ:
             kf_read();
             break;
