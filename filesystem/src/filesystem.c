@@ -92,6 +92,7 @@ int main(int argc, char **argv)
     pthread_create(&hilo_cliente, NULL, comunicacion_kernel, NULL);
     pthread_detach(hilo_cliente);
     while (1);
+    finalizar_filesystem();
     abort();
 }
 
@@ -326,6 +327,7 @@ void finalizar_filesystem()
 {
     log_info(filesystem_logger_info, "Finalizando el modulo FILESYSTEM");
     log_destroy(filesystem_logger_info);
+    list_destroy(lista_fcb);
     config_destroy(config);
     free(swap);
     close(socket_memoria_swap);
@@ -984,7 +986,7 @@ void *comunicacion_kernel()
             t_instruccion_fs *nueva_instruccion = deserializar_instruccion_fs(socket_kernel);
             log_info(filesystem_logger_info, "Instruccion deserializada correctamente");
             uint32_t pid = nueva_instruccion->pid;
-            log_warning(filesystem_logger_info, "Recibi la operacion %d del PID %d", nueva_instruccion->estado, pid);
+            //log_warning(filesystem_logger_info, "Recibi la operacion %d del PID %d", nueva_instruccion->estado, pid);
             switch (nueva_instruccion->estado)
             {
             case F_OPEN:
@@ -1030,7 +1032,9 @@ void *comunicacion_kernel()
             break;
         }
     }
-
+    log_error(filesystem_logger_info, "Exit status en 1 \n");
+    finalizar_filesystem();
+    abort();
     return NULL;
 }
 
