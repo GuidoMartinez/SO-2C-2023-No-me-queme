@@ -184,7 +184,7 @@ int main(int argc, char **argv)
     while (1)
     {
         char *linea;
-        int indice_split = 0;
+        
 
         linea = readline(">");
 
@@ -317,6 +317,17 @@ void finalizar_kernel()
     close(conexion_cpu_interrupt);
     close(conexion_memoria);
     close(conexion_filesystem);
+    free (config_valores_kernel.ip_memoria);
+    free (config_valores_kernel.puerto_memoria);
+    free (config_valores_kernel.ip_filesystem);
+    free (config_valores_kernel.puerto_filesystem);
+    free (config_valores_kernel.ip_cpu);
+    free (config_valores_kernel.puerto_cpu_dispatch);
+    free (config_valores_kernel.puerto_cpu_interrupt);
+    free (config_valores_kernel.algoritmo_planificacion);
+    free (config_valores_kernel.algoritmo_planificacion);
+    list_destroy_and_destroy_elements(config_valores_kernel.recursos,free);
+    list_destroy_and_destroy_elements(config_valores_kernel.instancias_recursos,free);
     abort();
 }
 
@@ -447,7 +458,7 @@ void quantum_interrupter(void)
     interrupcion->pid = -1;
     while (1)
     {
-        nanosleep(config_valores_kernel.quantum_sleep * 10000000, NULL);
+        nanosleep(config_valores_kernel.quantum * 10000000, NULL);
         if (ALGORITMO_PLANIFICACION == RR)
         {
             enviar_interrupcion(conexion_cpu_interrupt, interrupcion);

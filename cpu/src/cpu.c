@@ -163,7 +163,7 @@ bool hay_interrupciones()
 }
 
 void obtener_motivo_desalojo()
-{
+{   pthread_mutex_lock(&mutex_interrupt);
     if (interrupciones[INTERRUPT_FIN_PROCESO])
         contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
     if (interrupciones[INTERRUPT_FIN_QUANTUM])
@@ -172,6 +172,9 @@ void obtener_motivo_desalojo()
         contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
     if (page_fault)
         contexto_actual->motivo_desalojado = PAGE_FAULT;
+    if (es_syscall())
+        contexto_actual->motivo_desalojado = SYSCALL;
+        pthread_mutex_unlock(&mutex_interrupt);
 }
 
 bool descartar_interrupcion(int pid)

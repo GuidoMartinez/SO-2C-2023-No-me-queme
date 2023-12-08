@@ -167,6 +167,7 @@ void ksignal()
             {
                 log_info(kernel_logger_info, "NO QUEDAN RECURSOS BLOQUEADOS");
             }
+            sem_post(&sem_ready);
             sem_post(&sem_exec);
         }
         else
