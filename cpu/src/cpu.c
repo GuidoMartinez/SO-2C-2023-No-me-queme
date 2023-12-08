@@ -72,8 +72,8 @@ int main(int argc, char **argv)
             pthread_mutex_lock(&mutex_interrupt);
             limpiar_interrupciones();
             pthread_mutex_unlock(&mutex_interrupt);
-
             liberar_contexto(contexto_actual);
+           
 
             break;
         default:
@@ -115,7 +115,7 @@ void *recibir_interrupt(void *arg)
             switch (interrupcion->motivo_interrupcion)
             {
             case INTERRUPT_FIN_QUANTUM:
-                // log_info(cpu_logger_info, "Recibo fin de quantum");
+                 log_info(cpu_logger_info, "Recibo fin de quantum");
                 interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
                 break;
             case INTERRUPT_FIN_PROCESO:
@@ -191,6 +191,7 @@ bool descartar_interrupcion(int pid)
 
 void limpiar_interrupciones()
 {
+    log_info(cpu_logger_info, "entre al limpiar");
     interrupciones[INTERRUPT_FIN_QUANTUM] = 0;
     interrupciones[INTERRUPT_FIN_PROCESO] = 0;
     interrupciones[INTERRUPT_NUEVO_PROCESO] = 0;

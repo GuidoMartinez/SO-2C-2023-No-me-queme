@@ -907,10 +907,10 @@ void liberar_instruccion(t_instruccion *instr)
 }
 
 void liberar_contexto(t_contexto_ejecucion *contexto){
-	free(contexto->instruccion_ejecutada);
 	free(contexto->registros);
 	free(contexto->instruccion_ejecutada->parametro1);
 	free(contexto->instruccion_ejecutada->parametro2);
+	free(contexto->instruccion_ejecutada);
 	free(contexto);
 }
 
