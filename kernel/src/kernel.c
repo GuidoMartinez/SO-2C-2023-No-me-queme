@@ -829,7 +829,7 @@ void exec_block_fs()
     proceso_en_ejecucion = NULL;
     log_info(kernel_logger_info, "mando a bloquear al proceso");
     set_pcb_block(pcbelegido);
-        log_info(kernel_logger_info, "bloqueado");
+    log_info(kernel_logger_info, "bloqueado");
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "BLOCKED");
 
     pthread_mutex_lock(&mutex_cola_block);
@@ -861,8 +861,8 @@ void fs_interaction()
     sem_post(&sem_hilo_FS);
     log_warning(kernel_logger_info, "Se envio instruccion a FS");
 
-    sem_post(&sem_ready);
-    sem_post(&sem_exec);
+    //sem_post(&sem_ready);
+    //sem_post(&sem_exec);
 }
 
 void *recibir_op_FS()
@@ -949,10 +949,9 @@ void *manejar_pf(void *args)
 
     if (frenado != 1)
     {
-        sem_post(&sem_ready);
-
         if (list_size(lista_ready) > 0)
         {
+            sem_post(&sem_ready);
             sem_post(&sem_exec);
         }
     }
@@ -970,6 +969,7 @@ void *manejar_pf(void *args)
     if (op != PAGINA_CARGADA)
     {
         log_error(kernel_logger_info, "No se puedo cargar la pagina.");
+        pthread_mutex_unlock(&mutex_PF);
         return NULL;
     }
 
@@ -987,6 +987,7 @@ void *manejar_pf(void *args)
     remove_blocked(pcb_bloqueado->pid);
     set_pcb_ready(pcb_bloqueado);
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY");
+
 
     if (frenado != 1)
     {

@@ -2,5 +2,6 @@
 FILE=kernel
 make $FILE
 if test -f "./$FILE"; then
-    valgrind --tool=helgrind ./$FILE
+    S1="./cfg/fs"
+    valgrind --tool=helgrind ./$FILE $S1
 fi

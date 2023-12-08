@@ -120,7 +120,7 @@ void *leer_bloque_swap(uint32_t numero_bloque)
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
-    usleep(retardo_acceso_bloque);
+    usleep(retardo_acceso_bloque * 1000);
 
     return datos;
 }
@@ -139,7 +139,7 @@ int escribir_bloque_swap(uint32_t numero_bloque, void *datos)
     fflush(archivo_bloques);
     fclose(archivo_bloques);
 
-    usleep(retardo_acceso_bloque);
+    usleep(retardo_acceso_bloque * 1000);
 
     return 0;
 }
@@ -390,7 +390,7 @@ void *leer_bloque(uint32_t numero_bloque)
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
-    sleep(retardo_acceso_bloque / 1000);
+    usleep(retardo_acceso_bloque * 1000);
 
     return datos;
 }
@@ -838,7 +838,7 @@ void escribir_bloque(uint32_t numero_bloque, void *datos)
     fflush(archivo_bloques);
     fclose(archivo_bloques);
 
-    sleep(retardo_acceso_bloque / 1000);
+    usleep(retardo_acceso_bloque * 1000);
 
     return;
 }

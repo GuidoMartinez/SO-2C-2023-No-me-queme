@@ -160,7 +160,7 @@ void ksignal()
             {
                 log_info(kernel_logger_info, "popie proceso bloquedo por %s", recurso_signal->nombre);
                 t_pcb *proceso_desbloqueado = queue_pop(recurso_signal->colabloqueado);
-                recurso_instancia* recurso_proceso = buscar_recurso(proceso_desbloqueado->recursos_asignados, recurso_signal->nombre);
+                recurso_instancia *recurso_proceso = buscar_recurso(proceso_desbloqueado->recursos_asignados, recurso_signal->nombre);
                 recurso_proceso->cantidad += 1;
                 sem_post(&sem_blocked_w);
                 remove_blocked(proceso_desbloqueado->pid);
@@ -184,7 +184,7 @@ void ksignal()
 
             sem_post(&sem_exit);
             sem_post(&sem_ready);
-            if (list_size(lista_ready))
+            if (list_size(lista_ready) > 0)
                 sem_post(&sem_exec);
         }
         // sem_post(&sem_ready);
@@ -224,41 +224,42 @@ void kf_open()
 
         sem_post(&sem_hilo_FS);
         sem_wait(&reanudaar_exec);
-        if(open_file(nombre_archivo, lock)==-1){
+
+        if (open_file(nombre_archivo, lock) == -1)
+        {
             log_warning(kernel_logger_info, "Se creo archivo");
             crear_archivo_global(nombre_archivo, lock);
         }
-        
+
         crear_archivo_proceso(nombre_archivo, pcbelegido);
         log_warning(kernel_logger_info, "Hice open file");
-    }else
+    }
+    else
     {
         if (archivo_global_pedido->lock == 'W' || lock == 'W')
-    {
-        log_warning(kernel_logger_info, "Tenia lock de escritura");
-        queue_push(archivo_global_pedido->colabloqueado, pcbelegido);
-        exec_block_fs();
+        {
+            log_warning(kernel_logger_info, "Tenia lock de escritura");
+            queue_push(archivo_global_pedido->colabloqueado, pcbelegido);
+            exec_block_fs();
 
-        pthread_mutex_lock(&mutex_cola_block);
-        pcbelegido->motivo_block = ARCHIVO_BLOCK;
-        pthread_mutex_unlock(&mutex_cola_block);
+            pthread_mutex_lock(&mutex_cola_block);
+            pcbelegido->motivo_block = ARCHIVO_BLOCK;
+            pthread_mutex_unlock(&mutex_cola_block);
 
-        log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_global_pedido->nombreArchivo);
-        sem_post(&sem_ready);
-        // if (list_size(lista_ready) > 0) PARA DETENER PLANI
-        sem_post(&sem_exec);
-    }
-    
-    
-    else if (lock == 'R')
-    {
-        log_warning(kernel_logger_info, "Tenia lock de lectura");
-        archivo_global_pedido->contador++;
-    }
-    
+            log_info(kernel_logger_info, "PID[%d] bloqueado por %s \n", pcbelegido->pid, archivo_global_pedido->nombreArchivo);
+            sem_post(&sem_ready);
+            if (list_size(lista_ready) > 0)
+            sem_post(&sem_exec);
+            return;
+        }
+
+        else if (lock == 'R')
+        {
+            log_warning(kernel_logger_info, "Tenia lock de lectura");
+            archivo_global_pedido->contador++;
+        }
     }
     sem_post(&sem_ready);
-    // if (list_size(lista_ready) > 0) PARA DETENER PLANI
     sem_post(&sem_exec);
 }
 
@@ -274,17 +275,19 @@ void kf_close()
     t_archivo_global *archivo_global_pedido = buscarArchivoGlobal(lista_archivos_abiertos, nombre_archivo);
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, nombre_archivo);
 
-    if(archivo_global_pedido == NULL) {
+    if (archivo_global_pedido == NULL)
+    {
         log_warning(kernel_logger_info, "El archivo global no estaba abierto");
-    }else{
+    }
+    else
+    {
         log_error(kernel_logger_info, "%c", archivo_global_pedido->lock);
     }
 
-    if(archivo_proceso == NULL) {
+    if (archivo_proceso == NULL)
+    {
         log_warning(kernel_logger_info, "El archivo proceso no estaba abierto");
     }
-
-
 
     if (archivo_global_pedido != NULL && archivo_proceso != NULL)
     {
@@ -308,25 +311,26 @@ void kf_close()
         log_info(kernel_logger_info, "El archivo no estaba abierto");
     }
 
-    // NO sacar la lista de archivos abiertos
-    // list_remove_element(proceso_en_ejecucion->archivos_abiertos, archivo_proceso);
+    list_remove_element(proceso_en_ejecucion->archivos_abiertos, archivo_proceso);
     // Mutex! capaz no? solo un proceso en ejecucion...
     bool continuar = true;
     bool crear = true;
     list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
-    t_queue* cola_temporal_de_escritura = queue_create();
-
+    t_queue *cola_temporal_de_escritura = queue_create();
 
     if (archivo_global_pedido->lock == 'N' && queue_size(archivo_global_pedido->colabloqueado) > 0)
     {
-        while(continuar){
+        while (continuar)
+        {
             t_pcb *pcb_desbloqueado = queue_pop(archivo_global_pedido->colabloqueado);
             log_warning(kernel_logger_info, "PID[%d] Desbloqueado por %s \n", pcb_desbloqueado->pid, archivo_global_pedido->nombreArchivo);
-            
+
             char lock = pcb_desbloqueado->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
-            if(lock == 'W' && !crear ) {
+            if (lock == 'W' && !crear)
+            {
                 queue_push(cola_temporal_de_escritura, pcb_desbloqueado);
-                if(queue_size(archivo_global_pedido->colabloqueado) == 0) continuar = false;
+                if (queue_size(archivo_global_pedido->colabloqueado) == 0)
+                    continuar = false;
                 continue;
             }
             log_warning(kernel_logger_info, "Lock %c \n", lock);
@@ -335,24 +339,35 @@ void kf_close()
             crear_archivo_proceso(nombre_archivo, pcb_desbloqueado);
             open_file(nombre_archivo, lock);
 
-            if(crear){
+            if (crear)
+            {
                 crear_archivo_global_con_contador(nombre_archivo, lock, archivo_global_pedido->contador + 1);
                 crear = false;
-            }else{
+            }
+            else
+            {
                 sumar_contador_archivo_global(nombre_archivo);
             }
 
             set_pcb_ready(pcb_desbloqueado);
-            if(queue_size(archivo_global_pedido->colabloqueado) == 0) continuar = false;
+            if (queue_size(archivo_global_pedido->colabloqueado) == 0)
+                continuar = false;
         }
 
-            while(queue_size(cola_temporal_de_escritura) > 0){
+        while (queue_size(cola_temporal_de_escritura) > 0)
+        {
             t_pcb *pcb_desbloqueado = queue_pop(cola_temporal_de_escritura);
             queue_push(archivo_global_pedido->colabloqueado, pcb_desbloqueado);
         }
-    }else if(archivo_global_pedido->contador > 0){
+    }
+
+    else if (archivo_global_pedido->contador > 0)
+    {
         crear_archivo_global_con_contador(nombre_archivo, 'R', archivo_global_pedido->contador + 1);
     }
+
+    /*free(archivo_global_pedido->nombreArchivo);
+    free(archivo_global_pedido);*/
 
     log_warning(kernel_logger_info, "termino fclose");
     log_warning(kernel_logger_info, "tamaño de la tabla de archivos abiertos %d", list_size(lista_archivos_abiertos));
@@ -366,11 +381,19 @@ void kf_seek()
     char *nombre_archivo = proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro1;
     int nueva_ubicacion_puntero = atoi(proceso_en_ejecucion->contexto_ejecucion->instruccion_ejecutada->parametro2);
     log_info(kernel_logger_info, "PID[%d] Actualizar puntero Archivo %s - Puntero %d\n", proceso_en_ejecucion->pid, nombre_archivo, nueva_ubicacion_puntero);
+    if(proceso_en_ejecucion->archivos_abiertos == NULL) {
+        log_error(kernel_logger_info, "El proceso no tiene archivos abiertos y deberia");
+    }
     t_list *lista_archivos = proceso_en_ejecucion->archivos_abiertos;
 
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(lista_archivos, nombre_archivo);
+    if(archivo_proceso == NULL) {
+        log_error(kernel_logger_info, "El proceso en archivo no se encuentra");
+    }
     archivo_proceso->puntero = nueva_ubicacion_puntero;
 
+
+    log_error(kernel_logger_info, "Termino fseek");
     sem_post(&sem_ready);
     sem_post(&sem_exec);
 };
@@ -412,15 +435,15 @@ void kf_write()
 void kf_truncate()
 {
 
-
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
-    char* tamanio = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2;
+    char *tamanio = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2;
     log_warning(kernel_logger_info, "La lista de proceso en ejecucion tiene %d elementos", list_size(proceso_en_ejecucion->archivos_abiertos));
     log_warning(kernel_logger_info, "La lista de pcbelegidos tiene %d elementos", list_size(pcbelegido->archivos_abiertos));
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
 
     log_info(kernel_logger_info, "PID[%d] - Archivo %s - TAMAÑO %s", pcbelegido->pid, nombre_archivo, tamanio);
-    if(archivo_proceso != NULL){
+    if (archivo_proceso != NULL)
+    {
         log_warning(kernel_logger_info, "El archivo proceso no es NULL");
     }
     log_warning(kernel_logger_info, "Voy a inicializar instruccion fs, valor del puntero %s", archivo_proceso->nombreArchivo);

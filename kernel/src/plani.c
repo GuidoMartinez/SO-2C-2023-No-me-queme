@@ -32,23 +32,33 @@ void exit_pcb(void)
 void pcb_destroy(t_pcb *pcb)
 {
     log_info(kernel_logger_info, "Entre al destroy ");
+    if(pcb->archivos_abiertos == NULL) {
+        log_info(kernel_logger_info, "pcb->archivos_abiertos es null");
+    }
+    if(lista_archivos_abiertos == NULL){
+        log_info(kernel_logger_info, "lista_archivos_abiertos es null");
+    }
 
     if (list_size(pcb->archivos_abiertos) > 0)
     {
+                log_info(kernel_logger_info, "tien archivos abiertos");
         for (int i = 0; i <= list_size(pcb->archivos_abiertos); i++)
         {
+            log_info(kernel_logger_info, "entro al for");
             t_archivo_global *archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, list_get(pcb->archivos_abiertos, i));
+                    log_info(kernel_logger_info, "enucnetro archivo gloabal a partir del for");
             if (archivo_global == NULL)
             {
+                log_error(kernel_logger_info, "no estaba abierto el archivo en la tabla global");
                 continue;
             }
-            archivo_global->contador--;
 
             if (archivo_global->contador == 0)
             {
-                list_remove_element(lista_archivos_abiertos, archivo_global);
+                log_info(kernel_logger_info, "agarro archivo con contador 0");
                 free(archivo_global->nombreArchivo);
                 free(archivo_global);
+                log_info(kernel_logger_info, "libero archivo");
             }
         }
     }
@@ -310,7 +320,7 @@ void exec_pcb()
         }
 
         if(abs(pcbelegido->pid) / 100 > 0) {
-            //log_error(kernel_logger_info, "entro un pcb basura, se continua exec");
+            log_error(kernel_logger_info, "entro un pcb basura, se continua exec");
             sem_post(&sem_ready);
             if(list_size(lista_ready) > 0) {
                 sem_post(&sem_exec);
@@ -347,6 +357,10 @@ void exec_pcb()
             pthread_t hilo_page_fault;
             pthread_create(&hilo_page_fault, NULL, (void *)manejar_pf, args);
             pthread_detach(hilo_page_fault);
+
+            int resultado;
+            sem_getvalue(&sem_exec, &resultado);
+            log_error(kernel_logger_info, "valor del semaforo de excec: %d", resultado);
 
             continue;
         }
