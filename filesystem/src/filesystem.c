@@ -25,10 +25,11 @@ int main(int argc, char **argv)
     path_bloques = config_valores_filesystem.path_bloques;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
     path_fat = config_valores_filesystem.path_fat;
+    swap = malloc(bloques_swap*sizeof(uint32_t));
+    inicializar_swap();
     lista_fcb = list_create();
     pthread_mutex_init(&mutex_fat, NULL);
-    inicializar_swap();
-    formatear = 1;
+    
     int exit_status_bloques = crear_archivo_bloques(path_bloques);
     if (exit_status_bloques == -1)
     {
@@ -91,22 +92,31 @@ int main(int argc, char **argv)
     pthread_t hilo_cliente;
     pthread_create(&hilo_cliente, NULL, comunicacion_kernel, NULL);
     pthread_detach(hilo_cliente);
-    while (1)
-        ;
+    while (1);
     abort();
+}
+
+void inicializar_swap()
+{
+
+    for (int i = 0; i < bloques_swap; i++)
+    {
+        swap[i] = -1;
+    }
 }
 
 void *leer_bloque_swap(uint32_t numero_bloque)
 {
-    void *datos = NULL;
+    void *datos = malloc(tamanio_bloque); 
+    
     FILE *archivo_bloques = fopen(path_bloques, "rb");
     numero_bloque += tamanio_fat - 1;
     if (archivo_bloques == NULL)
     {
         log_error(filesystem_logger_info, "Error al abrir el archivo de Bloques para lectura");
-        return -1;
+        free(datos); 
+        return NULL;
     }
-
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
@@ -134,32 +144,13 @@ int escribir_bloque_swap(uint32_t numero_bloque, void *datos)
     return 0;
 }
 
-uint32_t posicion_en_swap(uint32_t indice)
-{
-    FILE *archivo_bloques = fopen(path_bloques, "rb");
-    if (archivo_bloques == NULL)
-    {
-        log_error(filesystem_logger_info, "Error al abrir el archivo Bloques para lectura");
-        return -1;
-    }
-
-    fseek(archivo_bloques, (tamanio_fat + indice - 1) * tamanio_bloque, SEEK_SET);
-
-    uint32_t valor;
-    fread(&valor, tamanio_bloque, 1, archivo_bloques);
-
-    fclose(archivo_bloques);
-
-    return (memcmp(&valor, "\0", tamanio_bloque) == 0) ? 0 : indice;
-}
-
 uint32_t obtener_primer_bloque_libre_swap()
 {
-    for (uint32_t i = tamanio_fat - 1; i < cant_bloques; i++)
+    for (uint32_t i = 0; i < bloques_swap; i++)
     {
-        if (posicion_en_swap(i) == 0)
+        if (swap[i] == -1)
         {
-            return i; // Ajustar para devolver el número de bloque relativo a la partición de swap
+            return i;
         }
     }
     return -1;
@@ -173,10 +164,7 @@ void liberar_bloques_swap(t_list *lista_bloques_a_liberar)
 
         if (nro_bloque < bloques_swap)
         {
-            void *valor_libre = malloc(tamanio_bloque);
-            memset(valor_libre, 0, tamanio_bloque);
-            escribir_bloque_swap(nro_bloque, valor_libre);
-            free(valor_libre);
+            swap[nro_bloque] = -1;
         }
         else
         {
@@ -190,26 +178,14 @@ t_list *lista_bloques_swap_reservados(int cantidad_bloques_deseada)
     t_list *lista = list_create();
     int bloques_asignados = 0;
 
+    // while (bloques_asignados < cantidad_bloques_deseada && cantidad_bloques_deseada <= bloques_swap)
     while (bloques_asignados < cantidad_bloques_deseada)
     {
         uint32_t bloque_libre = obtener_primer_bloque_libre_swap();
 
-        if (bloque_libre != -1)
-        {
-            // Marcar el bloque como ocupado en el archivo de bloques
-            void *valor_ocupado = malloc(tamanio_bloque);
-            memset(valor_ocupado, 0, tamanio_bloque);
-            escribir_bloque_swap(bloque_libre, &valor_ocupado);
-            free(valor_ocupado);
-
-            list_add(lista, bloque_libre);
-            bloques_asignados++;
-        }
-        else
-        {
-            log_info(filesystem_logger_info, "No hay suficientes bloques libres en la partición de swap.");
-            break;
-        }
+        swap[bloque_libre] = 1;
+        list_add(lista, bloque_libre);
+        bloques_asignados++;
     }
     return lista;
 }
@@ -477,26 +453,6 @@ void modificar_en_fat(uint32_t posicion, uint32_t nuevo_valor)
     return;
 }
 
-void inicializar_swap()
-{
-    FILE *archivo_bloques = fopen(path_bloques, "wb+");
-    if (archivo_bloques == NULL)
-    {
-        log_error(filesystem_logger_info, "Error al crear el archivo Bloques");
-        return;
-    }
-
-    uint32_t valor_swap = 0;
-    for (uint32_t i = tamanio_fat - 1; i < bloques_swap; i++)
-    {
-        fwrite(&valor_swap, tamanio_bloque, 1, archivo_bloques);
-    }
-
-    fflush(archivo_bloques);
-    fclose(archivo_bloques);
-
-    log_info(filesystem_logger_info, "Swap inicializado");
-}
 /*
 void guardarFAT(const char *nombreArchivo, int tamanio_fat)
 {
@@ -1057,7 +1013,7 @@ void realizar_f_read(t_instruccion_fs *instruccion_file) // ver comentarios al f
 
     // DEBERIAS LEER EL BLOQUE COMPLETO Y METERLO EN UN VOID* que tenga de tamanio tamanio_bloque (void* bloque_leido por ej y enviarlo como queda aca abajo
 
-    void *bloque_leido = malloc(tamanio_bloque);
+    //void *bloque_leido = malloc(tamanio_bloque);
 
     t_paquete *paq_f_read = crear_paquete_con_codigo_de_operacion(F_WRITE_FS);
     paq_f_read->buffer->size += sizeof(int) + config_valores_filesystem.tam_bloque;
