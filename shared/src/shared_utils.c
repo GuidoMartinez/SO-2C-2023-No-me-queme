@@ -120,6 +120,12 @@ int crear_conexion(char *ip, char *puerto)
 		// freeaddrinfo(server_info); // TODO -- VER SI TIENE QUE ESTAR
 		return -1;
 	}
+	/*if(setsockopt(socket_cliente, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int))>0){
+		printf("error al agregar configuracion extra al socket"); // TODO // eliminar
+		// freeaddrinfo(server_info); // TODO -- VER SI TIENE QUE ESTAR
+		return -1;
+	}*/
+
 	freeaddrinfo(server_info);
 
 	return socket_cliente;
@@ -466,6 +472,8 @@ t_contexto_ejecucion *recibir_contexto(int socket)
 	memcpy(&(contexto_recibido->motivo_desalojado), buffer + offset, sizeof(motivo_desalojo));
 	offset += sizeof(motivo_desalojo);
 
+	free(buffer);
+
 	return contexto_recibido;
 }
 
@@ -532,6 +540,8 @@ t_instruccion *deserializar_instruccion(int socket)
 	instruccion_recibida->parametro2 = malloc(instruccion_recibida->longitud_parametro2);
 	memcpy(instruccion_recibida->parametro2, buffer + offset, instruccion_recibida->longitud_parametro2);
 	offset += instruccion_recibida->longitud_parametro2;
+
+	free(buffer);
 
 	return instruccion_recibida;
 }

@@ -14,8 +14,10 @@ void exit_pcb(void)
         liberar_recursos(pcb);
 
         pcb_destroy(pcb);
+
         if (list_size(lista_ready_detenidos)> 0){
-list_add(lista_ready,list_get(lista_ready_detenidos,0));
+        t_pcb* pcb_ready_detenido =list_remove(lista_ready_detenidos,0);
+        set_pcb_ready(pcb_ready_detenido);
         }
         
         sem_post(&sem_ready);
@@ -70,7 +72,7 @@ t_pcb *safe_pcb_remove(t_list *list, pthread_mutex_t *mutex)
     pthread_mutex_lock(mutex);
     pcb = list_remove(list, 0);
     pthread_mutex_unlock(mutex);
-     log_info(kernel_logger_info, "fifo%d", pcb->pid);
+     log_info(kernel_logger_info, "rEMOVI PID %d", pcb->pid);
     return pcb;
 }
 void pcb_create(int prio, int tamano, int pid_ok)
@@ -261,9 +263,11 @@ void ready_pcb(void)
             else
             {
                 log_info(kernel_logger_info, "Excede grado de multiprogramacion");
-                pthread_mutex_lock(&mutex_cola_exit);
+                pthread_mutex_lock(&mutex_cola_ready);
                 list_add(lista_ready_detenidos, pcb);
-                pthread_mutex_unlock(&mutex_cola_exit);
+                pthread_mutex_unlock(&mutex_cola_ready);
+                log_info(kernel_logger_info, "Tamaño lista ready despues de exceder grado %d",list_size(lista_ready));
+                log_info(kernel_logger_info, "Tamaño lista ready detenidos %d despues de exceder grado - PID %d",list_size(lista_ready_detenidos),pcb->pid);
                 
                
             }
@@ -313,7 +317,7 @@ void exec_pcb()
         {
             log_info(kernel_logger_info, "Error al recibir contexto");
             abort();
-        }
+        } 
         t_contexto_ejecucion *ultimo_contexto = malloc(sizeof(t_contexto_ejecucion));
         ultimo_contexto = recibir_contexto(conexion_cpu_dispatch);
         pcbelegido->contexto_ejecucion = ultimo_contexto;

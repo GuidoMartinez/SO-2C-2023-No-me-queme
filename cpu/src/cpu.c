@@ -109,36 +109,25 @@ void *recibir_interrupt(void *arg)
             finalizar_cpu();
             abort();
         }
-        t_interrupcion* interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
+        t_interrupcion *interrupcion = recibir_interrupcion(conexion_kernel_interrupt);
         if (contexto_actual != NULL)
         {
             switch (interrupcion->motivo_interrupcion)
             {
             case INTERRUPT_FIN_QUANTUM:
                 // log_info(cpu_logger_info, "Recibo fin de quantum");
-                if (contexto_actual->motivo_desalojado != SYSCALL){
                 interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
-                pthread_mutex_lock(&mutex_interrupt);
-                contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
-                pthread_mutex_unlock(&mutex_interrupt);
-                }
                 break;
             case INTERRUPT_FIN_PROCESO:
                 log_info(cpu_logger_info, "Recibo fin de proceso");
                 if (!descartar_instruccion)
                 {
                     interrupciones[INTERRUPT_FIN_PROCESO] = 1;
-                    pthread_mutex_lock(&mutex_interrupt);
-                    contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
-                    pthread_mutex_unlock(&mutex_interrupt);
                 }
                 break;
             case INTERRUPT_NUEVO_PROCESO:
                 log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
                 interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
-                pthread_mutex_lock(&mutex_interrupt);
-                contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
-                pthread_mutex_unlock(&mutex_interrupt);
                 break;
             default:
                 log_warning(cpu_logger_info, "Operacion desconocida \n");
@@ -147,7 +136,7 @@ void *recibir_interrupt(void *arg)
                 break;
             }
         }
-            free(interrupcion);
+        free(interrupcion);
     }
 
     return NULL;
@@ -164,18 +153,32 @@ bool hay_interrupciones()
 }
 
 void obtener_motivo_desalojo()
-{   pthread_mutex_lock(&mutex_interrupt);
-    if (interrupciones[INTERRUPT_FIN_PROCESO])
-        contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
-    if (interrupciones[INTERRUPT_FIN_QUANTUM])
-        contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
-    if (interrupciones[INTERRUPT_NUEVO_PROCESO])
-        contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
+{
     if (page_fault)
+    {
         contexto_actual->motivo_desalojado = PAGE_FAULT;
+        return NULL
+    }
     if (es_syscall())
+    {
         contexto_actual->motivo_desalojado = SYSCALL;
-        pthread_mutex_unlock(&mutex_interrupt);
+        return NULL
+    }
+    if (interrupciones[INTERRUPT_FIN_QUANTUM])
+    {
+        contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
+        return NULL
+    }
+    if (interrupciones[INTERRUPT_FIN_PROCESO])
+    {
+        contexto_actual->motivo_desalojado = INTERRUPT_FIN_PROCESO;
+        return NULL
+    }
+    if (interrupciones[INTERRUPT_NUEVO_PROCESO])
+    {
+        contexto_actual->motivo_desalojado = INTERRUPT_NUEVO_PROCESO;
+        return NULL
+    }
 }
 
 bool descartar_interrupcion(int pid)
