@@ -120,11 +120,11 @@ int crear_conexion(char *ip, char *puerto)
 		// freeaddrinfo(server_info); // TODO -- VER SI TIENE QUE ESTAR
 		return -1;
 	}
-	if(setsockopt(socket_cliente, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int))>0){
+	/*if(setsockopt(socket_cliente, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int))>0){
 		printf("error al agregar configuracion extra al socket"); // TODO // eliminar
 		// freeaddrinfo(server_info); // TODO -- VER SI TIENE QUE ESTAR
 		return -1;
-	}
+	}*/
 
 	freeaddrinfo(server_info);
 
