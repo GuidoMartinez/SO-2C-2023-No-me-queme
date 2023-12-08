@@ -211,6 +211,7 @@ void *manejo_conexion_cpu(void *arg)
 
 			log_info(logger_memoria_info, "VALOR %d , DIRECCION FISICA %d", valor, dir_fisica);
 			escribir_memoria_cpu(dir_fisica, valor);
+			log_error(logger_memoria_info, "Escribir el valor en memoria %d - dir fisica %d", valor, dir_fisica);
 
 			// TODO -- VER SI DEVUELVO OK.
 
@@ -285,7 +286,7 @@ void *manejo_conexion_kernel(void *arg)
 			{
 				int prueba = recibir_int(socket_fs_int);
 				if (prueba != -1)
-				{ 
+				{
 					log_info(logger_memoria_info, "SWAP LIBERADA - PID [%d]", proceso_a_eliminar->pid);
 				}
 			}
@@ -305,9 +306,7 @@ void *manejo_conexion_kernel(void *arg)
 			log_info(logger_memoria_info, "Me llego PF para PID [%d] , NUM DE PAG [%d]", pid_pf, nro_pag_pf);
 			t_proceso_memoria *proceso_pf = obtener_proceso_pid(pid_pf);
 			t_entrada_tabla_pag *entrada_a_traer = list_get(proceso_pf->tabla_paginas->entradas_tabla, nro_pag_pf);
-			// log_info(logger_memoria_info, "El nro de pagina de de PF es %d y el indice de la entrada es %d", nro_pag_pf, entrada_a_traer->indice); TODO - BORRAR
-			entrada_a_traer->bit_presencia = 1;
-			entrada_a_traer->bit_modificado = 0;
+			log_info(logger_memoria_info, "El nro de pagina de de PF es %d y el indice de la entrada es %d", nro_pag_pf, entrada_a_traer->indice); // TODO - BORRAR
 			int marco_a_asignar;
 
 			if (hay_marcos_libres())
@@ -315,6 +314,8 @@ void *manejo_conexion_kernel(void *arg)
 				log_info(logger_memoria_info, "HAY MARCOS LIBRES - no se debe reemplazar ninguna pagina en memoria");
 				marco_a_asignar = asignar_marco_libre(pid_pf);
 				entrada_a_traer->marco = marco_a_asignar;
+				entrada_a_traer->bit_presencia = 1;
+				entrada_a_traer->bit_modificado = 0;
 				log_info(logger_memoria_info, "El marco a asignar es  [%d] para PID [%d] - Pag [%d]", marco_a_asignar, pid_pf, nro_pag_pf);
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
@@ -347,18 +348,20 @@ void *manejo_conexion_kernel(void *arg)
 				}
 
 				liberar_presencia_pagina(entrada_a_swapear);
-				entrada_a_traer->marco = marco_a_asignar;
+				entrada_a_traer->marco = marco_real->num_de_marco;
+				marco_real->pid = pid_pf;
 
 				// CARGO LA PAGINA -- REPITO LOGICA SI HAY MARCO LIBRE, REFACTOR LLEVARLO A UNA FUNCION
 			}
-
+			entrada_a_traer->bit_presencia = 1;
+			entrada_a_traer->bit_modificado = 0;
 			pedido_lectura_swap(socket_fs_int, entrada_a_traer);
 
-			// log_info(logger_memoria_info, "Se pidio pagina a SWAP con id bloque %d", entrada_a_traer->id_bloque_swap); // LOG_LRU
+			log_info(logger_memoria_info, "Se pidio pagina a SWAP con id bloque %d", entrada_a_traer->id_bloque_swap); // BORRAR LOG_LRU
 
 			cargar_pagina_swap_en_memoria(socket_fs_int, marco_a_asignar, pid_pf);
 
-			// log_info(logger_memoria_info, "Se cargo en memoria la pagina indicada"); // LOG_LRU
+			log_info(logger_memoria_info, "Se cargo en memoria la pagina indicada"); // LOG_LRU
 
 			enviar_op_con_int(socket_kernel_int, PAGINA_CARGADA, pid_pf);
 			log_info(logger_memoria_info, "***** SWAP IN -  PID: [%d] - Marco: [%d] - Page In: PID [%d] -PAG [%d]", proceso_pf->pid, marco_a_asignar, proceso_pf->pid, entrada_a_traer->indice);	// LOG OBLIGATORIO
@@ -623,10 +626,10 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 {
 	// log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
-	//if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+	// if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 	usleep(config_valores_memoria.retardo_respuesta);
-	//else
-	//sleep(1);
+	// else
+	// sleep(1);
 	return obtener_instrccion_pc(proceso, pc_pedido);
 }
 
@@ -660,11 +663,6 @@ void agregar_pagina_fifo(t_entrada_tabla_pag *entrada)
 		list_add(paginas_utilizadas, entrada);
 	}
 	pthread_mutex_unlock(&mutex_fifo);
-}
-
-bool son_iguales(t_entrada_tabla_pag *entrada1, t_entrada_tabla_pag *entrada2)
-{
-	return entrada1->indice == entrada2->indice && entrada1->marco == entrada2->marco && entrada1->id_bloque_swap == entrada2->id_bloque_swap;
 }
 
 void liberar_presencia_pagina(t_entrada_tabla_pag *pagina)
@@ -706,14 +704,18 @@ t_entrada_tabla_pag *paginaAReemplazar()
 		if (marco_reemplazo == NULL)
 			log_info(logger_memoria_info, "marco reemplazo es NULL");
 
-		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
+		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d] - FIFO", marco_reemplazo->pid, pagina_a_reemplazar->indice);
 		return pagina_a_reemplazar;
 		break;
 	case LRU:
 		pagina_a_reemplazar = obtenerPaginaLRU();
+		if (pagina_a_reemplazar->marco != -1)
+			log_info(logger_memoria_info, "el marco de la pagina es: %d", pagina_a_reemplazar->marco);
 		marco_reemplazo = list_get(marcos, pagina_a_reemplazar->marco);
+		if (marco_reemplazo == NULL)
+			log_info(logger_memoria_info, "marco reemplazo es NULL");
 
-		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d]", marco_reemplazo->pid, pagina_a_reemplazar->indice);
+		log_info(logger_memoria_info, "PID [%d] - Pagina a reemplazar Nro Pag: [%d] - LRU", marco_reemplazo->pid, pagina_a_reemplazar->indice);
 		return pagina_a_reemplazar;
 		break;
 	default:
@@ -755,7 +757,7 @@ t_entrada_tabla_pag *obtener_entrada_menor_tiempo_lru(t_list *lista_entradas)
 t_entrada_tabla_pag *obtenerPaginaFIFO()
 {
 	pthread_mutex_lock(&mutex_fifo);
-	log_error(logger_memoria_info, "List size de paginas utilizadas antes de sacar pag a reemplazar %d", list_size(paginas_utilizadas));
+	log_error(logger_memoria_info, "List size de paginas utilizadas antes de sacar pag a reemplazar %d", list_size(paginas_utilizadas)); // TODO BORRAR
 	t_entrada_tabla_pag *pagina = list_remove(paginas_utilizadas, 0);
 	pthread_mutex_unlock(&mutex_fifo);
 	return pagina;
@@ -966,22 +968,22 @@ int obtener_marco_pid(int pid_pedido, int entrada)
 t_marco *marco_desde_df(int df)
 {
 	int num_marco = floor(df / config_valores_memoria.tamanio_pagina);
-	// log_info(logger_memoria_info, "obtengo el marco modificado"); BORRAR
+	log_info(logger_memoria_info, "obtengo el marco modificado"); // BORRAR
 	pthread_mutex_lock(&mutex_marcos);
 	t_marco *marco_elegido = list_get(marcos, num_marco);
 	pthread_mutex_unlock(&mutex_marcos);
-	// log_error(logger_memoria_info, "marco elegido: %d - direccion fisica: %d", marco_elegido->num_de_marco, df); BORRAR
+	log_error(logger_memoria_info, "marco elegido: %d - direccion fisica: %d - pid %d", marco_elegido->num_de_marco, df, marco_elegido->pid); // BORRAR
 	return marco_elegido;
 }
 
 void marcar_pag_modificada(int pid_mod, int marco_mod)
 {
 	t_proceso_memoria *proceso = obtener_proceso_pid((uint32_t)pid_mod);
-	// log_error(logger_memoria_info, "Valor del pid: %d", proceso->pid); BORRAR
+	log_error(logger_memoria_info, "Valor del pid: %d", proceso->pid); // BORRAR
 	t_list *paginas_en_memoria = obtener_entradas_con_bit_presencia_1(proceso);
-	// log_error(logger_memoria_info, "cantidad de paginas: %d - tamaño de la lista total: %d - lista en memoria: %d", proceso->tabla_paginas->cantidad_paginas, list_size(proceso->tabla_paginas->entradas_tabla), list_size(paginas_en_memoria)); BORRAR
+	log_error(logger_memoria_info, "cantidad de paginas: %d - tamaño de la lista total: %d - lista en memoria: %d", proceso->tabla_paginas->cantidad_paginas, list_size(proceso->tabla_paginas->entradas_tabla), list_size(paginas_en_memoria)); // BORRAR
 	t_entrada_tabla_pag *pagina_modificada = obtener_entrada_con_marco(paginas_en_memoria, marco_mod);
-	// log_error(logger_memoria_info, "marco: %d - indice: %d - marco en pagina: %d", marco_mod, pagina_modificada->indice, pagina_modificada->marco);  BORRAR
+	log_error(logger_memoria_info, "marco: %d - indice: %d - marco en pagina: %d", marco_mod, pagina_modificada->indice, pagina_modificada->marco); // BORRAR
 
 	cambiar_bit_modificado(proceso, pagina_modificada->indice, 1);
 	actualizo_entrada_para_futuro_reemplazo(pagina_modificada);
@@ -1237,15 +1239,16 @@ void enviar_pagina_leida_fs(void *bloque, int socket)
 void escribir_memoria_cpu(int dir_fisica, uint32_t valor)
 {
 	// TODO - AGREGAR MUTEX
-	// log_info(logger_memoria_info, "voy a escribir un valor en memoria usuario"); BORRAR
+	log_info(logger_memoria_info, "voy a escribir un valor en memoria usuario"); // TODO BORRAR
 	pthread_mutex_lock(&mutex_memoria_usuario);
 	memcpy(memoria_usuario + dir_fisica, &valor, sizeof(uint32_t));
 	pthread_mutex_unlock(&mutex_memoria_usuario);
 
+	log_error(logger_memoria_info, "ya guarde en memoria"); // TODO BORRAR
 	t_marco *marco = marco_desde_df(dir_fisica);
 
 	marcar_pag_modificada(marco->pid, marco->num_de_marco);
-	// log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco->pid); 
+	log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco->pid); // BORRAR
 	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
@@ -1261,8 +1264,8 @@ void escribir_memoria_fs(int dir_fisica, void *bloque)
 	log_info(logger_memoria_info, "FS WRITE - Escribo bloque en dir fisica %d - marco %d", dir_fisica, marco_escibir->num_de_marco);
 
 	// TODO -- VALIDAR -- cuando hago un F_READ debo marcar la pagina que tiene el marco como modificada
-	//marcar_pag_modificada(marco_escibir->pid, marco_escibir->num_de_marco);
-	//log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco_escibir->pid);
+	// marcar_pag_modificada(marco_escibir->pid, marco_escibir->num_de_marco);
+	// log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco_escibir->pid);
 	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else

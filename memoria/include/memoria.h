@@ -76,7 +76,6 @@ void recibir_pf_kernel(int, int *, int *);
 t_entrada_tabla_pag *obtenerPaginaFIFO();
 t_entrada_tabla_pag *obtenerPaginaLRU();
 t_entrada_tabla_pag *paginaAReemplazar();
-bool son_iguales(t_entrada_tabla_pag *, t_entrada_tabla_pag *);
 t_entrada_tabla_pag *obtener_entrada_menor_tiempo_lru(t_list *);
 void agregar_pagina_fifo(t_entrada_tabla_pag *);
 
