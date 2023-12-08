@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     swap = malloc(bloques_swap*sizeof(uint32_t));
     inicializar_swap();
     lista_fcb = list_create();
-    pthread_mutex_init(&mutex_fat, NULL);
+    // pthread_mutex_init(&mutex_fat, NULL);
     
     int exit_status_bloques = crear_archivo_bloques(path_bloques);
     if (exit_status_bloques == -1)
@@ -45,7 +45,6 @@ int main(int argc, char **argv)
     pthread_detach(conexion_memoria_swap);
 
     // CONEXION CON MEMORIA PARA F_READ Y F_WRITE
-
     socket_memoria_op = crear_conexion(config_valores_filesystem.ip_memoria, config_valores_filesystem.puerto_memoria);
     realizar_handshake(socket_memoria_op, HANDSHAKE_FILESYSTEM_OPS, filesystem_logger_info);
 
@@ -107,7 +106,8 @@ void inicializar_swap()
 
 void *leer_bloque_swap(uint32_t numero_bloque)
 {
-    void *datos = malloc(tamanio_bloque); 
+    void *datos = malloc(tamanio_bloque);
+    uint32_t bloque_swap = numero_bloque; 
     
     FILE *archivo_bloques = fopen(path_bloques, "rb");
     numero_bloque += tamanio_fat - 1;
@@ -121,13 +121,15 @@ void *leer_bloque_swap(uint32_t numero_bloque)
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
     usleep(retardo_acceso_bloque);
-
+    log_info(filesystem_logger_info, "Acceso SWAP: <%d> - Lectura", bloque_swap); // Log obligatorio
     return datos;
 }
 
 int escribir_bloque_swap(uint32_t numero_bloque, void *datos)
 {
     FILE *archivo_bloques = fopen(path_bloques, "rb+");
+    uint32_t bloque_swap = numero_bloque;
+
     numero_bloque += tamanio_fat - 1;
     if (archivo_bloques == NULL)
     {
@@ -138,6 +140,7 @@ int escribir_bloque_swap(uint32_t numero_bloque, void *datos)
     fwrite(datos, tamanio_bloque, 1, archivo_bloques);
     fflush(archivo_bloques);
     fclose(archivo_bloques);
+    log_info(filesystem_logger_info, "Acceso SWAP: <%d> - Escritura", bloque_swap); // Log obligatorio
 
     usleep(retardo_acceso_bloque);
 
@@ -168,7 +171,7 @@ void liberar_bloques_swap(t_list *lista_bloques_a_liberar)
         }
         else
         {
-            log_info(filesystem_logger_info, "Número de bloque inválido en la lista: %d", nro_bloque);
+            // log_info(filesystem_logger_info, "Número de bloque inválido en la lista: %d", nro_bloque);
         }
     }
 }
@@ -323,6 +326,7 @@ void finalizar_filesystem()
     log_info(filesystem_logger_info, "Finalizando el modulo FILESYSTEM");
     log_destroy(filesystem_logger_info);
     config_destroy(config);
+    free(swap);
     close(socket_memoria_swap);
     close(socket_kernel);
 }
@@ -345,7 +349,7 @@ uint32_t obtener_primer_bloque_libre()
     }
     return -1;
 }
-
+/*
 bool bloque_esta_ocupado(uint32_t *fat, int id_bloque)
 {
     if (id_bloque < 0 || id_bloque >= tamanio_fat)
@@ -355,7 +359,7 @@ bool bloque_esta_ocupado(uint32_t *fat, int id_bloque)
 
     return posicion_en_fat(id_bloque) != 0;
 }
-
+*/
 int crear_archivo_bloques(char *path_bloques)
 {
     FILE *archivo_bloques = fopen(path_bloques, "wb+");
@@ -373,7 +377,7 @@ int crear_archivo_bloques(char *path_bloques)
     fflush(archivo_bloques);
     fclose(archivo_bloques);
 
-    log_info(filesystem_logger_info, "Archivo de bloques creado");
+    // log_info(filesystem_logger_info, "Archivo de bloques creado");
     return 0;
 }
 
@@ -386,12 +390,12 @@ void *leer_bloque(uint32_t numero_bloque)
         log_error(filesystem_logger_info, "Error al abrir el archivo de Bloques para lectura");
         return -1;
     }
-
+    
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
     sleep(retardo_acceso_bloque / 1000);
-
+    log_info(filesystem_logger_info, "Acceso FAT - Entrada: <%d> - Valor <%d>", numero_bloque, posicion_en_fat(numero_bloque)); // Log obligatorio
     return datos;
 }
 
@@ -412,7 +416,7 @@ int crear_fat(char *path_fat)
     fflush(archivo_fat);
     fclose(archivo_fat);
 
-    log_info(filesystem_logger_info, "Tabla FAT creada");
+    // log_info(filesystem_logger_info, "Tabla FAT creada");
     return 0;
 }
 
@@ -538,7 +542,7 @@ void inicializar_fcb_list(char *path_fcb)
         free(nombre_completo);
     }
 
-    log_info(filesystem_logger_info, "Lista de FCB creada correctamente");
+    // log_info(filesystem_logger_info, "Lista de FCB creada correctamente");
     closedir(dir_fcb);
 }
 
@@ -592,7 +596,7 @@ int crear_fcb(char *nombre_fcb)
     free(fcb_fisico->path);
     free(fcb_fisico);
     free(nombre_completo);
-    log_warning(filesystem_logger_info, "El id del fcb en crear_fcb es %d", nuevo_fcb->id);
+    // log_warning(filesystem_logger_info, "El id del fcb en crear_fcb es %d", nuevo_fcb->id);
 
     return nuevo_fcb->id;
 }
@@ -607,13 +611,13 @@ uint32_t conseguir_id_fcb(char *nombre_fcb)
         if (strcmp(fcb->nombre_archivo, nombre_fcb) == 0)
         {
             resultado = fcb->id;
-            log_warning(filesystem_logger_info, "El id del fcb en conseguir_fcb_id es %d", fcb->id);
+            // log_warning(filesystem_logger_info, "El id del fcb en conseguir_fcb_id es %d", fcb->id);
             break;
         }
     }
     if (resultado == -1)
     {
-        log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
+        // log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
     }
     return resultado;
 }
@@ -623,14 +627,14 @@ uint32_t buscar_fcb(char *nombre_fcb)
     uint32_t resultado = -1;
     uint32_t id_fcb = conseguir_id_fcb(nombre_fcb);
     uint32_t bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
-    log_warning(filesystem_logger_info, "Posicion en el bloque fat %d con el valor %d, y el id del fcb es %d", bloque_inicial, id_fcb);
+    // log_warning(filesystem_logger_info, "Posicion en el bloque fat %d con el valor %d, y el id del fcb es %d", bloque_inicial, id_fcb);
     if (posicion_en_fat(bloque_inicial) != 0)
     {
         return id_fcb;
     }
     if (resultado == -1)
     {
-        log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
+        // log_info(filesystem_logger_info, "No se encontró un FCB con el nombre: %s", nombre_fcb);
     }
     return resultado;
 }
@@ -770,15 +774,15 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
     {
         if (bloque_actual == -1)
         {
-            log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
+            // log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
             break;
         }
         if (bloque_actual >= tamanio_fat || bloque_actual < 0)
         {
-            log_warning(filesystem_logger_info, "Indice de bloque fuera del espacio mapeado para FAT");
+            // log_warning(filesystem_logger_info, "Indice de bloque fuera del espacio mapeado para FAT");
         }
         modificar_en_fat(bloque_actual, (obtener_primer_bloque_libre()));
-        log_warning(filesystem_logger_info, "El valor del bloque actual en fat es %d", posicion_en_fat(bloque_actual));
+        // log_warning(filesystem_logger_info, "El valor del bloque actual en fat es %d", posicion_en_fat(bloque_actual));
         bloque_actual = posicion_en_fat(bloque_actual);
     }
 }
@@ -806,7 +810,7 @@ int truncar_fcb(char *nombre_fcb, uint32_t nuevo_tamanio)
 {
     int resultado = -1;
     uint32_t id_fcb = conseguir_id_fcb(nombre_fcb);
-    log_warning(filesystem_logger_info, "El id del fcb en truncar_fcb es %d de tamanio %d", id_fcb, nuevo_tamanio);
+    // log_warning(filesystem_logger_info, "El id del fcb en truncar_fcb es %d de tamanio %d", id_fcb, nuevo_tamanio);
     if (id_fcb != -1)
     {
         uint32_t tamanio_archivo = valor_fcb(id_fcb, TAMANIO_ARCHIVO);
@@ -837,87 +841,11 @@ void escribir_bloque(uint32_t numero_bloque, void *datos)
     fwrite(datos, tamanio_bloque, 1, archivo_bloques);
     fflush(archivo_bloques);
     fclose(archivo_bloques);
+    log_info(filesystem_logger_info, "Acceso FAT - Entrada: <%d> - Valor <%d>", numero_bloque, posicion_en_fat(numero_bloque)); // Log obligatorio
 
     sleep(retardo_acceso_bloque / 1000);
 
     return;
-}
-
-void escribir_datos(void *datos, int cant_bloques, fcb_t *id_fcb)
-{
-    uint32_t bloque_actual = id_fcb->bloque_inicial;
-    uint32_t bloque_siguiente;
-
-    for (int i = 0; i < cant_bloques; i++)
-    {
-        bloque_t bloque_info;
-        bloque_info.datos = bloques[bloque_actual].datos;
-        uint32_t bloque_id = id_fcb->bloque_inicial;
-        log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
-        if (posicion_en_fat(bloque_actual) == 0)
-        {
-            asignar_bloques(id_fcb->id, tamanio_bloque);
-            bloque_siguiente = UINT32_MAX;
-        }
-        else
-        {
-
-            bloque_siguiente = posicion_en_fat(bloque_id);
-        }
-        escribir_bloque(bloque_id, datos);
-        if (bloque_siguiente == UINT32_MAX)
-        {
-            break;
-        }
-        bloque_actual = bloque_siguiente;
-    }
-}
-
-bloque_t *obtener_lista_de_bloques(int id_fcb, int p_seek, int tam_a_leer, t_log *logger)
-{
-    int max_bloques = ceil((double)tam_a_leer / tamanio_bloque);
-    bloque_t *lista_bloques = malloc(max_bloques * sizeof(bloque_t));
-    if (lista_bloques == NULL)
-    {
-        log_error(logger, "Error de asignación de memoria para lista_bloques");
-        return NULL;
-    }
-    int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
-    int bloque_actual = bloque_inicial;
-    int tam_leido = 0;
-    int idx_bloque = 0;
-    while (tam_leido < tam_a_leer)
-    {
-        int tam_restante = tam_a_leer - tam_leido;
-        int bytes_leer = (tam_restante < tamanio_bloque) ? tam_restante : tamanio_bloque;
-        // lista_bloques[idx_bloque].datos = leer_bloque(bloque_actual);
-        tam_leido += bytes_leer;
-        idx_bloque++;
-        bloque_actual = posicion_en_fat(bloque_actual);
-        if (bloque_actual < 0 || bloque_actual >= tamanio_fat)
-        {
-            log_error(logger, "Error: El bloque apuntado está fuera de rango");
-            break;
-        }
-        int bloque_siguiente = ceil((double)(p_seek + 1 + tam_leido) / tamanio_bloque);
-        if (bloque_actual != bloque_siguiente)
-        {
-            log_error(logger, "Error en la secuencia de bloques");
-            break;
-        }
-    }
-    if (tam_leido != tam_a_leer)
-    {
-        for (int i = 0; i < idx_bloque; i++)
-        {
-            free(lista_bloques[i].datos);
-        }
-        free(lista_bloques);
-        log_error(logger, "Error tamanio leido es distinto al tamanio a leer");
-        return NULL;
-    }
-
-    return lista_bloques;
 }
 
 void realizar_f_write(t_instruccion_fs *instruccion_file)
@@ -939,7 +867,7 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
         }
 
         int numero_bloque = instruccion_file->puntero / tamanio_bloque;
-        log_warning(filesystem_logger_info, "Número de bloque es %d", numero_bloque);
+        //log_warning(filesystem_logger_info, "Número de bloque es %d", numero_bloque);
 
         uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
         uint32_t siguiente_bloque = valor_fcb(id_fcb, BLOQUE_INICIAL);
@@ -948,89 +876,18 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
         {
             siguiente_bloque = posicion_en_fat(siguiente_bloque);
         }
-
+        log_info(filesystem_logger_info, "Acceso bloque - Escritura - Archivo : <%s> - Bloque archivo: <%d> - Bloque FS <%d>", instruccion_file->param1, numero_bloque, siguiente_bloque); // Log obligatorio
         escribir_bloque(siguiente_bloque, bloque_a_escribir);
 
         free(bloque_a_escribir);
     }
 }
 
-/*
-void realizar_f_read(t_instruccion_fs *instruccion_file) // ver comentarios al final
-{
-    int direccion_fisica = (instruccion_file->puntero);
-    uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
-    log_info(filesystem_logger_info, "Entro a realizar f read");
-    uint32_t id_bloque_inicial = (uint32_t)valor_fcb(id_fcb, BLOQUE_INICIAL);
-    int tamanio_restante = (instruccion_file->param2); // TODO -- TOMAS -- el parametro 1 es el nombre del archivo, aca que pasa
-
-    // Crear un buffer para almacenar los datos leídos
-    void *bloque_leido = malloc(tamanio_bloque);
-    void *bloque_leer_temporal = bloque_leido;  //TODO
-    for (uint32_t id_bloque = id_bloque_inicial; tamanio_restante > 0; id_bloque = posicion_en_fat(id_bloque))
-    {
-        void *datos = leer_bloque(id_bloque);
-        int offset_inicial = direccion_fisica % tamanio_bloque;
-        int bytes_leer = (tamanio_restante < tamanio_bloque) ? tamanio_restante : tamanio_bloque;
-
-        t_paquete *paquete = crear_paquete_con_codigo_de_operacion(F_READ_FS);
-        agregar_a_paquete(paquete, &(instruccion_file->pid), sizeof(uint32_t));
-        agregar_a_paquete(paquete, &direccion_fisica, sizeof(uint32_t));
-        agregar_a_paquete(paquete, &bytes_leer, sizeof(uint32_t));
-        agregar_a_paquete(paquete, datos + offset_inicial, bytes_leer);
-        enviar_paquete(paquete, socket_memoria);
-        eliminar_paquete(paquete);
-        op_code respuesta = recibir_operacion(socket_memoria);
-        if (respuesta == MENSAJE)
-        {
-            char *mensaje = recibir_mensaje_sin_log(socket_memoria);
-            free(mensaje);
-        }
-        tamanio_restante -= bytes_leer;
-        direccion_fisica += bytes_leer;
-    }
-
-    // DEBERIAS LEER EL BLOQUE COMPLETO Y METERLO EN UN VOID* que tenga de tamanio tamanio_bloque (void* bloque_leido por ej y enviarlo como queda aca abajo
-
-    //void *bloque_leido = malloc(tamanio_bloque);
-
-    t_paquete *paq_f_read = crear_paquete_con_codigo_de_operacion(F_WRITE_FS);
-    paq_f_read->buffer->size += sizeof(int) + config_valores_filesystem.tam_bloque;
-    paq_f_read->buffer->stream = malloc(paq_f_read->buffer->size);
-
-    int offset = 0;
-
-    printf("Size del stream a enviar %d \n", paq_f_read->buffer->size);
-
-    memcpy(paq_f_read->buffer->stream + offset, &(direccion_fisica), sizeof(int));
-    offset += sizeof(int);
-
-    memcpy(paq_f_read->buffer->stream + offset, bloque_leido, config_valores_filesystem.tam_bloque);
-
-    enviar_paquete(paq_f_read, socket_memoria_op);
-    eliminar_paquete(paq_f_read);
-
-    op_code cod_f_read = recibir_operacion(socket_memoria_op);
-    if (cod_f_read == F_READ_FS)
-    {
-        int valor = recibir_int(socket_memoria_op);
-        if (valor == -1)
-        {
-            log_info(filesystem_logger_info, "no se pudo escribir el bloque en memoria");
-        }
-        log_info(filesystem_logger_info, "Se escribio correctamente el bloque en memoria");
-    }
-    else
-    {
-        log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria", cod_f_read);
-    }
-}
-*/
 void realizar_f_read(t_instruccion_fs *instruccion_file)
 {
     int direccion_fisica = atoi(instruccion_file->param2);
     uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
-    log_info(filesystem_logger_info, "Entro a realizar f read");
+    // log_info(filesystem_logger_info, "Entro a realizar f read");
     uint32_t id_bloque_inicial = (uint32_t)valor_fcb(id_fcb, BLOQUE_INICIAL);
 
     int numero_bloque = instruccion_file->puntero / tamanio_bloque;
@@ -1042,6 +899,7 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
     }
 
     void *bloque_leido = leer_bloque(siguiente_bloque);
+    log_info(filesystem_logger_info, "Acceso bloque - Lectura - Archivo : <%s> - Bloque archivo: <%d> - Bloque FS <%d>", instruccion_file->param1, numero_bloque, siguiente_bloque); // Log obligatorio
     t_paquete *paq_f_read = crear_paquete_con_codigo_de_operacion(F_READ_FS);
     paq_f_read->buffer->size += sizeof(int) + config_valores_filesystem.tam_bloque;
     paq_f_read->buffer->stream = malloc(paq_f_read->buffer->size);
@@ -1064,18 +922,17 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
         int valor = recibir_int(socket_memoria_op);
         if (valor == -1)
         {
-            log_info(filesystem_logger_info, "no se pudo escribir el bloque en memoria");
+            // log_info(filesystem_logger_info, "no se pudo escribir el bloque en memoria");
         }
-        log_info(filesystem_logger_info, "Se escribio correctamente el bloque en memoria");
+        // log_info(filesystem_logger_info, "Se escribio correctamente el bloque en memoria");
     }
     else
     {
-        log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria", cod_f_read);
+        // log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria", cod_f_read);
     }
 
     free(bloque_leido);
 }
-
 
 int borrar_fcb(int id)
 {
@@ -1109,51 +966,7 @@ void destroy_instruccion_file(t_instruccion_fs *instruccion)
     free(instruccion->param1);
     free(instruccion->param2);
     free(instruccion);
-    log_info(filesystem_logger_info, "Instruccion fs destruida exitosamente");
-}
-
-void crear_paquete_con_respuesta(t_resp_file estado_file)
-{
-    t_paquete *paq_respuesta = crear_paquete_con_codigo_de_operacion(estado_file);
-    enviar_paquete(paq_respuesta, socket_kernel);
-    eliminar_paquete(paq_respuesta);
-}
-
-t_instruccion_fs *deserializar_instruccion_file(int socket_cliente)
-{
-    int size;
-    void *buffer;
-
-    buffer = recibir_buffer(&size, socket_cliente);
-    printf("Size del stream a deserializar: %d \n", size);
-
-    t_instruccion_fs *instruccion = malloc(sizeof(t_instruccion_fs));
-
-    int offset = 0;
-
-    memcpy(&(instruccion->estado), buffer + offset, sizeof(nombre_instruccion));
-    offset += sizeof(nombre_instruccion);
-
-    memcpy(&(instruccion->pid), buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-
-    memcpy(&(instruccion->param1_length), buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-
-    memcpy(&(instruccion->param2_length), buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-
-    instruccion->param1 = malloc(instruccion->param1_length);
-    memcpy(instruccion->param1, buffer + offset, instruccion->param1_length);
-    offset += instruccion->param1_length;
-
-    instruccion->param2 = malloc(instruccion->param2_length);
-    memcpy(instruccion->param2, buffer + offset, instruccion->param2_length);
-    offset += instruccion->param2_length;
-
-    memcpy(&(instruccion->puntero), buffer + offset, sizeof(uint32_t));
-
-    return instruccion;
+    // log_info(filesystem_logger_info, "Instruccion fs destruida exitosamente");
 }
 
 void *comunicacion_kernel()
@@ -1227,7 +1040,7 @@ void *hilo_f_open(void *instruccion)
     if (conseguir_id_fcb(nueva_instruccion->param1) != -1)
     {
         log_info(filesystem_logger_info, "PID: %d - F_OPEN: %s", nueva_instruccion->pid, nueva_instruccion->param1);
-        log_info(filesystem_logger_info, "Abrir Archivo: %s", nueva_instruccion->param1);
+        log_info(filesystem_logger_info, "Abrir Archivo: <%s>", nueva_instruccion->param1); // Log obligatorio
         estado_file = F_OPEN_SUCCESS;
     }
     else
@@ -1247,7 +1060,7 @@ void *hilo_f_create(void *instruccion)
     if (crear_fcb(nueva_instruccion->param1) != -1)
     {
         log_info(filesystem_logger_info, "PID: %d - F_CREATE: %s", nueva_instruccion->pid, nueva_instruccion->param1);
-        log_info(filesystem_logger_info, "Crear Archivo: %s", nueva_instruccion->param1);
+        log_info(filesystem_logger_info, "Crear Archivo: <%s>", nueva_instruccion->param1); // Log obligatorio
         estado_file = F_CREATE_SUCCESS;
     }
     enviar_op_con_int(socket_kernel, estado_file, nueva_instruccion->pid);
@@ -1263,6 +1076,7 @@ void *hilo_f_close(void *instruccion)
     {
         estado_file = F_CLOSE_SUCCESS;
         log_info(filesystem_logger_info, "PID: %d - F_CLOSE: %s", nueva_instruccion->pid, nueva_instruccion->param1);
+        log_info(filesystem_logger_info, "Cerrar Archivo: <%s>", nueva_instruccion->param1);
     }
     enviar_op_con_int(socket_kernel, estado_file, nueva_instruccion->pid);
     destroy_instruccion_file(nueva_instruccion);
@@ -1274,7 +1088,7 @@ void *hilo_f_truncate(void *instruccion)
     t_resp_file estado_file = F_ERROR;
     t_instruccion_fs *nueva_instruccion = (t_instruccion_fs *)instruccion;
     log_info(filesystem_logger_info, "PID: %d - F_TRUNCATE: %s - Tamanio: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->param2);
-    log_info(filesystem_logger_info, "Truncar Archivo: %s - Tamaño: %s", nueva_instruccion->param1, nueva_instruccion->param2);
+    log_info(filesystem_logger_info, "Truncar Archivo: <%s> - Tamaño: <%s>", nueva_instruccion->param1, nueva_instruccion->param2); // Log obligatorio
     if (truncar_fcb(nueva_instruccion->param1, atoi(nueva_instruccion->param2)) != -1)
     {
         estado_file = F_TRUNCATE_SUCCESS;
@@ -1289,7 +1103,7 @@ void *hilo_f_write(void *instruccion)
     t_resp_file estado_file = F_ERROR;
     t_instruccion_fs *nueva_instruccion = (t_instruccion_fs *)instruccion;
     log_info(filesystem_logger_info, "PID: %d - F_WRITE: %s - Puntero: %d - Memoria: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
-    log_info(filesystem_logger_info, "Escribir Archivo: %s - Puntero: %d - Memoria: %s", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
+    log_info(filesystem_logger_info, "Escribir Archivo: <%s> - Puntero: <%d> - Memoria: %s", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2); // Log obligatorio
     realizar_f_write(nueva_instruccion);
     estado_file = F_WRITE_SUCCESS;
     enviar_op_con_int(socket_kernel, estado_file, nueva_instruccion->pid);
@@ -1302,7 +1116,7 @@ void *hilo_f_read(void *instruccion)
     t_resp_file estado_file = F_ERROR;
     t_instruccion_fs *nueva_instruccion = (t_instruccion_fs *)instruccion;
     log_info(filesystem_logger_info, "PID: %d - F_READ: %s - Puntero: %d - Memoria: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
-    log_info(filesystem_logger_info, "Escribir Archivo: %s - Puntero: %d - Memoria: %s", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
+    log_info(filesystem_logger_info, "Leer Archivo: <%s> - Puntero: <%d> - Memoria: <%s>", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2); //Log obligatorio
     realizar_f_read(nueva_instruccion);
     estado_file = F_READ_SUCCESS;
     enviar_op_con_int(socket_kernel, estado_file, nueva_instruccion->pid);
