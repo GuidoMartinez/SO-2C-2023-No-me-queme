@@ -379,7 +379,7 @@ int crear_archivo_bloques(char *path_bloques)
 
 void *leer_bloque(uint32_t numero_bloque)
 {
-    void *datos = NULL;
+    void *datos = malloc(tamanio_bloque);
     FILE *archivo_bloques = fopen(path_bloques, "rb");
     if (archivo_bloques == NULL)
     {
@@ -924,59 +924,38 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
 {
     uint32_t pid = instruccion_file->pid;
     int direccion_fisica = atoi(instruccion_file->param2);
-    int tamanio = tamanio_bloque;
-    int cantidad_bloques = (int)ceil((double)tamanio / tamanio_bloque);
     enviar_op_con_int(socket_memoria_op, F_WRITE_FS, direccion_fisica);
 
     op_code codigo = recibir_operacion(socket_memoria_op);
     if (codigo == F_WRITE_FS)
     {
+        int size = -1;
+        void *bloque_a_escribir = recibir_buffer(&size, socket_memoria_op);
 
-        int size; // PODES CHEQUEAR QUE SIZE SEA > 0.
-        void *bloque_a_escribir = recibir_buffer(&size, socket);
-
-        // Enunciado: F_WRITE (Nombre Archivo, Dirección Lógica): Esta instrucción solicita al Kernel que se escriba en el archivo indicado la información que es
-        // obtenida a partir de la dirección física de Memoria.
-
-        // F_WIRTE - FS: solicitará al módulo File System que escriba en el archivo desde la dirección física de memoria recibida por parámetro (y el puntero que deberia apuntar al primer byte del bloque)
-
-        // DE ACA PARA ABAJO, tenes que guardar bloque_a_escribir en donde te dice la instruccion (es 1 solo bloque el que se escribe)
-        //
-
-        t_list *paquete_recibido = recibir_paquete(socket_memoria);
-        if (paquete_recibido != NULL && list_size(paquete_recibido) > 0)
+        if (size < 0)
         {
-            char *valor_recibido = instruccion_file->param1;
-            uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
-            modificar_fcb(id_fcb, TAMANIO_ARCHIVO, (uint32_t)tamanio);
-            bloque_t *lista_bloques = obtener_lista_de_bloques(id_fcb, direccion_fisica, tamanio, filesystem_logger_info);
-            if (lista_bloques != NULL)
-            {
-                for (int i = 0; i < cantidad_bloques; i++)
-                {
-                    bloque_t bloque_info = lista_bloques[i];
-                    void *datos_a_escribir = bloque_a_escribir + i * tamanio_bloque;
-                    uint32_t bloque_id = valor_fcb(id_fcb, BLOQUE_INICIAL);
-                    uint32_t tamanio_a_escribir = tamanio;
-                    log_info(filesystem_logger_info, "Acceso Bloque - Bloque File System: %d", bloque_id);
-
-                    pthread_mutex_lock(&mutex_fat);
-                    if (posicion_en_fat(bloque_id) == 0)
-                    {
-                        asignar_bloques(id_fcb, tamanio_a_escribir);
-                        modificar_en_fat(bloque_id, id_fcb);
-                    }
-                    pthread_mutex_unlock(&mutex_fat);
-
-                    escribir_datos(datos_a_escribir, tamanio_a_escribir, lista_bloques);
-                }
-                free(lista_bloques);
-            }
-            list_destroy_and_destroy_elements(paquete_recibido, free);
+            log_error(filesystem_logger_info, "Size no válido");
+            return;
         }
+
+        int numero_bloque = instruccion_file->puntero / tamanio_bloque;
+        log_warning(filesystem_logger_info, "Número de bloque es %d", numero_bloque);
+
+        uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
+        uint32_t siguiente_bloque = valor_fcb(id_fcb, BLOQUE_INICIAL);
+
+        for (int bloque = 0; bloque < numero_bloque; bloque++)
+        {
+            siguiente_bloque = posicion_en_fat(siguiente_bloque);
+        }
+
+        escribir_bloque(siguiente_bloque, bloque_a_escribir);
+
+        free(bloque_a_escribir);
     }
 }
 
+/*
 void realizar_f_read(t_instruccion_fs *instruccion_file) // ver comentarios al final
 {
     int direccion_fisica = (instruccion_file->puntero);
@@ -1046,6 +1025,57 @@ void realizar_f_read(t_instruccion_fs *instruccion_file) // ver comentarios al f
         log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria", cod_f_read);
     }
 }
+*/
+void realizar_f_read(t_instruccion_fs *instruccion_file)
+{
+    int direccion_fisica = atoi(instruccion_file->param2);
+    uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
+    log_info(filesystem_logger_info, "Entro a realizar f read");
+    uint32_t id_bloque_inicial = (uint32_t)valor_fcb(id_fcb, BLOQUE_INICIAL);
+
+    int numero_bloque = instruccion_file->puntero / tamanio_bloque;
+    uint32_t siguiente_bloque = id_bloque_inicial;
+
+    for (int bloque = 0; bloque < numero_bloque; bloque++)
+    {
+        siguiente_bloque = posicion_en_fat(siguiente_bloque);
+    }
+
+    void *bloque_leido = leer_bloque(siguiente_bloque);
+    t_paquete *paq_f_read = crear_paquete_con_codigo_de_operacion(F_READ_FS);
+    paq_f_read->buffer->size += sizeof(int) + config_valores_filesystem.tam_bloque;
+    paq_f_read->buffer->stream = malloc(paq_f_read->buffer->size);
+
+    int offset = 0;
+
+    printf("Size del stream a enviar %d \n", paq_f_read->buffer->size);
+
+    memcpy(paq_f_read->buffer->stream + offset, &(direccion_fisica), sizeof(int));
+    offset += sizeof(int);
+
+    memcpy(paq_f_read->buffer->stream + offset, bloque_leido, config_valores_filesystem.tam_bloque);
+
+    enviar_paquete(paq_f_read, socket_memoria_op);
+    eliminar_paquete(paq_f_read);
+
+    op_code cod_f_read = recibir_operacion(socket_memoria_op);
+    if (cod_f_read == F_READ_FS)
+    {
+        int valor = recibir_int(socket_memoria_op);
+        if (valor == -1)
+        {
+            log_info(filesystem_logger_info, "no se pudo escribir el bloque en memoria");
+        }
+        log_info(filesystem_logger_info, "Se escribio correctamente el bloque en memoria");
+    }
+    else
+    {
+        log_info(filesystem_logger_info, "Recibi el codigo de operacion %d como respuesta a F_READ de memoria", cod_f_read);
+    }
+
+    free(bloque_leido);
+}
+
 
 int borrar_fcb(int id)
 {

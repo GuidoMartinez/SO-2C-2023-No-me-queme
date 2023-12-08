@@ -1261,8 +1261,8 @@ void escribir_memoria_fs(int dir_fisica, void *bloque)
 	log_info(logger_memoria_info, "FS WRITE - Escribo bloque en dir fisica %d - marco %d", dir_fisica, marco_escibir->num_de_marco);
 
 	// TODO -- VALIDAR -- cuando hago un F_READ debo marcar la pagina que tiene el marco como modificada
-	marcar_pag_modificada(marco_escibir->pid, marco_escibir->num_de_marco);
-	log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco_escibir->pid);
+	//marcar_pag_modificada(marco_escibir->pid, marco_escibir->num_de_marco);
+	//log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco_escibir->pid);
 	if (config_valores_memoria.retardo_respuesta / 1000 > 0)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else

@@ -33,7 +33,7 @@ void pcb_destroy(t_pcb *pcb)
 
     if (list_size(pcb->archivos_abiertos) > 0)
     {
-        for (int i = 0; i <= list_size(pcb->archivos_abiertos); i++)
+        for (int i = 0; i < list_size(pcb->archivos_abiertos); i++)
         {
             t_archivo_global *archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, list_get(pcb->archivos_abiertos, i));
             if (archivo_global == NULL)
@@ -360,6 +360,7 @@ void exec_pcb()
             break;
         case F_SEEK:
             kf_seek();
+            break;
         case F_READ:
             kf_read();
             break;

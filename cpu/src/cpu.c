@@ -353,6 +353,7 @@ void decode(t_instruccion *instruccion)
         break;
     case F_SEEK:
         _f_seek(instruccion->parametro1, instruccion->parametro2);
+        break;
     case F_READ:
         _f_read(instruccion->parametro1, instruccion->parametro2);
         break;
