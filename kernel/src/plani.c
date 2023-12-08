@@ -240,7 +240,7 @@ void ready_pcb(void)
                 procesos_activos= procesos_activos + 1;
                
                 set_pcb_ready(pcb);
-                if (ALGORITMO_PLANIFICACION == PRIORIDADES) //detener_planificacion
+                if (ALGORITMO_PLANIFICACION == PRIORIDADES) //
                 {
                     if (proceso_en_ejecucion != NULL)
                     {
