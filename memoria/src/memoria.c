@@ -320,6 +320,7 @@ void *manejo_conexion_kernel(void *arg)
 			}
 			else // DEBO REEMPLAZAR ALGUNA PAGINA EN MEMORIA
 			{
+				log_info(logger_memoria_info, "NO HAY MARCOS LIBRES --> DEBO REEMPLAZAR UNA PAGINA EN MEMORIA");
 				t_entrada_tabla_pag *entrada_a_swapear = paginaAReemplazar();
 				marco_a_asignar = entrada_a_swapear->marco;
 
