@@ -117,10 +117,12 @@ void *recibir_interrupt(void *arg)
             {
             case INTERRUPT_FIN_QUANTUM:
                 // log_info(cpu_logger_info, "Recibo fin de quantum");
+                if (contexto_actual->motivo_desalojado != SYSCALL){
                 interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
                 pthread_mutex_lock(&mutex_interrupt);
                 contexto_actual->motivo_desalojado = INTERRUPT_FIN_QUANTUM;
                 pthread_mutex_unlock(&mutex_interrupt);
+                }
                 break;
             case INTERRUPT_FIN_PROCESO:
                 log_info(cpu_logger_info, "Recibo fin de proceso");
