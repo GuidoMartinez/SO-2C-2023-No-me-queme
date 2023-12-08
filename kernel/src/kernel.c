@@ -875,7 +875,7 @@ void *manejar_pf(void *args)
     int nro_pf = args_pf->num_pf;
 
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pid, "EXEC", "BLOCKED");
-    log_info(kernel_logger_info, "PID[%d]-Bloqueado por: PAGE_FAULT  \n", nro_pf);
+    log_info(kernel_logger_info, "Pagina[%d]-Bloqueado por: PAGE_FAULT  \n", nro_pf);
 
     // todo AGREGAR SEMAFORO
     t_pcb *pcb = buscarProceso(pid);
