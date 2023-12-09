@@ -1400,7 +1400,7 @@ void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero l
 	t_list *paginas_a_elminar = proceso_a_eliminar->tabla_paginas->entradas_tabla;
 	int cantidad_entradas = proceso_a_eliminar->tabla_paginas->cantidad_paginas;
 
-	// log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas)); BORRAR
+	//log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
 
 	// libero paginas del proces oen FIFO
 	for (int i = 0; i < cantidad_entradas; i++)
@@ -1411,7 +1411,7 @@ void eliminar_proceso_memoria(t_proceso_memoria *proceso_a_eliminar) // Libero l
 		pthread_mutex_unlock(&mutex_fifo);
 	}
 
-	// log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
+	//log_error(logger_memoria_info, "List size de paginas utilizadas %d", list_size(paginas_utilizadas));
 
 	list_destroy_and_destroy_elements(proceso_a_eliminar->tabla_paginas->entradas_tabla, free);
 	free(proceso_a_eliminar->path);
