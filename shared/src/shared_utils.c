@@ -871,9 +871,8 @@ int recibir_int(int socket)
 
 	int entero;
 	memcpy(&(entero), buffer, sizeof(int));
-	return entero;
-
 	free(buffer);
+	return entero;
 }
 
 uint32_t recibir_valor_memoria(int socket)
