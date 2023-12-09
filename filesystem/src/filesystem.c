@@ -135,6 +135,7 @@ void *leer_bloque_swap(uint32_t numero_bloque)
     fclose(archivo_bloques);
     usleep(retardo_acceso_bloque * 1000);
     log_info(filesystem_logger_info, "Acceso SWAP: <%d> - Lectura", bloque_swap); // Log obligatorio
+    free(datos);
 
     return datos;
 }
@@ -259,8 +260,8 @@ void *manejo_conexion_memoria_swap(void *arg)
 
             enviar_paquete(paquete_bloques_swap, socket_memoria_swap);
             eliminar_paquete(paquete_bloques_swap);
-
-            // list_destroy_and_destroy_elements(lista_bloques_swap, free);
+            list_destroy(lista_bloques_swap);
+            list_destroy_and_destroy_elements(lista_bloques_swap, free);
 
             break;
 
@@ -271,6 +272,7 @@ void *manejo_conexion_memoria_swap(void *arg)
             log_info(filesystem_logger_info, "BLOQUES LIBERADOS");
 
             enviar_op_con_int(socket_memoria_swap, SWAP_LIBERADA, 1);
+            list_destroy(bloques_a_liberar);
             break;
 
         case LEER_BLOQUE:
