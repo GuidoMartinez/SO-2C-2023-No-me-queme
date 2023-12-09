@@ -427,6 +427,7 @@ void kf_write()
     }
     else
     {
+        archivo_global_pedido->contador--;
         finalizar_proceso_en_ejecucion();
         log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
     }

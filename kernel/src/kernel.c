@@ -708,6 +708,8 @@ void finalizar_proceso_en_ejecucion()
     list_add(cola_exit, pcbelegido);
 
     pthread_mutex_unlock(&mutex_cola_exit);
+
+    sem_post(&sem_exit);
 }
 
 t_archivo_abierto_proceso *crear_archivo_proceso(char *nombre, t_pcb *proceso)
