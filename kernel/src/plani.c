@@ -68,9 +68,10 @@ void pcb_destroy(t_pcb *pcb)
     }
 
     list_destroy(pcb->archivos_abiertos);
+    log_info(kernel_logger_info, "Finalizo el proceso PID [%d] ",pcb->pid);
 
     free(pcb);
-    log_info(kernel_logger_info, "Hice free ");
+
 }
 
 void safe_pcb_add(t_list *list, t_pcb *pcb, pthread_mutex_t *mutex)
@@ -303,7 +304,7 @@ void exec_pcb()
 
         sem_wait(&sem_ready);
         sem_wait(&sem_exec);
-        log_info(kernel_logger_info, "Entre a hilo exec");
+       // log_info(kernel_logger_info, "Entre a hilo exec");
         if (list_size(lista_ready) < 1 && proceso_en_ejecucion == NULL)
         {
             log_info(kernel_logger_info, "Lista ready vacia");

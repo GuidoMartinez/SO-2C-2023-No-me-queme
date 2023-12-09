@@ -372,7 +372,7 @@ void serializar_contexto(t_paquete *paquete, t_contexto_ejecucion *ctx)
 							sizeof(nombre_instruccion) +
 							sizeof(motivo_desalojo);
 
-	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+	// printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
 	paquete->buffer->stream = malloc(paquete->buffer->size);
 
 	int desplazamiento = 0;
@@ -429,7 +429,7 @@ t_contexto_ejecucion *recibir_contexto(int socket)
 	void *buffer;
 
 	buffer = recibir_buffer(&size, socket);
-	printf("Size del stream a deserializar: %d \n", size);
+	// printf("Size del stream a deserializar: %d \n", size);
 
 	t_contexto_ejecucion *contexto_recibido = malloc(sizeof(t_contexto_ejecucion));
 
@@ -676,7 +676,7 @@ t_instruccion_fs *deserializar_instruccion_fs(int socket)
 	void *buffer;
 
 	buffer = recibir_buffer(&size, socket);
-	printf("Size del stream a deserializar: %d \n", size);
+	//printf("Size del stream a deserializar: %d \n", size);
 
 	t_instruccion_fs *instruccion = malloc(sizeof(t_instruccion_fs));
 
@@ -715,7 +715,7 @@ void serializar_instruccion_fs(t_paquete *paquete, t_instruccion_fs *instruccion
 							instruccion->param1_length +
 							instruccion->param2_length;
 
-	printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+	//printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
 	paquete->buffer->stream = malloc(paquete->buffer->size);
 
 	int desplazamiento = 0;
