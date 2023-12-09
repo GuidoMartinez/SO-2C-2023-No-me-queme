@@ -21,7 +21,7 @@ void ksleep()
     args_sleep *args = malloc(sizeof(args_sleep));
     args->pcb = pcbelegido;
     args->tiempo = atoi(pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
-    log_info(kernel_logger_info, "ENTRE AL SLEEP");
+    //log_info(kernel_logger_info, "ENTRE AL SLEEP");
     pthread_t hilo_sleep;
     pthread_create(&hilo_sleep, NULL, (void *)sleeper, args);
     pthread_detach(hilo_sleep);
@@ -55,7 +55,7 @@ void sleeper(void *args)
 void kwait()
 {
     pcbelegido->recurso_instruccion = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
-    log_info(kernel_logger_info, "ESTOY EN WAIT %s", pcbelegido->recurso_instruccion);
+    //log_info(kernel_logger_info, "ESTOY EN WAIT %s", pcbelegido->recurso_instruccion);
 
     recurso_instancia *recurso_kernel = (recurso_instancia *)malloc(sizeof(recurso_instancia));
     recurso_kernel = buscar_recurso(recursos_kernel, pcbelegido->recurso_instruccion);
@@ -80,7 +80,7 @@ void kwait()
 
             pcbelegido->estado = BLOCK;
             queue_push(recurso_kernel->colabloqueado, pcbelegido);
-            log_info(kernel_logger_info, "Tamaño de la cola: %d", queue_size(recurso_kernel->colabloqueado));
+            //log_info(kernel_logger_info, "Tamaño de la cola: %d", queue_size(recurso_kernel->colabloqueado));
             // TODO: Revisar colas de bloqueo por recurso
             list_add(cola_block, pcbelegido);
 
@@ -142,7 +142,7 @@ void kwait()
 void ksignal()
 {
     pcbelegido->recurso_instruccion = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
-    log_info(kernel_logger_info, "ESTOY EN SIGNAL %s", pcbelegido->recurso_instruccion);
+   // log_info(kernel_logger_info, "ESTOY EN SIGNAL %s", pcbelegido->recurso_instruccion);
     recurso_instancia *recurso_signal = (recurso_instancia *)malloc(sizeof(recurso_instancia));
     recurso_signal = buscar_recurso(recursos_kernel, pcbelegido->recurso_instruccion);
     if (recurso_signal != NULL)
@@ -207,7 +207,7 @@ void ksignal()
 void kf_open()
 {
 
-    log_info(kernel_logger_info, "ESTOY EN F_OPEN");
+    //log_info(kernel_logger_info, "ESTOY EN F_OPEN");
 
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     char lock = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2[0];
@@ -266,7 +266,7 @@ void kf_open()
 void kf_close()
 {
 
-    log_info(kernel_logger_info, "ESTOY EN F_CLOSE");
+    //log_info(kernel_logger_info, "ESTOY EN F_CLOSE");
 
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
 
@@ -319,7 +319,7 @@ void kf_close()
     list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
     t_queue *cola_temporal_de_escritura = queue_create();
 
-    log_warning(kernel_logger_info, "cola d bloqueados: %d", queue_size(archivo_global_pedido->colabloqueado));
+    //log_warning(kernel_logger_info, "cola d bloqueados: %d", queue_size(archivo_global_pedido->colabloqueado));
 
     if (archivo_global_pedido->lock == 'N' && queue_size(archivo_global_pedido->colabloqueado) > 0)
     {
@@ -363,7 +363,7 @@ void kf_close()
         {
             agregar = true;
             list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
-            log_error(kernel_logger_info, "VOY A METER UN PROCESO CON W A LA COLA D BLOQUAEDOS DEL ARCHIVO");
+           // log_error(kernel_logger_info, "VOY A METER UN PROCESO CON W A LA COLA D BLOQUAEDOS DEL ARCHIVO");
             t_pcb *pcb_desbloqueado = queue_pop(cola_temporal_de_escritura);
             queue_push(archivo_global_pedido->colabloqueado, pcb_desbloqueado);
         }
@@ -372,7 +372,7 @@ void kf_close()
             archivo_global_pedido->lock = 'W';
             list_add(lista_archivos_abiertos, archivo_global_pedido);
         }
-        log_error(kernel_logger_info, "TAMAÑO DE LA COLA DE BLOQUEADOS %d", queue_size(archivo_global_pedido->colabloqueado));
+      //  log_error(kernel_logger_info, "TAMAÑO DE LA COLA DE BLOQUEADOS %d", queue_size(archivo_global_pedido->colabloqueado));
     }
 
     else if (archivo_global_pedido->contador > 0)
@@ -383,8 +383,8 @@ void kf_close()
     /*free(archivo_global_pedido->nombreArchivo);
     free(archivo_global_pedido);*/
 
-    log_warning(kernel_logger_info, "termino fclose");
-    log_warning(kernel_logger_info, "tamaño de la tabla de archivos abiertos %d", list_size(lista_archivos_abiertos));
+   // log_warning(kernel_logger_info, "termino fclose");
+   // log_warning(kernel_logger_info, "tamaño de la tabla de archivos abiertos %d", list_size(lista_archivos_abiertos));
     sem_post(&sem_ready);
     sem_post(&sem_exec);
 };
@@ -407,7 +407,7 @@ void kf_seek()
     archivo_proceso->puntero = nueva_ubicacion_puntero;
 
 
-    log_error(kernel_logger_info, "Termino fseek");
+    //log_error(kernel_logger_info, "Termino fseek");
     sem_post(&sem_ready);
     sem_post(&sem_exec);
 };
@@ -452,18 +452,18 @@ void kf_truncate()
 
     char *nombre_archivo = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1;
     char *tamanio = pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro2;
-    log_warning(kernel_logger_info, "La lista de proceso en ejecucion tiene %d elementos", list_size(proceso_en_ejecucion->archivos_abiertos));
-    log_warning(kernel_logger_info, "La lista de pcbelegidos tiene %d elementos", list_size(pcbelegido->archivos_abiertos));
+   // log_warning(kernel_logger_info, "La lista de proceso en ejecucion tiene %d elementos", list_size(proceso_en_ejecucion->archivos_abiertos));
+    //log_warning(kernel_logger_info, "La lista de pcbelegidos tiene %d elementos", list_size(pcbelegido->archivos_abiertos));
     t_archivo_abierto_proceso *archivo_proceso = buscar_archivo_proceso(proceso_en_ejecucion->archivos_abiertos, pcbelegido->contexto_ejecucion->instruccion_ejecutada->parametro1);
 
     log_info(kernel_logger_info, "PID[%d] - Archivo %s - TAMAÑO %s", pcbelegido->pid, nombre_archivo, tamanio);
     if (archivo_proceso != NULL)
     {
-        log_warning(kernel_logger_info, "El archivo proceso no es NULL");
+       // log_warning(kernel_logger_info, "El archivo proceso no es NULL");
     }
-    log_warning(kernel_logger_info, "Voy a inicializar instruccion fs, valor del puntero %s", archivo_proceso->nombreArchivo);
+   // log_warning(kernel_logger_info, "Voy a inicializar instruccion fs, valor del puntero %s", archivo_proceso->nombreArchivo);
     t_instruccion_fs *inst_f_open_fs = inicializar_instruccion_fs(pcbelegido->contexto_ejecucion->instruccion_ejecutada, archivo_proceso->puntero);
-    log_warning(kernel_logger_info, "El inicialice intruccion fs");
+    //log_warning(kernel_logger_info, "El inicialice intruccion fs");
     enviarInstruccionFS(conexion_filesystem, inst_f_open_fs);
     fs_interaction();
 };

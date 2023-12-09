@@ -31,17 +31,17 @@ void exit_pcb(void)
 
 void pcb_destroy(t_pcb *pcb)
 {
-    log_info(kernel_logger_info, "Entre al destroy ");
+   // log_info(kernel_logger_info, "Entre al destroy ");
     if(pcb->archivos_abiertos == NULL) {
-        log_info(kernel_logger_info, "pcb->archivos_abiertos es null");
+       // log_info(kernel_logger_info, "pcb->archivos_abiertos es null");
     }
     if(lista_archivos_abiertos == NULL){
-        log_info(kernel_logger_info, "lista_archivos_abiertos es null");
+       // log_info(kernel_logger_info, "lista_archivos_abiertos es null");
     }
 
     if (list_size(pcb->archivos_abiertos) > 0)
     {
-        log_info(kernel_logger_info, "tien archivos abiertos");
+       // log_info(kernel_logger_info, "tien archivos abiertos");
         for (int i = 0; i < list_size(pcb->archivos_abiertos); i++)
         {
             t_archivo_abierto_proceso* archivo_proceso = list_get(pcb->archivos_abiertos, i);
@@ -49,17 +49,17 @@ void pcb_destroy(t_pcb *pcb)
             archivo_global->contador--;
             if (archivo_global == NULL)
             {
-                log_error(kernel_logger_info, "no estaba abierto el archivo en la tabla global");
+               // log_error(kernel_logger_info, "no estaba abierto el archivo en la tabla global");
                 continue;
             }
 
             if (archivo_global->contador <= 0)
             {
-                log_info(kernel_logger_info, "agarro archivo con contador 0");
+               // log_info(kernel_logger_info, "agarro archivo con contador 0");
                 list_remove_element(lista_archivos_abiertos, archivo_global);
                 free(archivo_global->nombreArchivo);
                 free(archivo_global);
-                log_info(kernel_logger_info, "libero archivo");
+               // log_info(kernel_logger_info, "libero archivo");
             }
 
             free(archivo_proceso->nombreArchivo);
@@ -246,7 +246,7 @@ void ready_pcb(void)
 
             int procesos_activos = procesos_ready + procesos_bloqueado;//+ procesos_exec 
 
-           log_info(kernel_logger_info, "READY %d BLOQUEADOS %d",procesos_ready ,procesos_bloqueado);
+          // log_info(kernel_logger_info, "READY %d BLOQUEADOS %d",procesos_ready ,procesos_bloqueado);
 
             if (procesos_activos < sem.g_multiprog_ini)
             {
@@ -256,10 +256,10 @@ void ready_pcb(void)
                 set_pcb_ready(pcb);
                 if (ALGORITMO_PLANIFICACION == PRIORIDADES) //
                 {
-                    log_info(kernel_logger_info, "Entre a prioridades");
+                    //log_info(kernel_logger_info, "Entre a prioridades");
                     if (pcbelegido != NULL)
                     {
-                           log_info(kernel_logger_info, "ejecuta archivo");
+                         //  log_info(kernel_logger_info, "ejecuta archivo");
                         if (pcb->prioridad < pcbelegido->prioridad)
                         {
                             log_info(kernel_logger_info, "mando interrupt");
@@ -286,8 +286,8 @@ void ready_pcb(void)
                 pthread_mutex_lock(&mutex_cola_ready);
                 list_add(lista_ready_detenidos, pcb);
                 pthread_mutex_unlock(&mutex_cola_ready);
-                log_info(kernel_logger_info, "Tamaño lista ready despues de exceder grado %d",list_size(lista_ready));
-                log_info(kernel_logger_info, "Tamaño lista ready detenidos %d despues de exceder grado - PID %d",list_size(lista_ready_detenidos),pcb->pid);
+                //log_info(kernel_logger_info, "Tamaño lista ready despues de exceder grado %d",list_size(lista_ready));
+                //log_info(kernel_logger_info, "Tamaño lista ready detenidos %d despues de exceder grado - PID %d",list_size(lista_ready_detenidos),pcb->pid);
                 
                
             }
@@ -310,27 +310,27 @@ void exec_pcb()
             continue;
         }
         if(proceso_en_ejecucion == NULL){
-            log_warning(kernel_logger_info, "Proceso en ejecucion es NULL");
+            //log_warning(kernel_logger_info, "Proceso en ejecucion es NULL");
         }
         else {
-            log_warning(kernel_logger_info, "Motivo de desalojo %d", proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado);
+           // log_warning(kernel_logger_info, "Motivo de desalojo %d", proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado);
         }
         if (proceso_en_ejecucion == NULL || 
         (proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != SYSCALL 
         && proceso_en_ejecucion->contexto_ejecucion->motivo_desalojado != PAGE_FAULT))
         {
-            log_warning(kernel_logger_info, "Tengo que elegir pcb segun algoritmo");
+           // log_warning(kernel_logger_info, "Tengo que elegir pcb segun algoritmo");
             pcbelegido = elegir_pcb_segun_algoritmo();
             proceso_admitido(pcbelegido);
         }
         else
         {
-            log_warning(kernel_logger_info, "Proceso en ejecucion es el pcb elegido");
+           // log_warning(kernel_logger_info, "Proceso en ejecucion es el pcb elegido");
             pcbelegido = proceso_en_ejecucion;
         }
 
         if(abs(pcbelegido->pid) / 100 > 0) {
-            log_error(kernel_logger_info, "entro un pcb basura, se continua exec");
+           // log_error(kernel_logger_info, "entro un pcb basura, se continua exec");
             sem_post(&sem_ready);
             if(list_size(lista_ready) > 0) {
                 sem_post(&sem_exec);
@@ -367,7 +367,7 @@ void exec_pcb()
             set_pcb_block(pcbelegido);
             proceso_en_ejecucion = NULL;
 
-            log_info(kernel_logger_info, "cola exec: %d", list_size(cola_exec));
+           // log_info(kernel_logger_info, "cola exec: %d", list_size(cola_exec));
             safe_pcb_remove(cola_exec, &mutex_cola_exec);
 
             pthread_t hilo_page_fault;
@@ -376,7 +376,7 @@ void exec_pcb()
 
             int resultado;
             sem_getvalue(&sem_exec, &resultado);
-            log_error(kernel_logger_info, "valor del semaforo de excec: %d", resultado);
+           // log_error(kernel_logger_info, "valor del semaforo de excec: %d", resultado);
 
             continue;
         }

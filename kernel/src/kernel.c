@@ -27,7 +27,6 @@ sem_t sem_blocked_w;
 sem_t sem_detener_sleep;
 sem_t sem_hilo_FS;
 sem_t reanudaar_exec;
-// sem_t sem_PF;
 
 t_list *recursos_kernel;
 t_list *lista_ready;
@@ -156,9 +155,7 @@ int main(int argc, char **argv)
     cola_listos_para_ready = list_create();
     lista_ready = list_create();
     lista_global = list_create();
-    // lista_block_detenidos = list_create();
     lista_ready_detenidos = list_create();
-    // lista_exec_detenidos = list_create();
     lista_archivos_abiertos = list_create();
     lista_global_archivos = list_create();
 
@@ -179,7 +176,6 @@ int main(int argc, char **argv)
     sem_init(&sem_detener_sleep, 0, 0);
     sem_init(&sem_hilo_FS, 0, 0);
     sem_init(&reanudaar_exec, 0, 0);
-    // sem_init(&sem_PF, 0, 0);
 
     while (1)
     {
@@ -355,30 +351,30 @@ void finalizar_proceso(int pid)
     }
     else
     {
-        log_info(kernel_logger_info, "El PID enviado no se encuentra en ejecucion");
+        //log_info(kernel_logger_info, "El PID enviado no se encuentra en ejecucion");
         // return;
     }
     t_pcb *proceso_encontrado;
     proceso_encontrado = buscarProceso(pid);
     if (proceso_encontrado->estado == BLOCK)
     {
-        log_info(kernel_logger_info, "lo saco de blocked");
+       // log_info(kernel_logger_info, "lo saco de blocked");
         remove_blocked(proceso_encontrado->pid);
     }
     if (proceso_encontrado->estado == READY)
     {
-        log_info(kernel_logger_info, "lo saco de ready");
+        //log_info(kernel_logger_info, "lo saco de ready");
         remove_ready(proceso_encontrado->pid);
     }
     pthread_mutex_lock(&mutex_cola_exit);
     list_add(cola_exit, proceso_encontrado);
     pthread_mutex_unlock(&mutex_cola_exit);
     cambiar_estado(proceso_encontrado, FINISH_EXIT);
-    log_info(kernel_logger_info, "lo puse en exit");
+   // log_info(kernel_logger_info, "lo puse en exit");
     // list_add(lista_global, proceso encontrado);
     // char *motivo = motivo_exit_to_string(proceso_encontrado->motivo_exit);
     sem_post(&sem_exit);
-    log_info(kernel_logger_info, "Llegue hasta finalizar ");
+    //log_info(kernel_logger_info, "Llegue hasta finalizar ");
 }
 
 t_pcb *buscarProceso(int pid_pedido)
@@ -418,7 +414,7 @@ void iniciar_planificacion()
 {
     if (frenado)
     {
-        log_info(kernel_logger_info, "entre a iniciar plani dsp de haber frenado");
+        log_info(kernel_logger_info, "REANUDAR PLANIFICACION");
         // list_add_all(lista_ready, lista_ready_detenidos);
         sem_post(&sem_detener);
         sem_post(&sem_detener_sleep);
@@ -438,7 +434,7 @@ void iniciar_planificacion()
 void detener_planificacion()
 {
     frenado = true;
-    log_warning(kernel_logger_info, "cambie el frenado %d", frenado);
+    //log_warning(kernel_logger_info, "cambie el frenado %d", frenado);
 
     pthread_mutex_lock(&mutex_cola_ready);
     // pthread_mutex_lock(&mutex_cola_exec);
@@ -536,7 +532,7 @@ void serializar_pedido_proceso_nuevo(t_paquete *paquete, int pid, int size, char
     paquete->buffer->size += sizeof(uint32_t) * 3 +
                              strlen(path) + 1;
 
-    printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+    //printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
     paquete->buffer->stream = malloc(paquete->buffer->size);
 
     int desplazamiento = 0;
@@ -559,7 +555,7 @@ void serializar_pedido_archivo_fs(t_paquete *paquete, int pid, char *nombreArchi
     paquete->buffer->size += sizeof(uint32_t) * 3 +
                              strlen(nombreArchivo) + 1;
 
-    printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+    //printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
     paquete->buffer->stream = malloc(paquete->buffer->size);
 
     int desplazamiento = 0;
@@ -574,7 +570,7 @@ void serializar_pedido_archivo_fs(t_paquete *paquete, int pid, char *nombreArchi
 void serializar_truncate_archivo_fs(t_paquete *paquete, int pid, int tamanio)
 {
 
-    printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
+    //printf("Size del stream a serializar: %d \n", paquete->buffer->size); // TODO - BORRAR LOG
     paquete->buffer->stream = malloc(paquete->buffer->size);
 
     int desplazamiento = 0;
@@ -830,9 +826,9 @@ void exec_block_fs()
 
     safe_pcb_remove(cola_exec, &mutex_cola_exec);
     proceso_en_ejecucion = NULL;
-    log_info(kernel_logger_info, "mando a bloquear al proceso");
+   // log_info(kernel_logger_info, "mando a bloquear al proceso");
     set_pcb_block(pcbelegido);
-    log_info(kernel_logger_info, "bloqueado");
+   // log_info(kernel_logger_info, "bloqueado");
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "BLOCKED");
 
     pthread_mutex_lock(&mutex_cola_block);
@@ -862,7 +858,7 @@ void fs_interaction()
     exec_block_fs();
     // Se espera respuesta en hilo
     sem_post(&sem_hilo_FS);
-    log_warning(kernel_logger_info, "Se envio instruccion a FS");
+   // log_warning(kernel_logger_info, "Se envio instruccion a FS");
 
     // sem_post(&sem_ready);
     // sem_post(&sem_exec);
@@ -878,7 +874,7 @@ void *recibir_op_FS()
         t_resp_file op = recibir_operacion(conexion_filesystem);
         int *pid = malloc(sizeof(int));
         recibir_pid(conexion_filesystem, pid);
-        log_warning(kernel_logger_info, "Recibi operacion de fs %d", op);
+       // log_warning(kernel_logger_info, "Recibi operacion de fs %d", op);
         switch (op)
         {
         case F_ERROR:
@@ -1080,7 +1076,7 @@ void chekeo_desalojo_prioridades(t_pcb* pcb_desbloqueado){
     {
         if (pcb_desbloqueado->prioridad < pcbelegido->prioridad)
         {
-            log_info(kernel_logger_info, "mando interrupt");
+           // log_info(kernel_logger_info, "mando interrupt");
             t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
             interrupcion->motivo_interrupcion = INTERRUPT_NUEVO_PROCESO;
             interrupcion->pid = pcbelegido->pid;
