@@ -283,7 +283,7 @@ void kf_close()
 
     if (archivo_global_pedido == NULL)
     {
-        log_warning(kernel_logger_info, "El archivo global no estaba abierto");
+        //log_warning(kernel_logger_info, "El archivo global no estaba abierto");
     }
     else
     {
@@ -292,7 +292,7 @@ void kf_close()
 
     if (archivo_proceso == NULL)
     {
-        log_warning(kernel_logger_info, "El archivo proceso no estaba abierto");
+        //log_warning(kernel_logger_info, "El archivo proceso no estaba abierto");
     }
 
     if (archivo_global_pedido != NULL && archivo_proceso != NULL)
@@ -304,18 +304,18 @@ void kf_close()
         }
         if (archivo_global_pedido->lock == 'W' || archivo_global_pedido->contador == 0)
         {
-            log_error(kernel_logger_info, "TENGO QUE DESBLOQUEAR SI HAY BLOQUEADOS");
+            //log_error(kernel_logger_info, "TENGO QUE DESBLOQUEAR SI HAY BLOQUEADOS");
             archivo_global_pedido->lock = 'N';
             archivo_global_pedido->contador = 0;
         }
         if(archivo_global_pedido->lock != 'R' && archivo_global_pedido->lock != 'W')
         {
-            log_info(kernel_logger_info, "El archivo no tenia lock (no estaba abierto)");
+            //log_info(kernel_logger_info, "El archivo no tenia lock (no estaba abierto)");
         }
     }
     else
     {
-        log_info(kernel_logger_info, "El archivo no estaba abierto");
+        //log_info(kernel_logger_info, "El archivo no estaba abierto");
     }
 
     list_remove_element(proceso_en_ejecucion->archivos_abiertos, archivo_proceso);
@@ -342,7 +342,7 @@ void kf_close()
                     continuar = false;
                 continue;
             }
-            log_warning(kernel_logger_info, "Lock %c \n", lock);
+            //log_warning(kernel_logger_info, "Lock %c \n", lock);
 
             // Se abre el archivo para ese proceso
             crear_archivo_proceso(nombre_archivo, pcb_desbloqueado);
