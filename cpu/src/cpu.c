@@ -54,18 +54,13 @@ int main(int argc, char **argv)
         switch (codigo_operacion)
         {
         case CONTEXTO:
-            log_info(cpu_logger_info, "Esperando contexto: ...");
             contexto_actual = recibir_contexto(conexion_kernel_dispatch);
-            log_info(cpu_logger_info, "Recibo pid%d y pc%d", contexto_actual->pid, contexto_actual->program_counter);
             contexto_actual->codigo_ultima_instru = -1;
 
             while (!es_syscall() && !hay_interrupciones() && !page_fault && contexto_actual != NULL)
             {
-                log_warning(cpu_logger_info, "Ejecuto proxima instruccion");
                 ejecutar_ciclo_instruccion();
             }
-            // log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
-            log_info(cpu_logger_info, "PC actual: %d", contexto_actual->program_counter);
             obtener_motivo_desalojo();
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
 
@@ -105,8 +100,6 @@ void *recibir_interrupt(void *arg)
         codigo_operacion = recibir_operacion(conexion_kernel_interrupt);
         if (codigo_operacion != INTERRUPCION)
         {
-            log_error(cpu_logger_info, "El codigo que me llego es %d", codigo_operacion);
-            log_warning(cpu_logger_info, "Operacion desconocida \n");
             finalizar_cpu();
             abort();
         }
@@ -116,22 +109,18 @@ void *recibir_interrupt(void *arg)
             switch (interrupcion->motivo_interrupcion)
             {
             case INTERRUPT_FIN_QUANTUM:
-                log_info(cpu_logger_info, "Recibo fin de quantum");
                 interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
                 break;
             case INTERRUPT_FIN_PROCESO:
-                log_info(cpu_logger_info, "Recibo fin de proceso");
                 if (!descartar_instruccion)
                 {
                     interrupciones[INTERRUPT_FIN_PROCESO] = 1;
                 }
                 break;
             case INTERRUPT_NUEVO_PROCESO:
-                log_info(cpu_logger_info, "Llego proceso con mayor prioridad");
                 interrupciones[INTERRUPT_NUEVO_PROCESO] = 1;
                 break;
             default:
-                log_warning(cpu_logger_info, "Operacion desconocida \n");
                 finalizar_cpu();
                 abort();
                 break;
@@ -145,15 +134,12 @@ void *recibir_interrupt(void *arg)
 
 bool hay_interrupciones()
 {
-    log_warning(cpu_logger_info, "Busco interrupciones");
     if (interrupciones[INTERRUPT_FIN_QUANTUM] || interrupciones[INTERRUPT_FIN_PROCESO] || interrupciones[INTERRUPT_NUEVO_PROCESO])
     {
-        log_error(cpu_logger_info, "Hay interrupciones");
         return true;
     }
     else
     {
-        log_error(cpu_logger_info, "No Hay interrupciones");
         return false;
     }
 }
@@ -214,15 +200,15 @@ void conectar_memoria()
     if (respuesta == HANDSHAKE_MEMORIA)
     {
         op_code prueba = recibir_handshake(socket_memoria, cpu_logger_info);
-        log_info(cpu_logger_info, "Deserialice el codigo de operacion %d", prueba);
-        log_info(cpu_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
+        //log_info(cpu_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        //log_info(cpu_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
     }
     else
     {
-        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
+        //log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
     }
     receive_page_size(socket_memoria);
-    log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
+    //log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
 }
 
 void receive_page_size(int socket)
@@ -249,13 +235,13 @@ void cargar_servidor(int *servidor, char *puerto_escucha, int *conexion, op_code
     codigo_operacion = recibir_operacion(*(conexion));
     if (codigo_operacion == handshake)
     {
-        log_info(cpu_logger_info, "Handshake exitoso con KERNEL para la conexion %s", nombre_servidor);
+        //log_info(cpu_logger_info, "Handshake exitoso con KERNEL para la conexion %s", nombre_servidor);
         recibir_handshake(*(conexion), cpu_logger_info);
         realizar_handshake(*(conexion), handshake, cpu_logger_info);
     }
     else
     {
-        log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
+        //log_error(cpu_logger_info, "Fallo la comunicacion. Abortando \n");
         finalizar_cpu();
     }
 }
@@ -281,10 +267,8 @@ void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
-    log_info(cpu_logger_info, "arranco a sumar pc");
     if (!page_fault)
         contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
-    log_info(cpu_logger_info, "sumo pc");
 }
 
 // Pide a memoria la siguiente instruccion a ejecutar
@@ -326,7 +310,7 @@ void decode(t_instruccion *instruccion)
     {
         strcpy(param2, instruccion->parametro2);
     }
-    log_info(cpu_logger_info, "PID: %d - DECODE - Instruccion: %s - %s - %s", contexto_actual->pid, cod_inst_to_str(instruccion->codigo), param1, param2);
+    log_info(cpu_logger_info, "PID: %d - Ejecutando: %s - Parametros: %s - %s", contexto_actual->pid, cod_inst_to_str(instruccion->codigo), param1, param2);
 
     switch (instruccion->codigo)
     {
@@ -390,7 +374,7 @@ void decode(t_instruccion *instruccion)
 bool es_syscall()
 {
     nombre_instruccion ultima_instruccion = contexto_actual->codigo_ultima_instru;
-    log_warning(cpu_logger_info, "chequeo syscall");
+    //log_warning(cpu_logger_info, "chequeo syscall");
     switch (ultima_instruccion)
     {
     case WAIT:
@@ -403,7 +387,6 @@ bool es_syscall()
     case F_SEEK:
     case F_TRUNCATE:
     case EXIT:
-        log_warning(cpu_logger_info, "es syscal, desalojo");
         return true;
     default:
         return false;
@@ -436,6 +419,9 @@ uint32_t obtener_valor_dir(uint32_t dl)
         log_error(cpu_logger_info, "Error al hacer el MOV_IN");
     }
 
+
+    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: <VALOR LEIDO / ESCRITO>", contexto_actual->pid, df, valor);
+
     return valor;
 }
 
@@ -443,7 +429,7 @@ void escribir_memoria(uint32_t dl, uint32_t valor)
 {
     int df = traducir_dl(dl);
 
-    log_info(cpu_logger_info, "El valor a enviar por MOV_OUT ES %d", valor);
+    //log_info(cpu_logger_info, "El valor a enviar por MOV_OUT ES %d", valor);
 
     if (df != -1)
     {
@@ -453,6 +439,8 @@ void escribir_memoria(uint32_t dl, uint32_t valor)
     {
         log_info(cpu_logger_info, "Hubo page fault");
     }
+
+    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: <VALOR LEIDO / ESCRITO>", contexto_actual->pid, df, valor);
 }
 
 void enviar_mov_out(int df, uint32_t valor)
@@ -461,7 +449,7 @@ void enviar_mov_out(int df, uint32_t valor)
     paquete->buffer->size += sizeof(int) + sizeof(uint32_t);
     paquete->buffer->stream = malloc(paquete->buffer->size);
 
-    log_info(cpu_logger_info, "El size del paquete mov out es %d", paquete->buffer->size);
+    //log_info(cpu_logger_info, "El size del paquete mov out es %d", paquete->buffer->size);
 
     int offset = 0;
 
@@ -477,7 +465,7 @@ int traducir_dl(uint32_t dl)
 {
     uint32_t num_pag = dl / tamano_pagina;
 
-    log_error(cpu_logger_info, "Numero de pagina: %d", num_pag);
+    //log_error(cpu_logger_info, "Numero de pagina: %d", num_pag);
 
     uint32_t desplazamiento = dl - num_pag * tamano_pagina;
 
@@ -489,7 +477,7 @@ int traducir_dl(uint32_t dl)
 
     if (operacion == MARCO_PAGE_FAULT)
     {
-        log_info(cpu_logger_info, "Page Fault PID: %d - Página: %d", contexto_actual->pid, num_pag);
+        log_warning(cpu_logger_info, "Page Fault PID: %d - Página: %d", contexto_actual->pid, num_pag);
         page_fault = true;
         contexto_actual->nro_pf = num_pag;
         return marco;
@@ -498,7 +486,7 @@ int traducir_dl(uint32_t dl)
     {
         log_info(cpu_logger_info, "“PID: %d - OBTENER MARCO - Página: %d - Marco:%d”", contexto_actual->pid, num_pag, marco);
         int df = marco * tamano_pagina + desplazamiento;
-        log_info(cpu_logger_info, "Dirección física: %d", df);
+        //log_info(cpu_logger_info, "Dirección física: %d", df);
         return df;
     }
 }

@@ -84,8 +84,6 @@ void _mov_in(char *registro, char *direc_logica)
         *(regis) = valor;
     }
 
-    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Valor: %d", contexto_actual->pid, valor);
-
     contexto_actual->codigo_ultima_instru = MOV_IN;
     // free(regis);
 }
@@ -106,10 +104,8 @@ void _mov_out(char *direc_logica, char *registro)
 // Solicita al kernel que abra el archivo pasado por parámetro con el modo de apertura indicado.
 void _f_open(char *nombre_archivo, char *modo_apertura)
 {
-    log_warning(cpu_logger_info, "arranco f_open");
     contexto_actual->codigo_ultima_instru = F_OPEN;
     contexto_actual->motivo_desalojado = SYSCALL;
-        log_warning(cpu_logger_info, "termino fopen");
 }
 
 // Solicita al kernel que cierre el archivo pasado por parámetro.
