@@ -943,12 +943,12 @@ void *manejar_pf(void *args)
     log_info(kernel_logger_info, "Pagina[%d]-Bloqueado por: PAGE_FAULT  \n", nro_pf);
 
     // todo AGREGAR SEMAFORO
-    t_pcb *pcb = buscarProceso(pid);
+    /*t_pcb *pcb = buscarProceso(pid);
     set_pcb_block(pcb);
     proceso_en_ejecucion = NULL;
 
     log_info(kernel_logger_info, "cola exec: %d", list_size(cola_exec));
-    safe_pcb_remove(cola_exec, &mutex_cola_exec);
+    safe_pcb_remove(cola_exec, &mutex_cola_exec);*/
 
     if (frenado != 1)
     {

@@ -361,6 +361,12 @@ void exec_pcb()
             args->pid = proceso_en_ejecucion->pid;
             args->num_pf = pcbelegido->contexto_ejecucion->nro_pf;
 
+            set_pcb_block(pcbelegido);
+            proceso_en_ejecucion = NULL;
+
+            log_info(kernel_logger_info, "cola exec: %d", list_size(cola_exec));
+            safe_pcb_remove(cola_exec, &mutex_cola_exec);
+
             pthread_t hilo_page_fault;
             pthread_create(&hilo_page_fault, NULL, (void *)manejar_pf, args);
             pthread_detach(hilo_page_fault);
