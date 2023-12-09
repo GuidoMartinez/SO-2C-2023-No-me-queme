@@ -49,7 +49,7 @@ int main(int argc, char **argv)
     realizar_handshake(socket_memoria_op, HANDSHAKE_FILESYSTEM_OPS, filesystem_logger_info);
 
     op_code codigo_op = recibir_operacion(socket_memoria_op);
-    log_info(filesystem_logger_info, "Se recibio una operacion de MEMORIA - OPS: %d", codigo_op);
+    // log_info(filesystem_logger_info, "Se recibio una operacion de MEMORIA - OPS: %d", codigo_op);
 
     if (codigo_op == HANDSHAKE_MEMORIA)
     {
@@ -221,7 +221,7 @@ bloque_con_id_t recibir_escritura_swap(int socket)
     void *buffer = recibir_buffer(&size, socket);
     int offset = 0;
 
-    printf("size del stream a deserializar %d \n ", size);
+    //printf("size del stream a deserializar %d \n ", size);
     memcpy(&id_bloque, buffer + offset, sizeof(int));
     offset += sizeof(int);
     datos = malloc(tamanio_bloque);
@@ -267,9 +267,9 @@ void *manejo_conexion_memoria_swap(void *arg)
 
         case SWAP_A_LIBERAR:
             t_list *bloques_a_liberar = recibir_listado_id_bloques(socket_memoria_swap);
-            log_info(filesystem_logger_info, "PEDIDO para liberar %d bloques", list_size(bloques_a_liberar));
+            //log_info(filesystem_logger_info, "PEDIDO para liberar %d bloques", list_size(bloques_a_liberar));
             liberar_bloques_swap(bloques_a_liberar);
-            log_info(filesystem_logger_info, "BLOQUES LIBERADOS");
+            //log_info(filesystem_logger_info, "BLOQUES LIBERADOS");
 
             enviar_op_con_int(socket_memoria_swap, SWAP_LIBERADA, 1);
             list_destroy(bloques_a_liberar);
@@ -796,7 +796,7 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
     int cant_bloques_actual = obtener_cantidad_de_bloques(id_fcb);
     int bloque_inicial = valor_fcb(id_fcb, BLOQUE_INICIAL);
 
-    if (bloque_inicial == -1)
+    if (bloque_inicial == 0)
     {
         bloque_inicial = obtener_primer_bloque_libre();
         modificar_fcb(id_fcb, BLOQUE_INICIAL, bloque_inicial);
@@ -804,7 +804,7 @@ void asignar_bloques(int id_fcb, int nuevo_tamanio)
     int bloque_actual = bloque_inicial;
     for (int i = cant_bloques_actual; i < cant_bloques_a_asignar; i++)
     {
-        if (bloque_actual == -1)
+        if (bloque_actual == 0)
         {
             // log_warning(filesystem_logger_info, "No hay bloques libres disponibles");
             break;
@@ -938,7 +938,7 @@ void realizar_f_read(t_instruccion_fs *instruccion_file)
 
     int offset = 0;
 
-    printf("Size del stream a enviar %d \n", paq_f_read->buffer->size);
+    // printf("Size del stream a enviar %d \n", paq_f_read->buffer->size);
 
     memcpy(paq_f_read->buffer->stream + offset, &(direccion_fisica), sizeof(int));
     offset += sizeof(int);

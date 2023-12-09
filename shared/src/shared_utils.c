@@ -641,7 +641,7 @@ t_interrupcion *recibir_interrupcion(int socket)
 	void *buffer = recibir_buffer(&size, socket);
 	int offset = 0;
 
-	printf("size del stream a deserializar \n%d", size);
+	//printf("size del stream a deserializar \n%d", size);
 	t_interrupcion *interrupcion_recibida = malloc(sizeof(t_interrupcion));
 
 	memcpy(&(interrupcion_recibida->motivo_interrupcion), buffer + offset, sizeof(motivo_desalojo));
