@@ -892,6 +892,7 @@ void *recibir_op_FS()
             remove_blocked(pcb_bloqueado->pid);
             log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");
             set_pcb_ready(pcb_bloqueado);
+            chekeo_desalojo_prioridades(pcb_bloqueado);
             sem_post(&sem_ready);
             sem_post(&sem_exec);
             break;
@@ -900,6 +901,7 @@ void *recibir_op_FS()
             remove_blocked(pcb_bloqueado->pid);
             log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");
             set_pcb_ready(pcb_bloqueado);
+            chekeo_desalojo_prioridades(pcb_bloqueado);
             sem_post(&sem_ready);
             sem_post(&sem_exec);
             break;
@@ -908,6 +910,7 @@ void *recibir_op_FS()
             remove_blocked(pcb_bloqueado->pid);
             log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKEADO", "READY");
             set_pcb_ready(pcb_bloqueado);
+            chekeo_desalojo_prioridades(pcb_bloqueado);
             sem_post(&sem_ready);
             sem_post(&sem_exec);
             break;
@@ -991,18 +994,7 @@ void *manejar_pf(void *args)
     set_pcb_ready(pcb_bloqueado);
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY");
 
-    if (ALGORITMO_PLANIFICACION == PRIORIDADES)
-    {
-        if (pcb_bloqueado->prioridad < pcbelegido->prioridad)
-        {
-            log_info(kernel_logger_info, "mando interrupt");
-            t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
-            interrupcion->motivo_interrupcion = INTERRUPT_NUEVO_PROCESO;
-            interrupcion->pid = pcbelegido->pid;
-            enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
-            free(interrupcion);
-        }
-    }
+    chekeo_desalojo_prioridades(pcb_bloqueado);
 
     if (frenado != 1)
     {
@@ -1081,4 +1073,19 @@ void hay_deadlock(char *recurso_deadlock)
     }
 
     log_info(kernel_logger_info, "Recurso Requerido: %s ", recurso_deadlock);
+}
+
+void chekeo_desalojo_prioridades(t_pcb* pcb_desbloqueado){
+    if (ALGORITMO_PLANIFICACION == PRIORIDADES)
+    {
+        if (pcb_desbloqueado->prioridad < pcbelegido->prioridad)
+        {
+            log_info(kernel_logger_info, "mando interrupt");
+            t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
+            interrupcion->motivo_interrupcion = INTERRUPT_NUEVO_PROCESO;
+            interrupcion->pid = pcbelegido->pid;
+            enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
+            free(interrupcion);
+        }
+    }
 }

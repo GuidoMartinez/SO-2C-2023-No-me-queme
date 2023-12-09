@@ -144,5 +144,6 @@ void hay_deadlock(char* recurso_deadlock);
 void sumar_contador_archivo_global(char*);
 t_archivo_global *crear_archivo_global_con_contador(char*, char, int);
 void restar_contador_archivo_global(char*);
+void chekeo_desalojo_prioridades(t_pcb*);
 
 #endif
