@@ -261,7 +261,6 @@ void *manejo_conexion_memoria_swap(void *arg)
             enviar_paquete(paquete_bloques_swap, socket_memoria_swap);
             eliminar_paquete(paquete_bloques_swap);
             list_destroy(lista_bloques_swap);
-            list_destroy_and_destroy_elements(lista_bloques_swap, free);
 
             break;
 
