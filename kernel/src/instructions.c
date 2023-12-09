@@ -298,10 +298,11 @@ void kf_close()
         }
         if (archivo_global_pedido->lock == 'W' || archivo_global_pedido->contador == 0)
         {
+            log_error(kernel_logger_info, "TENGO QUE DESBLOQUEAR SI HAY BLOQUEADOS");
             archivo_global_pedido->lock = 'N';
             archivo_global_pedido->contador = 0;
         }
-        else
+        if(archivo_global_pedido->lock != 'R' && archivo_global_pedido->lock != 'W')
         {
             log_info(kernel_logger_info, "El archivo no tenia lock (no estaba abierto)");
         }
@@ -317,6 +318,8 @@ void kf_close()
     bool crear = true;
     list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
     t_queue *cola_temporal_de_escritura = queue_create();
+
+    log_warning(kernel_logger_info, "cola d bloqueados: %d", queue_size(archivo_global_pedido->colabloqueado));
 
     if (archivo_global_pedido->lock == 'N' && queue_size(archivo_global_pedido->colabloqueado) > 0)
     {
@@ -354,11 +357,22 @@ void kf_close()
                 continuar = false;
         }
 
+        bool agregar = false;
+
         while (queue_size(cola_temporal_de_escritura) > 0)
         {
+            agregar = true;
+            list_remove_element(lista_archivos_abiertos, archivo_global_pedido);
+            log_error(kernel_logger_info, "VOY A METER UN PROCESO CON W A LA COLA D BLOQUAEDOS DEL ARCHIVO");
             t_pcb *pcb_desbloqueado = queue_pop(cola_temporal_de_escritura);
             queue_push(archivo_global_pedido->colabloqueado, pcb_desbloqueado);
         }
+
+        if(agregar){
+            archivo_global_pedido->lock = 'W';
+            list_add(lista_archivos_abiertos, archivo_global_pedido);
+        }
+        log_error(kernel_logger_info, "TAMAÑO DE LA COLA DE BLOQUEADOS %d", queue_size(archivo_global_pedido->colabloqueado));
     }
 
     else if (archivo_global_pedido->contador > 0)

@@ -46,13 +46,14 @@ void pcb_destroy(t_pcb *pcb)
         {
             t_archivo_abierto_proceso* archivo_proceso = list_get(pcb->archivos_abiertos, i);
             t_archivo_global *archivo_global = buscarArchivoGlobal(lista_archivos_abiertos, archivo_proceso->nombreArchivo);
+            archivo_global->contador--;
             if (archivo_global == NULL)
             {
                 log_error(kernel_logger_info, "no estaba abierto el archivo en la tabla global");
                 continue;
             }
 
-            if (archivo_global->contador == 0)
+            if (archivo_global->contador <= 0)
             {
                 log_info(kernel_logger_info, "agarro archivo con contador 0");
                 list_remove_element(lista_archivos_abiertos, archivo_global);
