@@ -257,10 +257,10 @@ void ready_pcb(void)
                 if (ALGORITMO_PLANIFICACION == PRIORIDADES) //
                 {
                     log_info(kernel_logger_info, "Entre a prioridades");
-                    if (proceso_en_ejecucion != NULL)
+                    if (pcbelegido != NULL)
                     {
                            log_info(kernel_logger_info, "ejecuta archivo");
-                        if (pcb->prioridad < proceso_en_ejecucion->prioridad)
+                        if (pcb->prioridad < pcbelegido->prioridad)
                         {
                             log_info(kernel_logger_info, "mando interrupt");
                             t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
@@ -270,7 +270,9 @@ void ready_pcb(void)
                             free(interrupcion);
                         }
                     }
-                    sem_post(&sem_exec);
+                    /*if(frenado != 1){
+                        sem_post(&sem_exec);
+                    }*/
                 }
                 if (frenado != 1)
                 {

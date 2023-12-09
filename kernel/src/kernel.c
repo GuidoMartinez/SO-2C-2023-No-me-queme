@@ -423,7 +423,7 @@ void iniciar_planificacion()
         sem_post(&sem_detener);
         sem_post(&sem_detener_sleep);
         sem_post(&sem_ready);
-        if(ALGORITMO_PLANIFICACION != PRIORIDADES)
+        //if (ALGORITMO_PLANIFICACION != PRIORIDADES)
         sem_post(&sem_exec);
     }
     else
@@ -864,8 +864,8 @@ void fs_interaction()
     sem_post(&sem_hilo_FS);
     log_warning(kernel_logger_info, "Se envio instruccion a FS");
 
-    //sem_post(&sem_ready);
-    //sem_post(&sem_exec);
+    // sem_post(&sem_ready);
+    // sem_post(&sem_exec);
 }
 
 void *recibir_op_FS()
@@ -991,6 +991,15 @@ void *manejar_pf(void *args)
     set_pcb_ready(pcb_bloqueado);
     log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcb_bloqueado->pid, "BLOCKED", "READY");
 
+    if (pcb_bloqueado->prioridad < pcbelegido->prioridad)
+    {
+        log_info(kernel_logger_info, "mando interrupt");
+        t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
+        interrupcion->motivo_interrupcion = INTERRUPT_NUEVO_PROCESO;
+        interrupcion->pid = pcbelegido->pid;
+        enviar_interrupcion(conexion_cpu_interrupt, interrupcion);
+        free(interrupcion);
+    }
 
     if (frenado != 1)
     {
