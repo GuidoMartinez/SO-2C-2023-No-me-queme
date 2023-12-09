@@ -195,7 +195,7 @@ void *manejo_conexion_cpu(void *arg)
 			{
 				t_instruccion *instruccion_pedida = obtener_instruccion_pid_pc(pid, pc);
 				log_info(logger_memoria_info, "____ Se envia la instruccion a CPU de PC %d para el PID %d y es: %s - %s - %s", pc, pid, obtener_nombre_instruccion(instruccion_pedida->codigo), instruccion_pedida->parametro1, instruccion_pedida->parametro2);
-				enviar_instruccion(socket_cpu_int, instruccion_pedida);
+				if(instruccion_pedida != NULL) enviar_instruccion(socket_cpu_int, instruccion_pedida);
 				break;
 			}
 		case MARCO:
@@ -629,7 +629,8 @@ t_proceso_memoria *obtener_proceso_pid(uint32_t pid_pedido)
 
 t_instruccion *obtener_instrccion_pc(t_proceso_memoria *proceso, uint32_t pc_pedido)
 {
-	return list_get(proceso->instrucciones, pc_pedido);
+	if (proceso != NULL) return list_get(proceso->instrucciones, pc_pedido);
+	else return NULL;
 }
 
 t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedido)
