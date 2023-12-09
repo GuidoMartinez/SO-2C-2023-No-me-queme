@@ -106,6 +106,7 @@ int atender_kernel()
 
     socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);
     log_error(filesystem_logger_info,"pedido de conexion de un 2do kernel");
+    return 1;
 }
 
 void inicializar_swap()
