@@ -703,6 +703,7 @@ t_instruccion_fs *deserializar_instruccion_fs(int socket)
 	offset += instruccion->param2_length;
 
 	memcpy(&(instruccion->puntero), buffer + offset, sizeof(uint32_t));
+	free(buffer);
 
 	return instruccion;
 }
@@ -788,8 +789,7 @@ t_list *recibir_listado_id_bloques(int socket)
 	void *buffer;
 
 	buffer = recibir_buffer(&size, socket);
-	// printf("Size del stream a deserializar: %d \n", size);
-
+	
 	t_list *lista = list_create();
 
 	int offset = 0;
@@ -801,13 +801,6 @@ t_list *recibir_listado_id_bloques(int socket)
 		offset += sizeof(int);
 		list_add(lista, bloque_swap);
 	}
-
-	// TODO - BORRAR
-
-	// for(int i = 0; i < list_size(lista); i++) {
-	//     printf("El bloque en la posicion %d tiene el valor de %d \n", i, list_get(lista,i));
-	// }
-
 	free(buffer);
 
 	return lista;
