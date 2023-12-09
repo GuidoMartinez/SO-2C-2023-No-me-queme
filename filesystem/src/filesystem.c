@@ -240,7 +240,7 @@ void *manejo_conexion_memoria_swap(void *arg)
     while (1)
     {
         op_code codigo_operacion = recibir_operacion(socket_memoria_swap);
-        log_info(filesystem_logger_info, "Se recibio una operacion de MEMORIA - SWAP: %d", codigo_operacion);
+        //log_info(filesystem_logger_info, "Se recibio una operacion de MEMORIA - SWAP: %d", codigo_operacion);
 
         switch (codigo_operacion)
         {
@@ -278,7 +278,7 @@ void *manejo_conexion_memoria_swap(void *arg)
         case LEER_BLOQUE:
             int bloque_a_leer = recibir_int(socket_memoria_swap);
 
-            log_info(filesystem_logger_info, "Pedido de lectura de bloque %d", bloque_a_leer);
+            //log_info(filesystem_logger_info, "Pedido de lectura de bloque %d", bloque_a_leer);
             if (bloque_a_leer < bloques_swap)
             {
                 bloque_t bloque;
@@ -1013,7 +1013,7 @@ void *comunicacion_kernel()
         case OP_FILESYSTEM:
         {
             t_instruccion_fs *nueva_instruccion = deserializar_instruccion_fs(socket_kernel);
-            log_info(filesystem_logger_info, "Instruccion deserializada correctamente");
+            //log_info(filesystem_logger_info, "Instruccion deserializada correctamente");
             uint32_t pid = nueva_instruccion->pid;
             // log_warning(filesystem_logger_info, "Recibi la operacion %d del PID %d", nueva_instruccion->estado, pid);
             switch (nueva_instruccion->estado)
