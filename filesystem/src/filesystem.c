@@ -25,11 +25,11 @@ int main(int argc, char **argv)
     path_bloques = config_valores_filesystem.path_bloques;
     bloques_swap = config_valores_filesystem.cant_bloques_swap;
     path_fat = config_valores_filesystem.path_fat;
-    swap = malloc(bloques_swap*sizeof(uint32_t));
+    swap = malloc(bloques_swap * sizeof(uint32_t));
     inicializar_swap();
     lista_fcb = list_create();
     // pthread_mutex_init(&mutex_fat, NULL);
-    
+
     int exit_status_bloques = crear_archivo_bloques(path_bloques);
     if (exit_status_bloques == -1)
     {
@@ -62,8 +62,9 @@ int main(int argc, char **argv)
         log_warning(filesystem_logger_info, "No me pude conectar a MEMORIA para F_READ Y F_WRITE");
     }
 
-    // CONEXION CON KERNEL
+    // CONEXION CON KERNER
     server_filesystem = iniciar_servidor(filesystem_logger_info, config_valores_filesystem.ip_escucha, config_valores_filesystem.puerto_escucha);
+
     socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);
     log_info(filesystem_logger_info, "Filesystem listo para recibir al Kernel");
     op_code codigo_operacion = recibir_operacion(socket_kernel);
@@ -88,12 +89,23 @@ int main(int argc, char **argv)
     {
         return -1;
     }
-    pthread_t hilo_cliente;
-    pthread_create(&hilo_cliente, NULL, comunicacion_kernel, NULL);
-    pthread_detach(hilo_cliente);
-    while (1);
+
+    while (atender_kernel())
+        ;
+
+    // while (1);
     finalizar_filesystem();
     abort();
+}
+
+int atender_kernel()
+{
+        pthread_t hilo_cliente;
+        pthread_create(&hilo_cliente, NULL, comunicacion_kernel(), NULL);
+        pthread_detach(hilo_cliente);
+
+    socket_kernel = esperar_cliente(server_filesystem, filesystem_logger_info);
+    log_error(filesystem_logger_info,"pedido de conexion de un 2do kernel");
 }
 
 void inicializar_swap()
@@ -108,14 +120,14 @@ void inicializar_swap()
 void *leer_bloque_swap(uint32_t numero_bloque)
 {
     void *datos = malloc(tamanio_bloque);
-    uint32_t bloque_swap = numero_bloque; 
-    
+    uint32_t bloque_swap = numero_bloque;
+
     FILE *archivo_bloques = fopen(path_bloques, "rb");
     numero_bloque += tamanio_fat - 1;
     if (archivo_bloques == NULL)
     {
         log_error(filesystem_logger_info, "Error al abrir el archivo de Bloques para lectura");
-        free(datos); 
+        free(datos);
         return NULL;
     }
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
@@ -123,7 +135,7 @@ void *leer_bloque_swap(uint32_t numero_bloque)
     fclose(archivo_bloques);
     usleep(retardo_acceso_bloque * 1000);
     log_info(filesystem_logger_info, "Acceso SWAP: <%d> - Lectura", bloque_swap); // Log obligatorio
-    
+
     return datos;
 }
 
@@ -327,7 +339,7 @@ void finalizar_filesystem()
 {
     log_info(filesystem_logger_info, "Finalizando el modulo FILESYSTEM");
     log_destroy(filesystem_logger_info);
-    //list_destroy_and_destroy_elements(lista_fcb, borrar_fcb);
+    // list_destroy_and_destroy_elements(lista_fcb, borrar_fcb);
     list_destroy(lista_fcb);
     config_destroy(config);
 
@@ -408,7 +420,7 @@ void *leer_bloque(uint32_t numero_bloque)
         log_error(filesystem_logger_info, "Error al abrir el archivo de Bloques para lectura");
         return -1;
     }
-    
+
     fseek(archivo_bloques, numero_bloque * tamanio_bloque, SEEK_SET);
     fread(datos, tamanio_bloque, 1, archivo_bloques);
     fclose(archivo_bloques);
@@ -885,7 +897,7 @@ void realizar_f_write(t_instruccion_fs *instruccion_file)
         }
 
         int numero_bloque = instruccion_file->puntero / tamanio_bloque;
-        //log_warning(filesystem_logger_info, "Número de bloque es %d", numero_bloque);
+        // log_warning(filesystem_logger_info, "Número de bloque es %d", numero_bloque);
 
         uint32_t id_fcb = conseguir_id_fcb(instruccion_file->param1);
         uint32_t siguiente_bloque = valor_fcb(id_fcb, BLOQUE_INICIAL);
@@ -1001,7 +1013,7 @@ void *comunicacion_kernel()
             t_instruccion_fs *nueva_instruccion = deserializar_instruccion_fs(socket_kernel);
             log_info(filesystem_logger_info, "Instruccion deserializada correctamente");
             uint32_t pid = nueva_instruccion->pid;
-            //log_warning(filesystem_logger_info, "Recibi la operacion %d del PID %d", nueva_instruccion->estado, pid);
+            // log_warning(filesystem_logger_info, "Recibi la operacion %d del PID %d", nueva_instruccion->estado, pid);
             switch (nueva_instruccion->estado)
             {
             case F_OPEN:
@@ -1136,7 +1148,7 @@ void *hilo_f_read(void *instruccion)
     t_resp_file estado_file = F_ERROR;
     t_instruccion_fs *nueva_instruccion = (t_instruccion_fs *)instruccion;
     log_info(filesystem_logger_info, "PID: %d - F_READ: %s - Puntero: %d - Memoria: %s", nueva_instruccion->pid, nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2);
-    log_info(filesystem_logger_info, "Leer Archivo: <%s> - Puntero: <%d> - Memoria: <%s>", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2); //Log obligatorio
+    log_info(filesystem_logger_info, "Leer Archivo: <%s> - Puntero: <%d> - Memoria: <%s>", nueva_instruccion->param1, nueva_instruccion->puntero, nueva_instruccion->param2); // Log obligatorio
     realizar_f_read(nueva_instruccion);
     estado_file = F_READ_SUCCESS;
     enviar_op_con_int(socket_kernel, estado_file, nueva_instruccion->pid);
