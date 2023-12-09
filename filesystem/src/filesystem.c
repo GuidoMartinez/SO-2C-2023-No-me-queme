@@ -267,10 +267,10 @@ void *manejo_conexion_memoria_swap(void *arg)
 
         case SWAP_A_LIBERAR:
             t_list *bloques_a_liberar = recibir_listado_id_bloques(socket_memoria_swap);
-            //log_info(filesystem_logger_info, "PEDIDO para liberar %d bloques", list_size(bloques_a_liberar));
+
             liberar_bloques_swap(bloques_a_liberar);
             //log_info(filesystem_logger_info, "BLOQUES LIBERADOS");
-
+            log_info(filesystem_logger_info, "Se liberaron %d bloques SWAP", list_size(bloques_a_liberar));
             enviar_op_con_int(socket_memoria_swap, SWAP_LIBERADA, 1);
             list_destroy(bloques_a_liberar);
             break;
