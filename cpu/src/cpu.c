@@ -64,7 +64,7 @@ int main(int argc, char **argv)
                 log_warning(cpu_logger_info, "Ejecuto proxima instruccion");
                 ejecutar_ciclo_instruccion();
             }
-            //log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
+            // log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
             log_info(cpu_logger_info, "PC actual: %d", contexto_actual->program_counter);
             obtener_motivo_desalojo();
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
@@ -74,8 +74,7 @@ int main(int argc, char **argv)
             pthread_mutex_lock(&mutex_interrupt);
             limpiar_interrupciones();
             pthread_mutex_unlock(&mutex_interrupt);
-            //liberar_contexto(contexto_actual);
-           
+            // liberar_contexto(contexto_actual);
 
             break;
         default:
@@ -117,7 +116,7 @@ void *recibir_interrupt(void *arg)
             switch (interrupcion->motivo_interrupcion)
             {
             case INTERRUPT_FIN_QUANTUM:
-                 log_info(cpu_logger_info, "Recibo fin de quantum");
+                log_info(cpu_logger_info, "Recibo fin de quantum");
                 interrupciones[INTERRUPT_FIN_QUANTUM] = 1;
                 break;
             case INTERRUPT_FIN_PROCESO:
@@ -152,7 +151,8 @@ bool hay_interrupciones()
         log_error(cpu_logger_info, "Hay interrupciones");
         return true;
     }
-    else{
+    else
+    {
         log_error(cpu_logger_info, "No Hay interrupciones");
         return false;
     }
@@ -197,7 +197,7 @@ bool descartar_interrupcion(int pid)
 
 void limpiar_interrupciones()
 {
-   
+
     interrupciones[INTERRUPT_FIN_QUANTUM] = 0;
     interrupciones[INTERRUPT_FIN_PROCESO] = 0;
     interrupciones[INTERRUPT_NUEVO_PROCESO] = 0;
@@ -383,12 +383,12 @@ void decode(t_instruccion *instruccion)
         break;
     }
 
-    free(param1);
-    free(param2);
+    //free(param1);
+    //free(param2);
 }
 
 bool es_syscall()
-{   
+{
     nombre_instruccion ultima_instruccion = contexto_actual->codigo_ultima_instru;
     log_warning(cpu_logger_info, "chequeo syscall");
     switch (ultima_instruccion)
