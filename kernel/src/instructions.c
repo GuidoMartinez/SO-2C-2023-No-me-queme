@@ -122,17 +122,17 @@ void kwait()
         pthread_mutex_lock(&mutex_cola_exec);
         t_pcb *proceso_aux = list_remove(cola_exec, 0);
         pthread_mutex_unlock(&mutex_cola_exec);
-        log_info(kernel_logger_info, "El recurso [%s] pedido por PID [%d] no existe. Se manda proceso a exit", proceso_aux->recurso_instruccion, proceso_aux->pid);
+        log_info(kernel_logger_info, "El recurso [%s] pedido por PID [%d] no existe. Se manda proceso a exit", proceso_aux->recurso_instruccion, pcbelegido->pid);
 
         // TODO: Hacer funcion que pase de enum a char* para hacer el log de los estados
-        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual  <%s>\n", proceso_aux->pid, "EXEC", "EXIT");
+        log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual  <%s>\n", pcbelegido->pid, "EXEC", "EXIT");
 
         log_info(kernel_logger_info, "Finaliza el proceso <%d> Motivo <%s> \n", pcbelegido->pid, "INVALID_RESOURCE");
 
         proceso_en_ejecucion = NULL;
         pthread_mutex_lock(&mutex_cola_exit);
         proceso_aux->estado = FINISH_EXIT;
-        list_add(cola_exit, proceso_aux);
+        list_add(cola_exit, pcbelegido);
         pthread_mutex_unlock(&mutex_cola_exit);
         sem_post(&sem_exit);
         //  sem_post(&sem_ready);
