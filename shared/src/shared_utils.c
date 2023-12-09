@@ -518,7 +518,7 @@ t_instruccion *deserializar_instruccion(int socket)
 	void *buffer;
 
 	buffer = recibir_buffer(&size, socket);
-	printf("Size del stream a deserializar: %d \n", size);
+	//printf("Size del stream a deserializar: %d \n", size);
 
 	t_instruccion *instruccion_recibida = malloc(sizeof(t_instruccion));
 
