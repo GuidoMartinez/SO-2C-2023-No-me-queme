@@ -21,8 +21,8 @@ int main(int argc, char **argv)
 	log_info(logger_memoria_info, "Servidor MEMORIA Iniciado");
 
 	atender_clientes_memoria();
-	while (1)
-		; // TODO -- BORRAR ESPERA ACTIVA
+	while (atender_cliente_kernel());
+	// TODO -- BORRAR ESPERA ACTIVA
 	return EXIT_SUCCESS;
 }
 
@@ -76,7 +76,7 @@ void atender_clientes_memoria()
 	atender_cliente_cpu();
 	atender_cliente_fs_swap();
 	atender_cliente_fs_ops();
-	atender_cliente_kernel();
+	// atender_cliente_kernel();
 }
 
 int atender_cliente_cpu()
@@ -628,7 +628,7 @@ t_instruccion *obtener_instruccion_pid_pc(uint32_t pid_pedido, uint32_t pc_pedid
 	// log_error(logger_memoria_info, "Voy a buscar la instruccion de PID %d con PC %d", pid_pedido, pc_pedido);
 	t_proceso_memoria *proceso = obtener_proceso_pid(pid_pedido);
 	// if (config_valores_memoria.retardo_respuesta / 1000 > 0)
-	usleep(config_valores_memoria.retardo_respuesta*1000);
+	usleep(config_valores_memoria.retardo_respuesta * 1000);
 	// else
 	// sleep(1);
 	return obtener_instrccion_pc(proceso, pc_pedido);
@@ -1250,11 +1250,11 @@ void escribir_memoria_cpu(int dir_fisica, uint32_t valor)
 
 	marcar_pag_modificada(marco->pid, marco->num_de_marco);
 	log_info(logger_memoria_info, "Se marco pagina como modificada para PID %d", marco->pid); // BORRAR
-	/*if (config_valores_memoria.retardo_respuesta / 1000 > 0)
-		sleep(config_valores_memoria.retardo_respuesta / 1000);
-	else
-		sleep(1);*/
-		usleep(config_valores_memoria.retardo_respuesta * 1000);
+																							  /*if (config_valores_memoria.retardo_respuesta / 1000 > 0)
+																								  sleep(config_valores_memoria.retardo_respuesta / 1000);
+																							  else
+																								  sleep(1);*/
+	usleep(config_valores_memoria.retardo_respuesta * 1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO POR CPU- PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 }
 
@@ -1272,7 +1272,7 @@ void escribir_memoria_fs(int dir_fisica, void *bloque)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
 		sleep(1);*/
-	usleep(config_valores_memoria.retardo_respuesta *1000);
+	usleep(config_valores_memoria.retardo_respuesta * 1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO POR FS - PID [%d] - ACCION: [ESCRIBIR] - DIRECCION FISICA: [%d]", marco_escibir->pid, dir_fisica); // LOG OBLIGATORIO
 }
 
@@ -1294,7 +1294,7 @@ uint32_t leer_memoria_cpu(uint32_t dir_fisica)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
 		sleep(1);*/
-		usleep(config_valores_memoria.retardo_respuesta *1000);
+	usleep(config_valores_memoria.retardo_respuesta * 1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - CPU - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 
 	return valor_leido;
@@ -1318,7 +1318,7 @@ void *leer_memoria_fs(int dir_fisica)
 		sleep(config_valores_memoria.retardo_respuesta / 1000);
 	else
 		sleep(1);*/
-	usleep(config_valores_memoria.retardo_respuesta *1000);
+	usleep(config_valores_memoria.retardo_respuesta * 1000);
 	log_info(logger_memoria_info, "***** ACCESO A ESPACIO USUARIO - FS - PID [%d] - ACCION: [LEER] - DIRECCION FISICA: [%d]", marco->pid, dir_fisica); // LOG OBLIGATORIO
 
 	return bloque_leido;

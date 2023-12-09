@@ -59,6 +59,7 @@ typedef struct {
 
 void sighandler(int);
 
+int atender_kernel();
 void inicializar_swap();
 void *leer_bloque_swap(uint32_t );
 int escribir_bloque_swap(uint32_t , void *);
