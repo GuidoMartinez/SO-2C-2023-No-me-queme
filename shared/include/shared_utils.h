@@ -320,7 +320,7 @@ t_list *recibir_paquete(int);
 void realizar_handshake(int, op_code, t_log *);
 op_code recibir_handshake(int conexion, t_log *logger);
 
-const char *obtener_nombre_instruccion(nombre_instruccion);
+char *obtener_nombre_instruccion(nombre_instruccion);
 
 void enviar_contexto(int, t_contexto_ejecucion *);
 void serializar_contexto(t_paquete *, t_contexto_ejecucion *);

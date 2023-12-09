@@ -301,7 +301,7 @@ op_code recibir_handshake(int conexion, t_log *logger)
 	return codigo_recibido;
 }
 
-const char *obtener_nombre_instruccion(nombre_instruccion instruccion)
+char *obtener_nombre_instruccion(nombre_instruccion instruccion)
 {
 	switch (instruccion)
 	{

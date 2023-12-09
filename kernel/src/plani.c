@@ -242,8 +242,8 @@ void ready_pcb(void)
 
             int procesos_activos = procesos_ready + procesos_bloqueado;//+ procesos_exec 
 
-          //  log_info(kernel_logger_info, "READY %d EXEC %d BLOQUEADOS %d",procesos_ready,procesos_exec,procesos_bloqueado);
-            
+           log_info(kernel_logger_info, "READY %d BLOQUEADOS %d",procesos_ready ,procesos_bloqueado);
+
             if (procesos_activos < sem.g_multiprog_ini)
             {
 
@@ -252,10 +252,13 @@ void ready_pcb(void)
                 set_pcb_ready(pcb);
                 if (ALGORITMO_PLANIFICACION == PRIORIDADES) //
                 {
+                    log_info(kernel_logger_info, "Entre a prioridades");
                     if (proceso_en_ejecucion != NULL)
                     {
-                        if (pcb->prioridad > proceso_en_ejecucion->prioridad)
+                           log_info(kernel_logger_info, "ejecuta archivo");
+                        if (pcb->prioridad < proceso_en_ejecucion->prioridad)
                         {
+                            log_info(kernel_logger_info, "mando interrupt");
                             t_interrupcion *interrupcion = malloc(sizeof(t_interrupcion));
                             interrupcion->motivo_interrupcion = INTERRUPT_NUEVO_PROCESO;
                             interrupcion->pid = pcb->pid;
@@ -263,6 +266,7 @@ void ready_pcb(void)
                             free(interrupcion);
                         }
                     }
+                    sem_post(&sem_exec);
                 }
                 if (frenado != 1)
                 {
@@ -404,8 +408,10 @@ void exec_pcb()
             log_info(kernel_logger_info, "Entre al default");
             safe_pcb_remove(cola_exec, &mutex_cola_exec);
             safe_pcb_add(lista_ready, pcbelegido, &mutex_cola_ready);
-            sem_post(&sem_ready);
-            sem_post(&sem_exec);
+            if(frenado!=1){
+                sem_post(&sem_ready);
+                sem_post(&sem_exec);
+            }
             break;
         }
     }

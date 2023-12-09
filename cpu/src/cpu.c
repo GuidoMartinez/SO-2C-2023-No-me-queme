@@ -59,20 +59,22 @@ int main(int argc, char **argv)
             log_info(cpu_logger_info, "Recibo pid%d y pc%d", contexto_actual->pid, contexto_actual->program_counter);
             contexto_actual->codigo_ultima_instru = -1;
 
-            while (!es_syscall() && !hay_interrupciones() && !page_fault)
+            while (!es_syscall() && !hay_interrupciones() && !page_fault && contexto_actual != NULL)
             {
                 log_warning(cpu_logger_info, "Ejecuto proxima instruccion");
                 ejecutar_ciclo_instruccion();
             }
-            log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
+            //log_info(cpu_logger_info, "Ultima instruccion: %s", obtener_nombre_instruccion(contexto_actual->codigo_ultima_instru));
             log_info(cpu_logger_info, "PC actual: %d", contexto_actual->program_counter);
             obtener_motivo_desalojo();
             enviar_contexto(conexion_kernel_dispatch, contexto_actual);
 
+            contexto_actual = NULL;
+
             pthread_mutex_lock(&mutex_interrupt);
             limpiar_interrupciones();
             pthread_mutex_unlock(&mutex_interrupt);
-            liberar_contexto(contexto_actual);
+            //liberar_contexto(contexto_actual);
            
 
             break;
@@ -144,12 +146,16 @@ void *recibir_interrupt(void *arg)
 
 bool hay_interrupciones()
 {
+    log_warning(cpu_logger_info, "Busco interrupciones");
     if (interrupciones[INTERRUPT_FIN_QUANTUM] || interrupciones[INTERRUPT_FIN_PROCESO] || interrupciones[INTERRUPT_NUEVO_PROCESO])
     {
+        log_error(cpu_logger_info, "Hay interrupciones");
         return true;
     }
-    else
+    else{
+        log_error(cpu_logger_info, "No Hay interrupciones");
         return false;
+    }
 }
 
 void obtener_motivo_desalojo()
@@ -275,8 +281,10 @@ void ejecutar_ciclo_instruccion()
 {
     t_instruccion *instruccion = fetch(contexto_actual->pid, contexto_actual->program_counter);
     decode(instruccion);
+    log_info(cpu_logger_info, "arranco a sumar pc");
     if (!page_fault)
         contexto_actual->program_counter++; // TODO -- chequear que en los casos de instruccion con memoria logica puede dar PAGE FAULT y no hay que aumentar el pc (restarlo dentro del decode en esos casos)
+    log_info(cpu_logger_info, "sumo pc");
 }
 
 // Pide a memoria la siguiente instruccion a ejecutar
@@ -380,8 +388,9 @@ void decode(t_instruccion *instruccion)
 }
 
 bool es_syscall()
-{
+{   
     nombre_instruccion ultima_instruccion = contexto_actual->codigo_ultima_instru;
+    log_warning(cpu_logger_info, "chequeo syscall");
     switch (ultima_instruccion)
     {
     case WAIT:
@@ -394,6 +403,7 @@ bool es_syscall()
     case F_SEEK:
     case F_TRUNCATE:
     case EXIT:
+        log_warning(cpu_logger_info, "es syscal, desalojo");
         return true;
     default:
         return false;

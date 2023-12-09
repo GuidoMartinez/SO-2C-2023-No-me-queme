@@ -423,6 +423,7 @@ void iniciar_planificacion()
         sem_post(&sem_detener);
         sem_post(&sem_detener_sleep);
         sem_post(&sem_ready);
+        if(ALGORITMO_PLANIFICACION != PRIORIDADES)
         sem_post(&sem_exec);
     }
     else
