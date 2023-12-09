@@ -200,15 +200,15 @@ void conectar_memoria()
     if (respuesta == HANDSHAKE_MEMORIA)
     {
         op_code prueba = recibir_handshake(socket_memoria, cpu_logger_info);
-        //log_info(cpu_logger_info, "Deserialice el codigo de operacion %d", prueba);
-        //log_info(cpu_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
+        log_info(cpu_logger_info, "Deserialice el codigo de operacion %d", prueba);
+        log_info(cpu_logger_info, "HANDSHAKE EXITOSO CON MEMORIA");
     }
     else
     {
-        //log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
+        log_warning(cpu_logger_info, "Operación desconocida. No se pudo recibir la respuesta de la memoria.");
     }
     receive_page_size(socket_memoria);
-    //log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
+    log_info(cpu_logger_info, "El tamano de pagina recibido de memoria es %d ", tamano_pagina);
 }
 
 void receive_page_size(int socket)
@@ -420,7 +420,7 @@ uint32_t obtener_valor_dir(uint32_t dl)
     }
 
 
-    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: <VALOR LEIDO / ESCRITO>", contexto_actual->pid, df, valor);
+    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", contexto_actual->pid, df, valor);
 
     return valor;
 }
@@ -440,7 +440,7 @@ void escribir_memoria(uint32_t dl, uint32_t valor)
         log_info(cpu_logger_info, "Hubo page fault");
     }
 
-    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: <VALOR LEIDO / ESCRITO>", contexto_actual->pid, df, valor);
+    log_info(cpu_logger_info, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", contexto_actual->pid, df, valor);
 }
 
 void enviar_mov_out(int df, uint32_t valor)
