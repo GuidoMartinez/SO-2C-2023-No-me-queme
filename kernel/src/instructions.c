@@ -193,14 +193,20 @@ void ksignal()
     {
         log_info(kernel_logger_info, "El recurso [%s] pedido por PID [%d] no existe. Se manda proceso a exit", pcbelegido->recurso_instruccion, pcbelegido->pid);
 
-        finalizar_proceso_en_ejecucion();
-
         // TODO: Hacer funcion de enum a char* para hacer el log de los estados
         log_info(kernel_logger_info, "PID[%d] Estado Anterior: <%s> Estado Actual:<%s>  \n", pcbelegido->pid, "EXEC", "EXIT");
         log_info(kernel_logger_info, "Finaliza el proceso <%d> Motivo <%s> \n", pcbelegido->pid, "INVALID_RESOURCE");
 
+        proceso_en_ejecucion = NULL;
+
+        pthread_mutex_lock(&mutex_cola_exit);
+
+        pcbelegido->estado = FINISH_EXIT;
+        list_add(cola_exit, pcbelegido);
+
+        pthread_mutex_unlock(&mutex_cola_exit);
+
         sem_post(&sem_exit);
-        sem_post(&sem_ready);
     }
 }
 
